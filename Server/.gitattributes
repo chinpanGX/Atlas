@@ -1,0 +1,11 @@
+# デフォルトはLFに統一(Windows/Mac/Linux間での改行コード差異を防ぐ)
+* text=auto eol=lf
+
+# Windows向けスクリプトはCRLFのままにする
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# バイナリファイルは変換対象外
+*.png binary
+*.jpg binary
+*.ico binary

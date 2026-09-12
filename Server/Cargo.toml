@@ -1,0 +1,10 @@
+[package]
+name = "Server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "mysql", "macros"] }
+dotenvy = "0.15"

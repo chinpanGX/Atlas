@@ -1,0 +1,12 @@
+# Rustビルド成果物
+/target
+
+# 環境変数(ローカル固有の秘匿情報)
+.env
+
+# IDE(RustRover / JetBrains系)
+.idea/
+
+# OS固有ファイル
+.DS_Store
+Thumbs.db
