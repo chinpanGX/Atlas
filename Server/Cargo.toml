@@ -31,5 +31,7 @@ ulid = "1"
 # secret_keyのハッシュ化(パスワードの安全な保存)に使用
 argon2 = "0.5"
 
-# argon2がハッシュ化時に使うソルト(乱数)を生成するために必要
-rand_core = { version = "0.6", features = ["std"] }
+
+[dev-dependencies]
+# 結合テストでRouterに直接リクエストを送るため(oneshotメソッドを提供)
+tower = { version = "0.4", features = ["util"] }

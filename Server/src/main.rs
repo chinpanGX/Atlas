@@ -1,9 +1,5 @@
-﻿mod api;
-mod model;
-mod routes;
-mod service;
-mod state;
-use state::AppState;
+﻿use Server::routes;
+use Server::state::AppState;
 
 const DEFAULT_SERVER_ADDR: &str = "127.0.0.1:3000";
 
@@ -12,7 +8,8 @@ async fn main() {
     dotenvy::dotenv().ok();
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env");
-    let server_addr = std::env::var("SERVER_ADDR").unwrap_or_else(|_| DEFAULT_SERVER_ADDR.to_string());
+    let server_addr =
+        std::env::var("SERVER_ADDR").unwrap_or_else(|_| DEFAULT_SERVER_ADDR.to_string());
 
     let state = AppState::new(&database_url).await;
     let app = routes::create_router(state);
