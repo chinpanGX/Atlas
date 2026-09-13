@@ -3,7 +3,7 @@
 // 実際のAtlasサーバーの実装は src/main.rs 側で行う。
 //
 // 実行方法: cargo run --example setup_check
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 
 #[tokio::main]
 async fn main() {

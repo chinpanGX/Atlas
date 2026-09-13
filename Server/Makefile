@@ -1,4 +1,4 @@
-﻿.PHONY: up down ps logs mysql clean restart
+﻿.PHONY: up down ps logs mysql clean restart wait-db migrate migrate-revert setup db-reset
 
 # MySQLコンテナを起動
 up:
@@ -13,8 +13,8 @@ ps:
 	docker compose ps
 
 # MySQLコンテナのログを表示
-#logs:
-#	docker compose logs -f mysql
+logs:
+	docker compose logs -f mysql
 
 # MySQLに接続(root, パスワードなし)
 mysql:
@@ -26,3 +26,25 @@ clean:
 
 # 再起動
 restart: down up
+
+# MySQLが接続可能になるまで待機(起動直後はまだ接続を受け付けないため)
+wait-db:
+	@echo "Waiting for MySQL to be ready..."
+	@until docker exec atlas_mysql mysqladmin ping -u root --silent; do \
+		sleep 1; \
+	done
+	@echo "MySQL is ready."
+
+# マイグレーションを実行(DATABASE_URLは.envから読み込まれる)
+migrate:
+	sqlx migrate run
+
+# 直近のマイグレーションを1つ取り消す
+migrate-revert:
+	sqlx migrate revert
+
+# コンテナ起動 + DB起動待ち + マイグレーション実行(初回セットアップ・クローン後に使う)
+setup: up wait-db migrate
+
+# コンテナ停止+データ完全削除 -> 再起動 -> マイグレーションを最初から実行(DBを空の状態から作り直す)
+db-reset: clean up wait-db migrate

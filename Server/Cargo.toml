@@ -4,7 +4,32 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Webフレームワーク本体(ルーティング・リクエスト/レスポンス処理)
 axum = "0.7"
+
+# 非同期ランタイム。axum/sqlxの async fn を実行するために必須
 tokio = { version = "1", features = ["full"] }
+
+# DBアクセス(MySQL)。マイグレーション管理・コンパイル時クエリチェックも担う
 sqlx = { version = "0.8", features = ["runtime-tokio", "mysql", "macros"] }
+
+# .envファイルから環境変数(DATABASE_URLなど)を読み込む
 dotenvy = "0.15"
+
+# 日時型(created_at, expires_atなど)を扱うために使用。sqlx/serdeと連携
+chrono = { version = "0.4", features = ["serde"] }
+
+# リクエスト/レスポンスの構造体をJSONと相互変換するためのシリアライズ/デシリアライズ
+serde = { version = "1", features = ["derive"] }
+
+# serdeと組み合わせて実際にJSON文字列⇔Rust構造体の変換処理を行う
+serde_json = "1"
+
+# device_id/player_idの生成に使用するID体系(時系列順にソート可能な26文字ID)
+ulid = "1"
+
+# secret_keyのハッシュ化(パスワードの安全な保存)に使用
+argon2 = "0.5"
+
+# argon2がハッシュ化時に使うソルト(乱数)を生成するために必要
+rand_core = { version = "0.6", features = ["std"] }

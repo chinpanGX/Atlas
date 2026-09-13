@@ -97,7 +97,35 @@ SHOW DATABASES;
 DATABASE_URL=mysql://root@127.0.0.1:3306/atlas_dev
 ```
 
-## 5. ビルド・起動確認
+## 5. DBスキーマの反映(マイグレーション)
+
+`migrations/`ディレクトリの内容はリポジトリに含まれているため、`sqlx-cli`でDBに反映するだけでよい(テーブル定義を新規に書く必要はない)。
+
+`sqlx-cli`のインストール(初回のみ)。
+
+```bash
+cargo install sqlx-cli --no-default-features --features mysql
+```
+
+マイグレーションを実行する(`.env`の`DATABASE_URL`を参照する)。
+
+```bash
+sqlx migrate run
+```
+
+反映されたか確認する。
+
+```bash
+make mysql
+```
+
+```sql
+SHOW TABLES;
+```
+
+`devices`, `access_tokens`, `messages`の3つが表示されれば成功。`exit`で抜ける。
+
+## 6. ビルド・起動確認
 
 環境構築の確認には、本体の`main.rs`ではなく`examples/setup_check.rs`(axum + tokioが動くかどうかだけを確認する検証用コード)を使う。
 
@@ -112,7 +140,7 @@ cargo run --example setup_check
 [setup_check] Server running on http://127.0.0.1:3000
 ```
 
-## 6. 動作確認(Postman)
+## 7. 動作確認(Postman)
 
 Postmanなどで以下にリクエストを送り、`pong` が返ってくることを確認する。
 

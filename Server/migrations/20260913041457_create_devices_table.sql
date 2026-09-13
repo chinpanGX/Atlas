@@ -1,0 +1,6 @@
+CREATE TABLE devices (
+    device_id VARCHAR(26) PRIMARY KEY,
+    player_id VARCHAR(26) NOT NULL UNIQUE,
+    secret_key_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

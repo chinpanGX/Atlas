@@ -166,4 +166,22 @@ GET http://127.0.0.1:3000/ping
 
 `pong` が返れば初期構築は完了。
 
+## 8. sqlx-cliの導入
+
+DBスキーマをマイグレーションで管理するため、`sqlx-cli`をインストールしておく(初回のみ)。
+
+```bash
+cargo install sqlx-cli --no-default-features --features mysql
+```
+
+実際のテーブル定義・マイグレーションファイルの作成手順は、アプリ固有の設計内容のため`design.md`を参照すること。
+
+## 9. リポジトリへのコミット
+
+```bash
+git init
+git add .
+git commit -m "Initial project setup"
+```
+
 以降、他の作業者がこのリポジトリをクローンする際は `docs.md` の手順に従う。

@@ -2,12 +2,12 @@
 
 ## 概要
 
-デバイス認証(ゲスト型アカウント)とシンプルなチャット機能を提供するAPIサーバー。
+デバイス認証(ゲスト型アカウント)とシンプルなチャット機能を提供するAPIサーバー。サインアップ/サインイン(会員登録)は学習用途では対象外とし、`device_id`単位でのアカウント管理のみを行う。
 
 ## API仕様
 
 | # | メソッド | パス | 説明 |
-| --- | --- | --- | --- |
+|---|---|---|---|
 | 1 | POST | `/devices` | デバイス新規登録 |
 | 2 | POST | `/devices/authenticate` | デバイス認証・アクセストークン取得 |
 | 3 | GET | `/auth/verify` | アクセストークン検証 |
@@ -21,13 +21,11 @@ POST /devices
 ```
 
 リクエスト
-
 ```json
 { "secret_key": "client-side-generated-random-string" }
 ```
 
 レスポンス
-
 ```json
 { "device_id": "my-device-id", "player_id": "my-player-id" }
 ```
@@ -39,13 +37,11 @@ POST /devices/authenticate
 ```
 
 リクエスト
-
 ```json
 { "device_id": "my-device-id", "secret_key": "my-secret-key" }
 ```
 
 レスポンス
-
 ```json
 { "access_token": "my-access-token", "expires_in": 360 }
 ```
@@ -85,7 +81,7 @@ GET /chat/poll
 ### devices
 
 | カラム名 | 型 | 制約 | 説明 |
-| --- | --- | --- | --- |
+|---|---|---|---|
 | `device_id` | VARCHAR(26) | PRIMARY KEY | ULID |
 | `player_id` | VARCHAR(26) | NOT NULL, UNIQUE | ULID |
 | `secret_key_hash` | VARCHAR(255) | NOT NULL | `secret_key`をハッシュ化して保存 |
@@ -94,7 +90,7 @@ GET /chat/poll
 ### access_tokens
 
 | カラム名 | 型 | 制約 | 説明 |
-| --- | --- | --- | --- |
+|---|---|---|---|
 | `token` | VARCHAR(64) | PRIMARY KEY | ランダム生成した文字列 |
 | `device_id` | VARCHAR(26) | NOT NULL, FOREIGN KEY → `devices.device_id`, UNIQUE | 1device_id = 1トークン。再認証時は上書き |
 | `expires_at` | DATETIME | NOT NULL | 有効期限(発行時刻 + `expires_in`秒) |
@@ -105,10 +101,76 @@ GET /chat/poll
 ### messages
 
 | カラム名 | 型 | 制約 | 説明 |
-| --- | --- | --- | --- |
+|---|---|---|---|
 | `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | メッセージID |
 | `sender_player_id` | VARCHAR(26) | NOT NULL, FOREIGN KEY → `devices.player_id` | 送信者 |
 | `content` | TEXT | NOT NULL | メッセージ本文 |
 | `created_at` | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 送信日時 |
 
 `created_at`にインデックスを張り、`poll`時の新しい順取得を高速化する。
+
+## マイグレーション手順
+
+上記のテーブル定義を、`sqlx-cli`でマイグレーションファイルとして反映する(`sqlx-cli`自体の導入は`init.md`を参照)。
+
+マイグレーションファイルの雛形を作成する。
+
+```bash
+sqlx migrate add create_devices_table
+sqlx migrate add create_access_tokens_table
+sqlx migrate add create_messages_table
+```
+
+`migrations/`配下に生成された各SQLファイルに、以下のCREATE TABLE文を記述する。
+
+```sql
+-- migrations/xxxxxxxxxxxxxx_create_devices_table.sql
+CREATE TABLE devices (
+    device_id VARCHAR(26) PRIMARY KEY,
+    player_id VARCHAR(26) NOT NULL UNIQUE,
+    secret_key_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+```sql
+-- migrations/xxxxxxxxxxxxxx_create_access_tokens_table.sql
+CREATE TABLE access_tokens (
+    token VARCHAR(64) PRIMARY KEY,
+    device_id VARCHAR(26) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES devices(device_id)
+);
+```
+
+```sql
+-- migrations/xxxxxxxxxxxxxx_create_messages_table.sql
+CREATE TABLE messages (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    sender_player_id VARCHAR(26) NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_player_id) REFERENCES devices(player_id)
+);
+
+CREATE INDEX idx_messages_created_at ON messages(created_at);
+```
+
+マイグレーションを実行し、テーブルを反映する(`.env`の`DATABASE_URL`を参照する)。
+
+```bash
+sqlx migrate run
+```
+
+反映されたか、MySQLに接続して確認する。
+
+```bash
+make mysql
+```
+
+```sql
+SHOW TABLES;
+```
+
+`devices`, `access_tokens`, `messages`の3つが表示されれば成功。`migrations/`ディレクトリはリポジトリにコミットする対象(Gitで管理する)。
