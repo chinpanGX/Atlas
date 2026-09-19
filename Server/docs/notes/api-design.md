@@ -376,17 +376,19 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
 
 `UNIQUE(move_group_id, move_id)`
 
-### pachimon(マスタ)
+### pachimon(マスタ、実装済み)
 
 | カラム名 | 型 | 制約 | 説明 |
 |---|---|---|---|
-| `pachimon_id` | INT | PRIMARY KEY, AUTO_INCREMENT | |
+| `pachimon_id` | BIGINT | PRIMARY KEY | master-data-pipeline(スプレッドシート)側で採番。AUTO_INCREMENTにしない |
 | `name` | VARCHAR(100) | NOT NULL | |
-| `primary_type` | VARCHAR(20) | NOT NULL | |
-| `secondary_type` | VARCHAR(20) | NULL可 | |
-| `base_hp` / `base_atk` / `base_def` / `base_spatk` / `base_spdef` / `base_speed` | INT | NOT NULL | 種族値 |
-| `rarity` | VARCHAR(1) | NOT NULL | スカウトの排出率グルーピング用(S/A/B/C) |
-| `move_group_id` | INT | NOT NULL, FOREIGN KEY → `move_groups.move_group_id` | |
+| `primary_type` | TINYINT UNSIGNED | NOT NULL | `PachimonType` Enumの数値表現(0-18) |
+| `secondary_type` | TINYINT UNSIGNED | NOT NULL | `PachimonType` Enumの数値表現。無い場合は`0`(`PachimonType::None`) |
+| `base_hp` / `base_atk` / `base_def` / `base_spatk` / `base_spdef` / `base_speed` | BIGINT | NOT NULL | 種族値 |
+| `rarity` | TINYINT UNSIGNED | NOT NULL | `Rarity` Enumの数値表現(1-4)。スカウトの排出率グルーピング用 |
+| `move_group_id` | BIGINT | NOT NULL | `move_groups`未実装のため、現時点では外部キー制約なし |
+
+> 実装メモ: 当初はDB設計上`primary_type`等をタイプ名の`VARCHAR`で想定していたが、実際の`master-data-pipeline`は`PachimonType`/`Rarity`を数値Enumとして生成するため、生成コードと1:1になるよう`BIGINT`に変更し、さらに実際の値域(`PachimonType`: 0-18、`Rarity`: 1-4)に対してBIGINTは過大だったため`TINYINT UNSIGNED`(0-255)へ変更した(スキーマの正しさ・自己文書化が目的。起動時に1回DBから読み込むだけの設計のためパフォーマンス上の意味合いは小さい)。`primary_type`/`secondary_type`/`rarity`の数値→Enumデコードは、生成された`Deserialize`実装をそのまま再利用している(`src/master/cache.rs`)。
 
 ### type_chart(タイプ相性マスタ)
 
@@ -470,19 +472,55 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
 - マッチング待機列(`matchmaking_queue`)はDB永続化せず、Rustプロセスのメモリ(チャネル等)で管理(1台構成のため問題なし)
 - 対戦中の判定ロジック(ダメージ計算式・命中判定・行動順序等)およびMagicOnion Hubインターフェースの詳細は`design.md`を参照
 
+## マスターデータ管理
+
+マスタデータ(`pachimon`, `moves`, `move_groups`, `move_group_moves`, `type_chart`, `scout_banners`)の管理・配信方針。ソーシャルゲーム開発の現場で一般的な「スプレッドシート→CI→DB反映」パターン([GREE Engineering「モバイルゲームにおけるマスターデータ運用事例」](https://labs.gree.jp/blog/2015/12/15368/)等を参考)を踏襲しつつ、本プロジェクトの規模(学習用途・サーバー1台構成)に合わせて簡略化している。
+
+### 正の保存先とパイプライン
+
+- 正(source of truth)はMySQL。スプレッドシート → CI(`master-data-pipeline`)でJSON/CSVとRust型定義を生成しGitでバージョン管理 → MySQLへseed投入、という既存パイプラインを継続利用する
+- スキーマ変更(DDL)は`sqlx migrate`で管理し、マスタデータの中身(DML)は別のseedコマンドで管理する。migrationファイルにデータをINSERTしない(データ更新のたびにmigrationファイルが増え続け、履歴が肥大化するのを避けるため)
+
+### サーバー側の読み取り方式
+
+- Rust/Axumサーバーは、リクエストのたびにマスタテーブルへ問い合わせない。**起動時にDBから全マスタを1回読み込み、`Arc<MasterData>`としてメモリに保持する**。各リクエストハンドラはこのキャッシュを参照するだけで、リクエスト処理中にDBアクセスは発生させない
+- マスタ更新の反映は「CIがMySQLへ再seed → サーバー再起動」で行う。本プロジェクトは1台構成のローカル運用が前提(`design.md`参照)であり、無停止反映のための常時ポーリング(バックグラウンドタスクによる更新検知等)は、現時点の規模では過剰と判断し採用しない
+- 無停止反映が将来必要になった場合は、`POST /internal/master/reload`のような明示的なリロードエンドポイントをCIから叩く方式へ拡張できる
+
+### 将来の複数台構成への拡張(現時点では未採用)
+
+- 複数台のAPIサーバーが稼働するようになった場合は、`master_data_version`のようなハッシュ値テーブル(またはRedis等の共有ストア)を各サーバーがポーリングし、変更を検知したサーバーだけがキャッシュを再読み込みする方式に格上げする
+- 現時点(1台構成)ではこの仕組みは導入しない(不要な複雑化を避けるため)
+
+### 未解決事項
+
+- MagicOnion(C#)側もバトル判定にマスタデータ(種族値・技威力・タイプ相性等)を必要とするが、DBを直接見ない設計のため、上記の仕組みをそのまま適用できない。マスタの入手経路(①MagicOnionも読み取り専用でMySQLに接続する、②Rust側が内部APIとしてマスタを配信する、等)は別途検討する
+
+### 実装状況
+
+`pachimon`について上記方針を実装済み。
+
+- `src/master/mod.rs`: `master_data/pachimon.json`(master-data-pipelineの生成物)をビルド時に埋め込み、`seed_pachimon_data()`でシード用データとして参照する
+- `src/bin/seed_master_data.rs`: `cargo run --bin seed_master_data`で`pachimon`テーブルへUPSERT(冪等)投入するコマンド
+- `src/master/cache.rs`: `MasterData::load(pool)`でDBの`pachimon`テーブルから全件読み込み、`PachimonType`/`Rarity`の数値表現を生成済み`Deserialize`実装で復元する
+- `src/state.rs`: `AppState::new`/`AppState::from_pool`が起動時に`MasterData::load`を実行し、`Arc<MasterData>`として`AppState.master`に保持する。各リクエストハンドラはこれを参照するだけでDBアクセスは発生しない(現時点ではまだ参照するハンドラ自体は未実装)
+- `moves` / `move_groups` / `move_group_moves` / `type_chart` / `scout_banners`は、対応するmaster-data-pipelineの生成物が無いため未実装。スカウトAPI実装時に同じパターンで追加する
+
 ## マイグレーション手順
 
 上記のテーブル定義を、`sqlx-cli`でマイグレーションファイルとして反映する(`sqlx-cli`自体の導入は`init.md`を参照)。FK依存関係の順に、マイグレーションファイルの雛形を作成する。
 
+> `devices` / `access_tokens` / `players` / `messages` / `pachimon`は実装済み(`migrations/`配下に反映済み)。それ以外(`move_groups`以降)は未実装で、以下はそのための計画。
+
 ```bash
-sqlx migrate add create_devices_table
-sqlx migrate add create_access_tokens_table
-sqlx migrate add create_players_table
-sqlx migrate add create_messages_table
+sqlx migrate add create_devices_table       # 実装済み
+sqlx migrate add create_access_tokens_table # 実装済み
+sqlx migrate add create_players_table       # 実装済み
+sqlx migrate add create_messages_table      # 実装済み
 sqlx migrate add create_move_groups_table
 sqlx migrate add create_moves_table
 sqlx migrate add create_move_group_moves_table
-sqlx migrate add create_pachimon_table
+sqlx migrate add create_pachimon_table      # 実装済み(下記の実際のSQLはmove_groupsへのFK無し・BIGINT型)
 sqlx migrate add create_type_chart_table
 sqlx migrate add create_player_pachimon_table
 sqlx migrate add create_player_pachimon_moves_table
@@ -573,23 +611,34 @@ CREATE TABLE move_group_moves (
 ```
 
 ```sql
--- create_pachimon_table
+-- create_pachimon_table(実装済み。move_groups未実装のためFK無し)
 CREATE TABLE pachimon (
-    pachimon_id INT AUTO_INCREMENT PRIMARY KEY,
+    pachimon_id BIGINT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    primary_type VARCHAR(20) NOT NULL,
-    secondary_type VARCHAR(20) NULL,
-    base_hp INT NOT NULL,
-    base_atk INT NOT NULL,
-    base_def INT NOT NULL,
-    base_spatk INT NOT NULL,
-    base_spdef INT NOT NULL,
-    base_speed INT NOT NULL,
-    rarity VARCHAR(1) NOT NULL,
-    move_group_id INT NOT NULL,
-    FOREIGN KEY (move_group_id) REFERENCES move_groups(move_group_id)
+    primary_type BIGINT NOT NULL,
+    secondary_type BIGINT NOT NULL,
+    base_hp BIGINT NOT NULL,
+    base_atk BIGINT NOT NULL,
+    base_def BIGINT NOT NULL,
+    base_spatk BIGINT NOT NULL,
+    base_spdef BIGINT NOT NULL,
+    base_speed BIGINT NOT NULL,
+    rarity BIGINT NOT NULL,
+    move_group_id BIGINT NOT NULL
 );
 ```
+
+```sql
+-- shrink_pachimon_enum_columns(実装済み)
+-- primary_type/secondary_type/rarityは値域(0-18 / 1-4)に対してBIGINTが過大なため、
+-- TINYINT UNSIGNEDへ変更する。
+ALTER TABLE pachimon
+    MODIFY COLUMN primary_type TINYINT UNSIGNED NOT NULL,
+    MODIFY COLUMN secondary_type TINYINT UNSIGNED NOT NULL,
+    MODIFY COLUMN rarity TINYINT UNSIGNED NOT NULL;
+```
+
+> `move_groups`実装時に、`ALTER TABLE pachimon ADD FOREIGN KEY (move_group_id) REFERENCES move_groups(move_group_id);`相当のマイグレーションを追加する想定。
 
 ```sql
 -- create_type_chart_table

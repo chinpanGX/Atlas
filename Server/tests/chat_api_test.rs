@@ -112,7 +112,7 @@ async fn poll_messages(app: Router, access_token: Option<&str>) -> axum::respons
 /// 正しく返ることを確認する。
 #[sqlx::test]
 async fn test_send_and_poll_messages(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;
@@ -146,7 +146,7 @@ async fn test_send_and_poll_messages(pool: MySqlPool) {
 /// `Authorization`ヘッダーが無い状態でメッセージ送信を行うと401が返ることを確認する。
 #[sqlx::test]
 async fn test_send_message_unauthenticated(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let response = app
@@ -168,7 +168,7 @@ async fn test_send_message_unauthenticated(pool: MySqlPool) {
 /// 404が返ることを確認する。
 #[sqlx::test]
 async fn test_send_message_without_player(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;
@@ -180,7 +180,7 @@ async fn test_send_message_without_player(pool: MySqlPool) {
 /// `Authorization`ヘッダーが無い状態でメッセージ受信を行うと401が返ることを確認する。
 #[sqlx::test]
 async fn test_poll_messages_unauthenticated(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let response = poll_messages(app.clone(), None).await;
@@ -191,7 +191,7 @@ async fn test_poll_messages_unauthenticated(pool: MySqlPool) {
 /// 返ることを確認する。
 #[sqlx::test]
 async fn test_poll_messages_empty(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;

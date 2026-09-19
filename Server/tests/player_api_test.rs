@@ -91,7 +91,7 @@ async fn get_me(app: Router, access_token: Option<&str>) -> axum::response::Resp
 /// プレイヤー作成が成功し、直後に`GET /players/me`で同じ内容が取得できることを確認する。
 #[sqlx::test]
 async fn test_create_and_get_player(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;
@@ -119,7 +119,7 @@ async fn test_create_and_get_player(pool: MySqlPool) {
 /// 同一デバイスで2回目のプレイヤー作成を行うと409(重複)が返ることを確認する。
 #[sqlx::test]
 async fn test_create_player_duplicate(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;
@@ -134,7 +134,7 @@ async fn test_create_player_duplicate(pool: MySqlPool) {
 /// `Authorization`ヘッダーが無い状態でプレイヤー作成を行うと401が返ることを確認する。
 #[sqlx::test]
 async fn test_create_player_unauthenticated(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let response = app
@@ -156,7 +156,7 @@ async fn test_create_player_unauthenticated(pool: MySqlPool) {
 /// 404が返ることを確認する。
 #[sqlx::test]
 async fn test_get_me_before_create(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;
@@ -168,7 +168,7 @@ async fn test_get_me_before_create(pool: MySqlPool) {
 /// `Authorization`ヘッダーが無い状態で`GET /players/me`を呼ぶと401が返ることを確認する。
 #[sqlx::test]
 async fn test_get_me_unauthenticated(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let response = get_me(app.clone(), None).await;

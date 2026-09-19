@@ -71,7 +71,7 @@ async fn verify(app: Router, access_token: Option<&str>) -> axum::response::Resp
 /// 再認証で古いトークンが無効化される(新トークンのみ有効)ことを確認する。
 #[sqlx::test]
 async fn test_authenticate_and_verify_flow(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let device_id = register_device(app.clone(), "test-secret-123").await;
@@ -110,7 +110,7 @@ async fn test_authenticate_and_verify_flow(pool: MySqlPool) {
 /// 誤った`secret_key`で認証すると401が返ることを確認する。
 #[sqlx::test]
 async fn test_authenticate_wrong_secret_key(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let device_id = register_device(app.clone(), "correct-secret").await;
@@ -122,7 +122,7 @@ async fn test_authenticate_wrong_secret_key(pool: MySqlPool) {
 /// 存在しない`device_id`で認証すると401が返ることを確認する。
 #[sqlx::test]
 async fn test_authenticate_unknown_device(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let response = authenticate(app.clone(), "unknown-device-id", "any-secret").await;
@@ -132,7 +132,7 @@ async fn test_authenticate_unknown_device(pool: MySqlPool) {
 /// `Authorization`ヘッダーが無い状態で検証すると401が返ることを確認する。
 #[sqlx::test]
 async fn test_verify_without_token(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let response = verify(app.clone(), None).await;
@@ -142,7 +142,7 @@ async fn test_verify_without_token(pool: MySqlPool) {
 /// 存在しない(発行されていない)トークンで検証すると401が返ることを確認する。
 #[sqlx::test]
 async fn test_verify_invalid_token(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let response = verify(app.clone(), Some("not-a-real-token")).await;

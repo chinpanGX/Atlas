@@ -17,7 +17,7 @@ use Server::state::AppState;
 /// デバイス登録が成功し、200が返ることを確認する。
 #[sqlx::test]
 async fn test_register_device_endpoint(pool: MySqlPool) {
-    let state = AppState { pool };
+    let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let response = app
