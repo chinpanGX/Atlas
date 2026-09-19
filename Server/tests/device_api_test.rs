@@ -1,4 +1,7 @@
 ﻿// tests/device_api_test.rs
+//
+// POST /devices (デバイス新規登録) のテスト。
+// - test_register_device_endpoint: 登録リクエストが200を返すことを確認
 use axum::{
     body::Body,
     http::{Request, StatusCode},
@@ -11,6 +14,7 @@ use tower::ServiceExt;
 use Server::routes::create_router;
 use Server::state::AppState;
 
+/// デバイス登録が成功し、200が返ることを確認する。
 #[sqlx::test]
 async fn test_register_device_endpoint(pool: MySqlPool) {
     let state = AppState { pool };
@@ -23,7 +27,7 @@ async fn test_register_device_endpoint(pool: MySqlPool) {
                 .uri("/devices")
                 .header("Content-Type", "application/json")
                 .body(Body::from(
-                    json!({ "secret_key": "test-secret-123" }).to_string(),
+                    json!({ "secretKey": "test-secret-123" }).to_string(),
                 ))
                 .unwrap(),
         )
