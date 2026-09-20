@@ -1,0 +1,28 @@
+# 技マスタ(Shared/docs/design.md の「マスターデータ設計」に対応)。
+#
+# base_power: design.md では状態技(category=status)の場合NULL可としているが、
+# このパイプラインはnullable型が無いため、状態技を追加する際は0を割り当てる運用とする
+# (現状のデータには状態技は含まれていない)。
+name: moves
+input_csv: moves_master
+fields:
+  - name: move_id
+    type: int
+    primary_key: true
+  - name: name
+    type: string
+  - name: move_type
+    type: enum
+    enum_type: PachimonType
+  - name: category
+    type: enum
+    enum_type: MoveCategory
+  - name: base_power
+    type: int
+  - name: accuracy
+    type: int
+  - name: max_pp
+    type: int
+validate:
+  unique:
+    - move_id

@@ -1,0 +1,14 @@
+enum: Rarity
+members:
+  - id: 1
+    key: S
+    name: S
+  - id: 2
+    key: A
+    name: A
+  - id: 3
+    key: B
+    name: B
+  - id: 4
+    key: C
+    name: C

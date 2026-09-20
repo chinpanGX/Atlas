@@ -174,7 +174,7 @@ DBスキーマをマイグレーションで管理するため、`sqlx-cli`を�
 cargo install sqlx-cli --no-default-features --features mysql
 ```
 
-実際のテーブル定義・マイグレーションファイルの作成手順は、アプリ固有の設計内容のため`design.md`を参照すること。
+実際のテーブル定義・マイグレーションファイルの作成手順は、アプリ固有の設計内容のため`Shared/docs/design/`配下の機能別設計書(`battle.md` / `scout.md` / `outgame.md`)を参照すること。
 
 ## 9. リポジトリへのコミット
 

@@ -11,7 +11,7 @@ pub use generated::{Pachimon, PachimonType, Rarity};
 ///
 /// APIサーバーが起動時に参照するマスタデータの実体はMySQL(`cache::MasterData::load`)
 /// であり、このJSONは`seed_master_data`コマンドがDBへ投入する際のシードデータとして
-/// 利用する(詳細は`docs/notes/api-design.md`の「マスターデータ管理」を参照)。
+/// 利用する(詳細は`Shared/docs/design/architecture.md`の「マスターデータ運用」を参照)。
 const PACHIMON_JSON: &str = include_str!("../../master_data/pachimon.json");
 
 /// パチモンマスタのJSON文字列をパースする。

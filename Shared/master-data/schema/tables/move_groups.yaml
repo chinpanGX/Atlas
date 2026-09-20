@@ -1,0 +1,13 @@
+# 技グループマスタ(Shared/docs/design.md の「マスターデータ設計」に対応)。
+# 複数のパチモンが同じグループを共有できる設計(pachimon.move_group_id から参照される)。
+name: move_groups
+input_csv: move_groups_master
+fields:
+  - name: move_group_id
+    type: int
+    primary_key: true
+  - name: name
+    type: string
+validate:
+  unique:
+    - move_group_id

@@ -1,0 +1,59 @@
+enum: PachimonType
+members:
+  - id: 0
+    key: None
+    name: NONE
+  - id: 1
+    key: Normal
+    name: ノーマル
+  - id: 2
+    key: Fire
+    name: ほのお
+  - id: 3
+    key: Water
+    name: みず
+  - id: 4
+    key: Electric
+    name: でんき
+  - id: 5
+    key: Grass
+    name: くさ
+  - id: 6
+    key: Ice
+    name: こおり
+  - id: 7
+    key: Fighting
+    name: かくとう
+  - id: 8
+    key: Poison
+    name: どく
+  - id: 9
+    key: Ground
+    name: じめん
+  - id: 10
+    key: Flying
+    name: ひこう
+  - id: 11
+    key: Psychic
+    name: エスパー
+  - id: 12
+    key: Bug
+    name: むし
+  - id: 13
+    key: Rock
+    name: いわ
+  - id: 14
+    key: Ghost
+    name: ゴースト
+  - id: 15
+    key: Dragon
+    name: ドラゴン
+  - id: 16
+    key: Dark
+    name: あく
+  - id: 17
+    key: Steel
+    name: はがね
+  - id: 18
+    key: Fairy
+    name: フェアリー

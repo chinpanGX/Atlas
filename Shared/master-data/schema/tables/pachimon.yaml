@@ -1,0 +1,47 @@
+# パチモンマスタ(Shared/docs/design.md の「マスターデータ設計」に対応)。
+#
+# secondary_type: このパイプラインは int/string/bool/enum の4型のみでnullable型が無いため、
+# PachimonType enum に NONE(id=0) を追加して「単タイプ」を表現する。
+#
+# move_group_id: schema/tables/move_groups.yaml (技グループマスタ) への参照。
+# 複数のパチモンが同じグループを共有することも可能な設計(FKとして独立)。
+# 現状の仮データでは pachimon_id と同値(1パチモン=1グループ)にしているだけで、
+# スキーマ上の制約ではない。
+name: pachimon
+input_csv: pachimon_master
+fields:
+  - name: pachimon_id
+    type: int
+    primary_key: true
+  - name: name
+    type: string
+  - name: primary_type
+    type: enum
+    enum_type: PachimonType
+  - name: secondary_type
+    type: enum
+    enum_type: PachimonType
+  - name: base_hp
+    type: int
+  - name: base_atk
+    type: int
+  - name: base_def
+    type: int
+  - name: base_spatk
+    type: int
+  - name: base_spdef
+    type: int
+  - name: base_speed
+    type: int
+  - name: rarity
+    type: enum
+    enum_type: Rarity
+  - name: move_group_id
+    type: int
+validate:
+  unique:
+    - pachimon_id
+  check_relation:
+    - field: move_group_id
+      table: move_groups
+      target_field: move_group_id

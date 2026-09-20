@@ -1,0 +1,182 @@
+[
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 15,
+    "move_id": 1,
+    "move_type": 2,
+    "name": "フレイムバースト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 15,
+    "move_id": 2,
+    "move_type": 14,
+    "name": "シャドウバースト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 15,
+    "move_id": 3,
+    "move_type": 15,
+    "name": "ドラゴンブラスト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 4,
+    "move_type": 15,
+    "name": "ドラゴンズブレイド"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 5,
+    "move_type": 17,
+    "name": "メタルプレス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 15,
+    "move_id": 6,
+    "move_type": 7,
+    "name": "オーラブラスト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 7,
+    "move_type": 12,
+    "name": "シェルクラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 8,
+    "move_type": 15,
+    "name": "ドラゴンファング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 9,
+    "move_type": 9,
+    "name": "グラウンドスタンプ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 10,
+    "move_type": 17,
+    "name": "アイアンプレス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 15,
+    "move_id": 11,
+    "move_type": 3,
+    "name": "アクアバースト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 12,
+    "move_type": 14,
+    "name": "シャドウパペット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 13,
+    "move_type": 10,
+    "name": "ウィングクラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 14,
+    "move_type": 3,
+    "name": "タイダルクロー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 15,
+    "move_type": 5,
+    "name": "リーフクロー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 15,
+    "move_id": 16,
+    "move_type": 15,
+    "name": "ドラゴンフロスト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 15,
+    "move_id": 17,
+    "move_type": 17,
+    "name": "ゴールデンブラスト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 15,
+    "move_id": 18,
+    "move_type": 17,
+    "name": "スチールノヴァ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 1,
+    "max_pp": 35,
+    "move_id": 19,
+    "move_type": 1,
+    "name": "ぶつかり"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 2,
+    "max_pp": 35,
+    "move_id": 20,
+    "move_type": 1,
+    "name": "エナジーウェーブ"
+  }
+]

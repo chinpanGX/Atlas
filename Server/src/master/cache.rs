@@ -6,7 +6,7 @@ use super::{Pachimon, PachimonType, Rarity};
 ///
 /// APIサーバーはリクエストのたびにマスタテーブルへ問い合わせず、起動時に一度だけ
 /// `load`でこのキャッシュを構築し、以降は`AppState`経由で参照するだけにする
-/// (`docs/notes/api-design.md`の「マスターデータ管理」参照)。マスタ更新の反映は
+/// (`Shared/docs/design/architecture.md`の「マスターデータ運用」参照)。マスタ更新の反映は
 /// `seed_master_data`コマンドでのDB再投入とサーバー再起動で行う。
 pub struct MasterData {
     pub pachimon: Vec<Pachimon>,

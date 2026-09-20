@@ -1,0 +1,74 @@
+[
+  {
+    "move_group_id": 1001,
+    "name": "イフリーガ"
+  },
+  {
+    "move_group_id": 1002,
+    "name": "ネクロファント"
+  },
+  {
+    "move_group_id": 1003,
+    "name": "ワイアーガ"
+  },
+  {
+    "move_group_id": 1004,
+    "name": "バンシーガ"
+  },
+  {
+    "move_group_id": 1005,
+    "name": "メタリオン"
+  },
+  {
+    "move_group_id": 1006,
+    "name": "オーラケット"
+  },
+  {
+    "move_group_id": 1007,
+    "name": "ガードビートル"
+  },
+  {
+    "move_group_id": 1008,
+    "name": "サンドドレイク"
+  },
+  {
+    "move_group_id": 1009,
+    "name": "ドスグラウド"
+  },
+  {
+    "move_group_id": 1010,
+    "name": "アイアンシェイド"
+  },
+  {
+    "move_group_id": 1011,
+    "name": "アクアフェアト"
+  },
+  {
+    "move_group_id": 1012,
+    "name": "プランケット"
+  },
+  {
+    "move_group_id": 1013,
+    "name": "ガンメタウィング"
+  },
+  {
+    "move_group_id": 1014,
+    "name": "ヌシウーオ"
+  },
+  {
+    "move_group_id": 1015,
+    "name": "ノラネコート"
+  },
+  {
+    "move_group_id": 1016,
+    "name": "フブキドラガ"
+  },
+  {
+    "move_group_id": 1017,
+    "name": "オウゴンレイス"
+  },
+  {
+    "move_group_id": 1018,
+    "name": "リュウガネ"
+  }
+]

@@ -1,0 +1,11 @@
+enum: MoveCategory
+members:
+  - id: 1
+    key: Physical
+    name: 物理
+  - id: 2
+    key: Special
+    name: 特殊
+  - id: 3
+    key: Status
+    name: 変化

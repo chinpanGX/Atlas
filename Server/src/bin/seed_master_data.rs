@@ -3,7 +3,7 @@
 // master-data-pipelineが生成したmaster_data/*.json(現状はpachimon.jsonのみ)を
 // MySQLへUPSERTする。APIサーバー自体は起動時にDBからマスタを読み込みメモリキャッシュを
 // 参照する設計のため、マスタ更新時はこのコマンドを実行してDBへ反映したのち、
-// サーバーを再起動して反映する(詳細はdocs/notes/api-design.mdの「マスターデータ管理」参照)。
+// サーバーを再起動して反映する(詳細はShared/docs/design/architecture.mdの「マスターデータ運用」参照)。
 //
 // 実行方法: cargo run --bin seed_master_data
 use sqlx::MySqlPool;
