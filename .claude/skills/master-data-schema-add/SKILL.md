@@ -19,6 +19,10 @@ description: マスターデータに新しいテーブルやEnumを追加する
   (詳細は `master-data-pipeline` スキール参照。例: `type` → `move_type`)
 - `fields[].targets` は省略時 `[client, server]`。サーバー内部専用の列(説明文など)は
   `targets: [server]` を明示する
+- `targets` はテーブル単位(トップレベル)でも指定できる。他テーブルから参照されるだけで
+  クライアントコードから直接引く必要のないテーブル(例: `move_groups`)は`targets: [server]`
+  にすると、DB保存・`check_relation`検証対象には残しつつclient向けMemoryTable生成
+  (`generate-csharp`)・masterdata.bytes埋め込み(`build-client`)から除外できる
 - nullable型は無いので「値なし」はセンチネルで表現する
   (Enumなら `id: 0, key: None, name: NONE` のようなメンバーを用意する、int列なら意味のある既定値を割り当てる)
 - 複合PK/複合UNIQUEが必要な場合は代理キー列(例: `unique_id`)を1列追加して単一PKにする

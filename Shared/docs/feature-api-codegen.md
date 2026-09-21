@@ -31,7 +31,7 @@ Atlas専用ではなく**プロジェクト非依存の共通ツール**とし�
 
 - 入力: `Shared/api/openapi.yaml`(①で生成)
 - パース: `Microsoft.OpenApi`(NuGet、v3.10.2。3.0/3.1両対応で`Microsoft.OpenApi.YamlReader`を組み合わせて読む。utoipaの出力が3.1のため1.x系では読めない)
-- 出力(`api-codegen/config.yaml`の`output.dir`、Atlasでは`Client/Assets/Scripts/Domain.Api/`へcopy):
+- 出力(`api-codegen/config.yaml`の`output.dir`、Atlasでは`Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Api/`へcopy):
   - `Dto/{SchemaName}.cs`:リクエスト/レスポンスDTO(POCO、Roslynで生成。`System.Text.Json`の`[JsonPropertyName]`でcamelCaseを保持)
   - `Client/{Tag}ApiClient.cs`:OpenAPIのtag単位の通信APIクラス。`UnityWebRequest`を`UniTask`でラップした薄いメソッドのみ(文字列テンプレートで生成)。**VContainerには依存せず**、`new {Tag}ApiClient(baseUrl)`(認証不要)/`new {Tag}ApiClient(baseUrl, () => token)`(認証必要)で素朴に生成できる
   - `Client/ApiRequest.cs` / `ApiException.cs`:送受信の共通ヘルパーと例外型(1回だけ生成、各ApiClientから直接参照)

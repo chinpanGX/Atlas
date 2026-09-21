@@ -60,6 +60,9 @@ crashlytics-build.properties
 **/[Aa]ssets/[Ss]treamingAssets/aa.meta
 **/[Aa]ssets/[Ss]treamingAssets/aa/*
 
+# Local scratch/temp download dirs (nupkg extraction etc.)
+.scratch*/
+
 # IDE / editor settings
 .idea/
 .vs/

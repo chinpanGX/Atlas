@@ -6,3 +6,7 @@
 	path = api-codegen
 	url = git@github.com:chinpanGX/api-codegen.git
 	branch = master
+[submodule "Supplement"]
+	path = Supplement
+	url = git@github.com:chinpanGX/Supplement.git
+	branch = main
