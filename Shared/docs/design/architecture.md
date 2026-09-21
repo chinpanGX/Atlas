@@ -33,15 +33,24 @@ Rust/Axum API Server    C#/MagicOnion Server
 
 ## クライアント利用ライブラリ
 
-UnityClientは`com.cysharp`/`jp.hadashikick`スコープのOpenUPMレジストリ(`Client/AtlasUnityProject/Packages/manifest.json`の`scopedRegistries`)経由で以下を導入する。ビルド設定はIL2CPP前提。
+UnityClientのビルド設定はIL2CPP前提。パッケージ導入経路が3種類あり、ライブラリごとに異なる。
 
-- DI: VContainer(`jp.hadashikick.vcontainer`)
-- 非同期: UniTask(`com.cysharp.unitask`)
-- シリアライズ: MessagePack for C#(`com.github.messagepack-csharp`) — MasterMemory/MagicOnionが内部で利用
-- マスターデータ: MasterMemory(`com.cysharp.mastermemory`) — `master-data-pipeline`生成物のランタイム
-- リアルタイム対戦通信: MagicOnion Client(`com.cysharp.magiconion.client.unity`)。トランスポートは`Grpc.Net.Client`標準の`SocketsHttpHandler`ではなく`YetAnotherHttpHandler`(`com.cysharp.yetanotherhttphandler`)を使う。IL2CPP環境では標準ハンドラのHTTP/2(ALPN)ネゴシエーションが不安定なため、Editor/IL2CPP問わず同一のネイティブHTTP/2実装に統一する
+- **OpenUPMスコープレジストリ**(`com.cysharp`/`jp.hadashikick`/`com.github.messagepack-csharp`スコープ、`manifest.json`の`scopedRegistries`経由):
+  - DI: VContainer(`jp.hadashikick.vcontainer`)
+  - 非同期: UniTask(`com.cysharp.unitask`)
+  - リアルタイム対戦通信: MagicOnion Client(`com.cysharp.magiconion.client.unity`)。トランスポートは`Grpc.Net.Client`標準の`SocketsHttpHandler`ではなく`YetAnotherHttpHandler`(`com.cysharp.yetanotherhttphandler`)を使う。IL2CPP環境では標準ハンドラのHTTP/2(ALPN)ネゴシエーションが不安定なため、Editor/IL2CPP問わず同一のネイティブHTTP/2実装に統一する
+  - MessagePack for C#のUnity拡張(`com.github.messagepack-csharp`、実体は「MessagePack.Unity」。Vector2/Vector3等のUnity型フォーマッタのみを提供する薄いレイヤーで、MessagePack本体は含まない)
+- **UnityNuGetレジストリ**(`org.nuget`スコープ)+ **NuGetForUnity**(`Assets/packages.config`、`Assets/Packages/`配下に実体を配置):
+  MagicOnion.Client本体やMasterMemory/MessagePackの本体・Source Generatorは、UPM版が薄いラッパー(abstractionsのみ)や実行時ライブラリのみでSource Generator DLLを含まないため、NuGet版(本体+Source Generator)を別途導入している。
+  - シリアライズ: MessagePack for C#本体(NuGetForUnity、`MessagePack`/`MessagePack.Annotations`)
+  - マスターデータ: MasterMemory本体(NuGetForUnity、`MasterMemory`/`MasterMemory.Annotations`) — `master-data-pipeline`生成物のランタイム
+  - MagicOnion.Client本体(NuGetForUnity、`MagicOnion.Client`/`MagicOnion.Abstractions`/`MagicOnion.Serialization.MessagePack`/`MagicOnion.Shared`)
+  - Grpc.Net.Client関連・System.IO.Pipelines等の依存(`org.nuget.*`、YetAnotherHttpHandler/MagicOnion.Clientの前提ライブラリ)
+- **git submodule**(Atlasリポジトリ直下にclone、`file:`ローカルパッケージ参照):
+  - 補助ユーティリティ: Supplement(`chinpanGX/Supplement`、`com.chinpangx.supplement`) — Addressables経由のAssetLoader/SceneLoader抽象、暗号化付きローカルセーブデータ永続化(`ISaveDataRepository`/`IFileStorageService`)、VContainer登録拡張等。UniTask/VContainer/Addressablesに依存
 - REST通信(認証/スカウト/チャット): 上記とは独立して`UnityWebRequest`のまま。`api-codegen`が生成する`Atlas.Infrastructure.Api`(`UnityWebRequest`を`UniTask`でラップ、VContainer非依存)を利用する。gRPC側への統一は行わない(RustサーバーをOpenAPI/RESTからprotobuf/gRPCへ作り直すコストに見合わないため)
 - アセット管理: Addressables(`com.unity.addressables`、導入済み)
+- View↔Presenter間のリアクティブ購読: R3(`com.cysharp.r3`、design/battle.md参照) — **未導入**。対戦画面の実装に着手する際に追加する
 - テスト: Unity Test Framework(導入済み)。モンキーテスト(Anjin等)は実装が一定進んでから改めて検討する
 
 ## マスターデータ設計
@@ -131,6 +140,18 @@ defend_type) → effectiveness`という関係(マップ)のみで、`effectiven
   `BattleServer/`配下を指すよう設定済み、プロジェクト作成後に有効化する)を書き換えるだけで
   両方に同じ型・同じ実データが配置される(2箇所にコピーされるだけで、実体は常にスキーマ+CSV
   から再生成されるため乖離しない)
+- **Models/Enums/Loader/AesCryptoは全て同一アセンブリにまとめる**(Client側は
+  `Assets/Scripts/MasterData/`配下、単一の`Atlas.MasterData.asmdef`)。Domain/Infrastructureの
+  ようなレイヤー分割はしない。理由はMasterMemory/MessagePackのSource
+  Generator(`[MemoryTable]`/`[MessagePackObject]`からMemoryDatabase/DatabaseBuilder等を生成する
+  仕組み)が同一アセンブリ内でのみ有効なコードを生成する制約があるため([MasterMemory公式
+  README](https://github.com/Cysharp/MasterMemory)のco-location方針)。`InternalsVisibleTo`等で
+  アセンブリを分割して回避することはしない(誤った使い方と判断し不採用)。生成されるクラス名は
+  テーブル名PascalCase + `Data`サフィックス(例: `pachimon` → `PachimonData`)で統一し、
+  いずれも`partial`にしてある(MasterMemoryのSource Generatorが自動生成する
+  テーブルアクセサは`○○DataTable`という名前になる)。ゲームロジック側でこれらの型を直接
+  ドメインモデルとして使うのではなく、`Atlas.BattleCore`の`ParticipantStats`/`MoveData`のような
+  依存ゼロの型へマッピングして使う(下記実装状況・battle.md参照)
 - 実データ(値)の読み込み方法は対象ごとに異なる:
   - Client: `Assets/Addressables/MasterData/masterdata.bytes`をAddressables経由でアプリ起動時に読み込む
   - Rust/Axum: 起動時にDBから全マスタを1回読み込み、`Arc<MasterData>`としてメモリに保持する

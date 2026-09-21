@@ -29,7 +29,10 @@ Server側API実装状況までの作業内容・進捗・残タスクを整理�
 - [x] CSVデータ配置(`Shared/master-data/csv/`)
 - [x] クライアント向け生成・配置 → Unityプロジェクト作成後、`config.yaml`の配置先を
   `Client/AtlasUnityProject/Assets/`配下に更新し、`./run.sh copy-models && ./run.sh copy-loader
-  && ./run.sh copy-client-bytes`で配置済み。`Scripts/Domain/MasterData/*`(型・ローダー)、
+  && ./run.sh copy-client-bytes`で配置済み。型・Loader・Enumsは全て
+  `Scripts/MasterData/`配下の単一アセンブリ(`Atlas.MasterData.asmdef`)にまとめている
+  (Domain/Infrastructureへのレイヤー分割はMasterMemory/MessagePackのSource Generator制約上
+  不可能と判明したため不採用、詳細はarchitecture.md「マスターデータ運用」参照)。
   `masterdata.bytes`は`StreamingAssets`ではなくAddressables経由で配布する方針のため
   `Assets/Addressables/MasterData/masterdata.bytes`に配置(Addressable Groupへのマーク付けは
   Unity Editor側の作業として別途必要)
@@ -120,9 +123,27 @@ design/architecture.mdの全体構成(`Unity Client ←REST→ Rust/Axum`, `Unit
 
 ### Unity Client
 
-`Client/`配下には、master-data-pipelineが生成した`Domain.MasterData`(マスターデータの
-Models/Enums/`masterdata.bytes`)以外に実体が無い。Unityプロジェクトとしての体裁
-(`ProjectSettings/`, `Packages/`等)自体が未作成で、通信・UI・ゲームロジックは何も無い状態。
+Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済みで、利用ライブラリ一式を
+導入しコンパイルが通る状態まで到達した(通信・UI・ゲームロジックの実装自体はまだこれから)。
+
+- 利用ライブラリ(VContainer/UniTask/MagicOnion.Client/YetAnotherHttpHandler/MessagePack/
+  MasterMemory/Supplement)を導入。詳細・導入経路はarchitecture.md「クライアント利用
+  ライブラリ」参照
+- MagicOnion.ClientやMasterMemory/MessagePackはUPM版が薄いラッパー(Source Generator DLLを
+  含まない)だったため、NuGetForUnity経由で本体(NuGet版)を別途`Assets/Packages/`配下に手動配置
+  (自動リストアがセッション内で不安定だったため、nupkgを直接展開する形を取った箇所がある)
+- MasterMemory本体のSource Generatorが正しく動く配置を確認するまでに複数の誤った試行があった
+  (Domain/Infrastructureへのアセンブリ分割+`InternalsVisibleTo`での回避 → 不採用、
+  `GeneratedMessagePackResolver`の直接参照 → 不要と判明・`StandardResolver`が内部で自動的に
+  含む)。最終的に単一アセンブリ(`Atlas.MasterData`)にまとめる方針に統一(architecture.md参照)
+- `Supplement`(`chinpanGX/Supplement`)をgit submoduleとしてAtlas直下に追加し、Client側から
+  ローカルパッケージ参照。AssetLoader(Addressables実装)にラベル指定ロード・進捗通知が
+  無いことを確認済みで、追加を依頼中(Supplement側での対応待ち)
+- R3(View↔Presenterのリアクティブ購読、battle.md参照)は**未導入**。対戦画面の実装着手時に追加する
+- `uloop`(Unity CLI Loop、`io.github.hatayama.uloopmcp`)経由でEditor操作・コンパイル確認を
+  自動化できる状態
+- 未着手: 通信層の実装(MagicOnion StreamingHubクライアント・REST APIクライアントの実際の呼び出し)、
+  UI、ゲームロジック、`Atlas.BattleCore`との連携(`MockBattleConnection`)
 
 ### Atlas.BattleCore(Shared/BattleCore/)
 
@@ -182,7 +203,7 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
-| 9 | Unityクライアント側の実装一式(プロジェクト構築、通信、UI、ゲームロジック) | client |
+| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認まで完了。通信層の実装・UI・ゲームロジックは未着手、上記「Unity Client」参照) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |
