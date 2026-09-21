@@ -10,12 +10,29 @@
         "com.unity.addressables": "2.7.6"
       }
     },
+    "com.chinpangx.supplement.zeromessenger": {
+      "version": "file:../../../Supplement/Assets/Supplement.ZeroMessenger",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.chinpangx.supplement": "1.0.0"
+      }
+    },
     "com.cysharp.magiconion.client.unity": {
       "version": "7.11.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://package.openupm.com"
+    },
+    "com.cysharp.r3": {
+      "version": "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.modules.imgui": "1.0.0"
+      },
+      "hash": "fdfb36e3d5af90ec06403714492ee85b2d8bf7cd"
     },
     "com.cysharp.unitask": {
       "version": "2.5.11",
@@ -344,6 +361,22 @@
         "com.unity.nuget.mono-cecil": "1.11.6"
       },
       "hash": "9083f50f24ab479228a5b41c90013e89b3559ec4"
+    },
+    "jp.co.cyberagent.address-definition-generator": {
+      "version": "https://github.com/CyberAgentGameEntertainment/AddressDefinitionGenerator.git?path=/Packages/AddressDefinitionGenerator",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.addressables": "1.23.1"
+      },
+      "hash": "3ca218ebf1707b5f017cebad9e8d68be5cb3f8f6"
+    },
+    "jp.co.cyberagent.smartaddresser": {
+      "version": "https://github.com/CyberAgentGameEntertainment/SmartAddresser.git?path=/Assets/SmartAddresser",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "4f2baab796dc51424b752268cb3a2ddefc324b6d"
     },
     "jp.hadashikick.vcontainer": {
       "version": "1.19.0",

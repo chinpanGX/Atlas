@@ -33,6 +33,9 @@ Rust/Axum API Server    C#/MagicOnion Server
 
 ## クライアント利用ライブラリ
 
+画面遷移・DI・コア進行ロジックのMock/Real切り替えといったクライアント側の骨格設計は
+[client-architecture.md](client-architecture.md)を参照。
+
 UnityClientのビルド設定はIL2CPP前提。パッケージ導入経路が3種類あり、ライブラリごとに異なる。
 
 - **OpenUPMスコープレジストリ**(`com.cysharp`/`jp.hadashikick`/`com.github.messagepack-csharp`スコープ、`manifest.json`の`scopedRegistries`経由):
@@ -47,10 +50,12 @@ UnityClientのビルド設定はIL2CPP前提。パッケージ導入経路が3�
   - MagicOnion.Client本体(NuGetForUnity、`MagicOnion.Client`/`MagicOnion.Abstractions`/`MagicOnion.Serialization.MessagePack`/`MagicOnion.Shared`)
   - Grpc.Net.Client関連・System.IO.Pipelines等の依存(`org.nuget.*`、YetAnotherHttpHandler/MagicOnion.Clientの前提ライブラリ)
 - **git submodule**(Atlasリポジトリ直下にclone、`file:`ローカルパッケージ参照):
-  - 補助ユーティリティ: Supplement(`chinpanGX/Supplement`、`com.chinpangx.supplement`) — Addressables経由のAssetLoader/SceneLoader抽象、暗号化付きローカルセーブデータ永続化(`ISaveDataRepository`/`IFileStorageService`)、VContainer登録拡張等。UniTask/VContainer/Addressablesに依存
+  - 補助ユーティリティ: Supplement(`chinpanGX/Supplement`、`com.chinpangx.supplement`) — Addressables経由のAssetLoader/SceneLoader抽象、暗号化付きローカルセーブデータ永続化(`ISaveDataRepository`/`IFileStorageService`)、VContainer登録拡張、`IMessageBroker`(画面をまたぐ通知、client-architecture.md参照)等。UniTask/VContainer/Addressablesに依存
 - REST通信(認証/スカウト/チャット): 上記とは独立して`UnityWebRequest`のまま。`api-codegen`が生成する`Atlas.Infrastructure.Api`(`UnityWebRequest`を`UniTask`でラップ、VContainer非依存)を利用する。gRPC側への統一は行わない(RustサーバーをOpenAPI/RESTからprotobuf/gRPCへ作り直すコストに見合わないため)
 - アセット管理: Addressables(`com.unity.addressables`、導入済み)
-- View↔Presenter間のリアクティブ購読: R3(`com.cysharp.r3`、design/battle.md参照) — **未導入**。対戦画面の実装に着手する際に追加する
+- 画面遷移: UnityScreenNavigator(`com.harumak.unityscreennavigator`、Gitパッケージ、MIT License、導入済み。client-architecture.md参照)
+- View↔Presenter間のリアクティブ購読: R3(`com.cysharp.r3`、Gitパッケージ、導入済み、design/battle.md・client-architecture.md参照)
+- 画面をまたぐ通知: ZeroMessenger(NuGetForUnity経由、`Assets/Packages/ZeroMessenger.1.0.4/`。SupplementがNuGet版1.0.4を要求するため、Supplement側の配置をそのままAtlas Client側にもコピーする形で導入。Supplementの`IMessageBroker`(`Supplement.ZeroMessenger.GlobalMessageBroker`)経由でのみ使い、`MessageBroker<T>`を直接扱わない)
 - テスト: Unity Test Framework(導入済み)。モンキーテスト(Anjin等)は実装が一定進んでから改めて検討する
 
 ## マスターデータ設計

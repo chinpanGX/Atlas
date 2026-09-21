@@ -240,9 +240,16 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 
 ### UI層との連携(View / Presenter)
 
-追加のpub/subライブラリ(MessagePipe等)は導入せず、既に確定しているR3・VContainerのみで実装
-する。`IBattleConnection`を直接保持するのは`BattlePresenter`のみで、Viewは`IBattleConnection`/
+同じ画面内のView→Presenter通知にpub/subライブラリは使わず、R3のObservable直接購読のみで
+実装する(Supplementの`IMessageBroker`(ZeroMessenger実装)は画面をまたぐ通知専用に限定導入。
+詳細は[client-architecture.md](client-architecture.md)「画面をまたぐ通知(IMessageBroker)」参照)。
+`IBattleConnection`を直接保持するのは`BattlePresenter`のみで、Viewは`IBattleConnection`/
 `Atlas.BattleCore`の型を一切知らない。
+
+> **注記**: 本節(バトル画面のView/Presenter)は`client-architecture.md`の初期設計より前に
+> 書かれたもので、`BattleViewState`のReactivePropertyをViewが購読する向きになっている。
+> 実際にバトル画面を実装する際は、`client-architecture.md`で確定した「Presenterが具象Viewを
+> コンストラクタ注入で受け取りSubscribeする」向きに合わせて書き直すこと。
 
 - **View→Presenter(ユーザーの意図)**: pub/subではなく、インターフェース経由の直接呼び出し
   ```csharp

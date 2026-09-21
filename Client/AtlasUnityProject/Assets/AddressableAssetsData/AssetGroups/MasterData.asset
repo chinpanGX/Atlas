@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: MasterData
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: MasterData
+  m_GUID: cfe665cdb3ec0e84aab4c638ce81e1c3
+  m_SerializeEntries:
+  - m_GUID: 5f4fa5f387ceca44890185dafe177dbf
+    m_Address: Assets/Addressables/MasterData/masterdata.bytes
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ee7f695350b599549befe3d6addf9953
+    m_Address: Assets/Addressables/MasterData
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: e60b4e37c4b9f834ca8e72a77378b2c1, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: cde4eb32d4ce66a4d91f48c6ee560f2c, type: 2}
+    - {fileID: 11400000, guid: 7a0fb4cdc94aaae4fb2121944c4573c8, type: 2}

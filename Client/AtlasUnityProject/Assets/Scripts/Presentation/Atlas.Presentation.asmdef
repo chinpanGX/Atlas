@@ -1,0 +1,27 @@
+{
+    "name": "Atlas.Presentation",
+    "rootNamespace": "Atlas.Presentation",
+    "references": [
+        "GUID:a65db434446d2f5459f591d11d06fd09",
+        "GUID:2359c074672083046b6ff6b309700f8e",
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
+        "GUID:77221876cc6b8244180b96e320b1bcd4",
+        "GUID:41261d631a9f02542ba248f84bf54981",
+        "GUID:8cea2db61e31fb5479b11bf6b3d73be8",
+        "GUID:619451fd5e12658408c1bba68b29ad7a",
+        "GUID:f50f3c57a6ab8a546b8103805c756bcd",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:2bafac87e7f4b9b418d9448d219b01ab",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f",
+        "GUID:03e6aa5a9743dd546aae493dc0f59c97"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

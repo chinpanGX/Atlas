@@ -127,11 +127,14 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
 導入しコンパイルが通る状態まで到達した(通信・UI・ゲームロジックの実装自体はまだこれから)。
 
 - 利用ライブラリ(VContainer/UniTask/MagicOnion.Client/YetAnotherHttpHandler/MessagePack/
-  MasterMemory/Supplement)を導入。詳細・導入経路はarchitecture.md「クライアント利用
-  ライブラリ」参照
-- MagicOnion.ClientやMasterMemory/MessagePackはUPM版が薄いラッパー(Source Generator DLLを
-  含まない)だったため、NuGetForUnity経由で本体(NuGet版)を別途`Assets/Packages/`配下に手動配置
-  (自動リストアがセッション内で不安定だったため、nupkgを直接展開する形を取った箇所がある)
+  MasterMemory/Supplement/R3/UnityScreenNavigator/ZeroMessenger)を導入。詳細・導入経路は
+  architecture.md「クライアント利用ライブラリ」参照
+- MagicOnion.ClientやMasterMemory/MessagePack/R3/ZeroMessengerはUPM版が薄いラッパー
+  (Source Generator DLLを含まない、またはUPM未配布)だったため、NuGetForUnity経由で本体
+  (NuGet版)を別途`Assets/Packages/`配下に手動配置(自動リストアがセッション内で不安定だった
+  ため、nupkgを直接展開する形を取った箇所がある)。ZeroMessengerはSupplement本体
+  (`Supplement.ZeroMessenger`)が要求するバージョン(1.0.4)に合わせ、Supplement側の
+  `Assets/Packages/ZeroMessenger.1.0.4/`をそのままAtlas Client側へコピーする形で導入
 - MasterMemory本体のSource Generatorが正しく動く配置を確認するまでに複数の誤った試行があった
   (Domain/Infrastructureへのアセンブリ分割+`InternalsVisibleTo`での回避 → 不採用、
   `GeneratedMessagePackResolver`の直接参照 → 不要と判明・`StandardResolver`が内部で自動的に
@@ -139,11 +142,69 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
 - `Supplement`(`chinpanGX/Supplement`)をgit submoduleとしてAtlas直下に追加し、Client側から
   ローカルパッケージ参照。AssetLoader(Addressables実装)にラベル指定ロード・進捗通知が
   無いことを確認済みで、追加を依頼中(Supplement側での対応待ち)
-- R3(View↔Presenterのリアクティブ購読、battle.md参照)は**未導入**。対戦画面の実装着手時に追加する
+- R3(View↔Presenterのリアクティブ購読、battle.md参照)・UnityScreenNavigator(画面遷移、
+  client-architecture.md参照)は導入済み。実際の画面・Presenterでの利用はこれから
 - `uloop`(Unity CLI Loop、`io.github.hatayama.uloopmcp`)経由でEditor操作・コンパイル確認を
   自動化できる状態
 - 未着手: 通信層の実装(MagicOnion StreamingHubクライアント・REST APIクライアントの実際の呼び出し)、
-  UI、ゲームロジック、`Atlas.BattleCore`との連携(`MockBattleConnection`)
+  UI、ゲームロジック、`Atlas.BattleCore`との連携(`MockBattleConnection`)。ただし下記の通り
+  設計自体は固まった
+
+### クライアントアーキテクチャ設計(画面遷移・DI・Connection抽象)
+
+[design/client-architecture.md](design/client-architecture.md)を新規作成。「UIとコア進行
+ロジックをどう繋ぐか」の土台を設計し、Bootstrap→Home→最初の画面(TitlePage)までの最小実装を
+作ってPlay Modeで実際に動作確認済み。
+
+- **画面遷移**: [UnityScreenNavigator](https://github.com/Haruma-K/UnityScreenNavigator)
+  (USN、MIT License)を採用。`Bootstrap`/`Home`/`Battle`の3シーン構成にし、Scene単位の遷移は
+  Supplementの`ISceneLoader`、Scene内の遷移(タイトル/パーティ編成/対戦画面等)はUSNの
+  Page/Modalという2階層構成にした。検討したが不採用にしたもの: 自作の`ScreenService`
+  (View管理エンジンごと自作、別プロジェクトの未パッケージ化コード)は画面遷移そのものには使わず、
+  Push時に`ViewDto`を渡す/Pop時に`Result`を型付きで受け取る、というAPIのエルゴノミクスだけを
+  USNの上に実装する形にした
+- **DI**: Page prefabに子`LifetimeScope`を同梱し、`LifetimeScope.EnqueueParent`で親付けして
+  `Build()`する方式に確定。USN公式デモの「DIコンテナ無しで手書きFactory」方式
+  (`RegisterFactory`+`AddTo(GameObject)`で再現する代替案)も検討したが、Presenterの生存期間
+  管理をVContainerのスコープ機構に一貫させるため不採用。**実装時に発覚した修正点**:
+  `ScreenNavigator`はPresenterの具体型を知らないため`Container.Resolve<XxxPresenter>()`は
+  実装不可能で、`RegisterEntryPoint<XxxPresenter>()`(`Build()`の副作用として自動構築)に変更。
+  ただし`RegisterEntryPoint`は`IInitializable`等のVContainerライフサイクルインターフェースを
+  実装していないと一度も構築されないため、Presenterは`IInitializable`を実装し購読処理を
+  コンストラクタから`Initialize()`へ移動する設計に修正した
+- **Presenter配置**: `Atlas.Presentation`(新規asmdef)にViewと同居させ、具象Viewを直接
+  コンストラクタ注入する(`IXxxView`のような境界インターフェースは作らない)。Mock/Realの
+  差し替えが必要な`IXxxConnection`だけインターフェース化する非対称設計
+- **`IScreenNavigator`**(旧称`INavigationService`): `PushPageAsync<TPage, TViewDto>(dto)`で
+  Push時にデータを渡し、`WaitForPopAsync<TResult>`でPop時の結果を型付きで受け取れる
+- **Connection抽象の一般化**: `IBattleConnection`(battle.md)のMock/Real切り替えパターンを
+  アウトゲームにも適用。既存Rust API境界(Device/Auth/Player/Chat/Scout)ごとに`IXxxConnection`
+  を定義する方針(1つの巨大インターフェースにはしない)。具体的な`IXxxConnection`実装は未着手
+- **画面をまたぐ通知**: Supplementの`IMessageBroker`(ZeroMessenger実装)をグローバル用途限定で
+  導入(トースト通知・gems残高変更等)。同一画面内のView→Presenter通知はR3のObservable
+  直接購読のみ。MessagePipeも検討したがSupplementに同種の仕組みが既にあるため不採用。
+  `Supplement.ZeroMessenger`は`com.chinpangx.supplement`とは別パッケージだったため
+  manifest.jsonへの追加が別途必要だった
+- **実装(`Client/AtlasUnityProject`)**: `Atlas.Presentation`アセンブリ
+  (`IScreenNavigator`/`ScreenNavigator`/`PageLifetimeScopeWithViewDto`/`RootLifetimeScope`/
+  `HomeLifetimeScope`/Title画面一式)、`Bootstrap.unity`/`Home.unity`シーン、
+  `Assets/Addressables/Views/Title/TitlePage.prefab`を作成。`USE_VCONTAINER`
+  (SupplementのVContainer統合拡張を有効化)・`USN_USE_ADDRESSABLES`
+  (USNのAddressablesアセットローダーを有効化)のスクリプティング定義シンボルを追加。
+  Play Modeでの実機確認(Bootstrap→Home遷移→TitlePage表示→ボタンクリックでの表示更新)まで完了
+- **ホーム画面本体**: `HomePage`/`HomePresenter`/`HomePageLifetimeScope`
+  (`Presentation/Home/`)を実装し、Homeシーンの初期表示を(検証用の)TitlePageから置き換えた。
+  `IPlayerConnection`(`Atlas.Domain`)+`MockPlayerConnection`(`Atlas.Infrastructure`、
+  `GET /players/me`のMock)を実装し、`RootLifetimeScope`にMock固定で登録(Real実装は未着手)。
+  ニックネーム・gems表示、Scout/Party/Battle/Chatへの導線ボタン(遷移先画面が無いため
+  現状はログ出力のみ)をPlay Modeで実機確認済み。`HomePresenter`は非同期の初期データ取得が
+  必要なため`IInitializable`ではなく`IAsyncStartable`を使用(使い分けはclient-architecture.md
+  「DIによる結線とライフサイクル」参照)
+- 実装メモ: `record`/`record struct`はUnity Editorが固定するC#言語バージョン(9.0)では
+  使えない(C# 10以降が必要)。`Atlas.Domain`等のシンプルなデータ型は通常の`readonly struct`/
+  `class`で書く
+- 未確定として残っているのは、Battle結果をHomeへ引き継ぐ方法と、Scout/Party/Battle/Chat各画面
+  (Homeからの導線先)の個別Presenter/ViewDto設計(画面実装時に決定)
 
 ### Atlas.BattleCore(Shared/BattleCore/)
 
@@ -203,7 +264,7 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
-| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認まで完了。通信層の実装・UI・ゲームロジックは未着手、上記「Unity Client」参照) | client |
+| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、およびBootstrap→Home→TitlePageの最小実装・実機確認まで完了。個別画面(ホーム本体・パーティ編成・スカウト等)の実装、`IXxxConnection`の実装、通信層・ゲームロジックは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |
