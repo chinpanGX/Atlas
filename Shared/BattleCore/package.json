@@ -1,0 +1,7 @@
+{
+  "name": "com.atlas.battlecore",
+  "version": "0.1.0",
+  "displayName": "Atlas Battle Core",
+  "description": "Atlas共通バトルロジック(ダメージ計算・行動順決定・Section/Event/EventHandler)。UnityEngineに依存しないPure C#実装で、Client(Unity)とrealtime_server(MagicOnion)の両方から参照される。",
+  "unity": "6000.0"
+}
