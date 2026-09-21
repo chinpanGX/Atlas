@@ -1,0 +1,4 @@
+# Shared/BattleCore (.NETプロジェクトのビルド成果物・IDE設定)
+Shared/BattleCore/bin/
+Shared/BattleCore/obj/
+Shared/BattleCore/.idea/

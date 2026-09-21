@@ -1,0 +1,14 @@
+enum: TypeEffectiveness
+members:
+  - id: 1
+    key: Immune
+    name: 無効
+  - id: 2
+    key: NotVeryEffective
+    name: いまひとつ
+  - id: 3
+    key: Normal
+    name: 通常
+  - id: 4
+    key: SuperEffective
+    name: 抜群

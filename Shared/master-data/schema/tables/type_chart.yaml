@@ -1,0 +1,28 @@
+# タイプ相性マスタ(Shared/docs/design/architecture.md の「マスターデータ設計」に対応)。
+#
+# type_chart_id: このパイプラインは複合PK/複合UNIQUEに対応していないため、
+# UNIQUE(attack_type, defend_type)相当の制約はこの行の代理キー(type_chart_id)で代替している
+# (move_group_masterのunique_idと同じパターン)。
+#
+# 単体タイプ同士の組み合わせのみを持つ。複合タイプ(secondary_type)の掛け合わせは
+# Atlas.BattleCore側が実行時に2回引いて乗算する(design/battle.md参照)。
+# 「該当行が無ければ通常」という暗黙のデフォルトは避け、全タイプ×全タイプ(18x18=324行)を
+# 明示的にCSVへ埋める。
+name: type_chart
+input_csv: type_chart_master
+fields:
+  - name: type_chart_id
+    type: int
+    primary_key: true
+  - name: attack_type
+    type: enum
+    enum_type: PachimonType
+  - name: defend_type
+    type: enum
+    enum_type: PachimonType
+  - name: effectiveness
+    type: enum
+    enum_type: TypeEffectiveness
+validate:
+  unique:
+    - type_chart_id
