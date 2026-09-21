@@ -152,7 +152,7 @@ POST /scout/rolls/{rollId}/select
 2. 決まったレアリティに紐づく`pachimon`(`rarity`カラム一致)を全件取得し、その中から
    等確率で1件をランダム選出
 3. 個体値(`ivs`)をランダム生成(範囲・形式は`player_pachimon.ivs`に準拠)
-4. `move_group_master`の`is_initial = TRUE`の技を、その候補の確定技セットとして保持
+4. `move_group_moves`の`is_initial = TRUE`の技を、その候補の確定技セットとして保持
 
 生成した10体分をまとめて`scout_rolls.candidates`(JSON)に保存する。選択(`select`)時は
 再抽選を行わず、保存済みの内容をそのまま`player_pachimon`にコピーするだけでよい。

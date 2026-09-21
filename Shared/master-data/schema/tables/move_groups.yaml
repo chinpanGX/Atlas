@@ -1,7 +1,14 @@
 # 技グループマスタ(Shared/docs/design.md の「マスターデータ設計」に対応)。
 # 複数のパチモンが同じグループを共有できる設計(pachimon.move_group_id から参照される)。
+#
+# targets: [server] — クライアントコードは pachimon.move_group_id を使って
+# move_group_moves(技グループが含む技の対応表)を直接引けるため、このテーブル自体を
+# クライアント側で参照する必要が無い。DB保存とpachimon/move_group_movesからの
+# check_relation検証対象としては残しつつ、client向けMemoryTable/masterdata.bytesへの
+# 出力は行わない(参照専用テーブル)。
 name: move_groups
 input_csv: move_groups_master
+targets: [server]
 fields:
   - name: move_group_id
     type: int

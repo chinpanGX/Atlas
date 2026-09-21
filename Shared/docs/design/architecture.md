@@ -40,7 +40,7 @@ UnityClientは`com.cysharp`/`jp.hadashikick`スコープのOpenUPMレジスト�
 - シリアライズ: MessagePack for C#(`com.github.messagepack-csharp`) — MasterMemory/MagicOnionが内部で利用
 - マスターデータ: MasterMemory(`com.cysharp.mastermemory`) — `master-data-pipeline`生成物のランタイム
 - リアルタイム対戦通信: MagicOnion Client(`com.cysharp.magiconion.client.unity`)。トランスポートは`Grpc.Net.Client`標準の`SocketsHttpHandler`ではなく`YetAnotherHttpHandler`(`com.cysharp.yetanotherhttphandler`)を使う。IL2CPP環境では標準ハンドラのHTTP/2(ALPN)ネゴシエーションが不安定なため、Editor/IL2CPP問わず同一のネイティブHTTP/2実装に統一する
-- REST通信(認証/スカウト/チャット): 上記とは独立して`UnityWebRequest`のまま。`api-codegen`が生成する`Domain.Api`(`UnityWebRequest`を`UniTask`でラップ、VContainer非依存)を利用する。gRPC側への統一は行わない(RustサーバーをOpenAPI/RESTからprotobuf/gRPCへ作り直すコストに見合わないため)
+- REST通信(認証/スカウト/チャット): 上記とは独立して`UnityWebRequest`のまま。`api-codegen`が生成する`Atlas.Infrastructure.Api`(`UnityWebRequest`を`UniTask`でラップ、VContainer非依存)を利用する。gRPC側への統一は行わない(RustサーバーをOpenAPI/RESTからprotobuf/gRPCへ作り直すコストに見合わないため)
 - アセット管理: Addressables(`com.unity.addressables`、導入済み)
 - テスト: Unity Test Framework(導入済み)。モンキーテスト(Anjin等)は実装が一定進んでから改めて検討する
 
@@ -71,8 +71,11 @@ name             -- 管理用ラベル
 
 複数のパチモンが同じグループを共有できる設計(FKとして独立)。現状の投入データでは
 `pachimon_id`と同値(1パチモン=1グループ)にしているだけで、スキーマ上の制約ではない。
+クライアントコードは`pachimon.move_group_id`から`move_group_moves`を直接引けるため、
+`targets: [server]`とし、クライアント向けMemoryTable/masterdata.bytesへの出力対象からは
+除外している(DB保存・`check_relation`検証対象としては残る)。
 
-### move_group_master(技グループが含む技の対応表、旧称move_group_moves)
+### move_group_moves(技グループが含む技の対応表)
 
 ```
 unique_id        PK   -- 代理キー。パイプラインが複合PK/複合UNIQUEに非対応のため追加
@@ -129,7 +132,7 @@ defend_type) → effectiveness`という関係(マップ)のみで、`effectiven
   両方に同じ型・同じ実データが配置される(2箇所にコピーされるだけで、実体は常にスキーマ+CSV
   から再生成されるため乖離しない)
 - 実データ(値)の読み込み方法は対象ごとに異なる:
-  - Client: `Assets/StreamingAssets/masterdata.bytes`をアプリ起動時に読み込む
+  - Client: `Assets/Addressables/MasterData/masterdata.bytes`をAddressables経由でアプリ起動時に読み込む
   - Rust/Axum: 起動時にDBから全マスタを1回読み込み、`Arc<MasterData>`としてメモリに保持する
     (`Server/src/master/cache.rs`)。各リクエストハンドラはこのキャッシュを参照するだけ
   - バトルサーバー: Clientと同様に`masterdata.bytes`相当のバイナリを`BattleServer/`配下に
@@ -141,5 +144,5 @@ defend_type) → effectiveness`という関係(マップ)のみで、`effectiven
 - Clientへのmasterdata配布をCDN(S3+CloudFront)経由にする案を検討中だが、バージョニング・
   差分検知等の詳細は現時点では対象外として保留する。バトルサーバー/Rustの読み込み方式には
   影響しない
-- 実装状況(`pachimon`のみDB投入・キャッシュ済み、`moves`/`move_groups`/`move_group_master`は
+- 実装状況(`pachimon`のみDB投入・キャッシュ済み、`moves`/`move_groups`/`move_group_moves`は
   ファイル生成のみでDB未投入 等)は[progress.md](../progress.md)を参照

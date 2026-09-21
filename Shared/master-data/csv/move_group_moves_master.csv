@@ -1,4 +1,4 @@
-技グループ所属技マスタ(旧move_group_moves),,,
+技グループ所属技マスタ,,,
 各グループ: 専用技(is_initial=TRUE) + 共通ノーマル物理技(is_initial=TRUE) + 共通ノーマル特殊技(is_initial=FALSE、技の付け替え候補),,,
 int,int,int,bool
 unique_id,group_id,move_id,is_initial

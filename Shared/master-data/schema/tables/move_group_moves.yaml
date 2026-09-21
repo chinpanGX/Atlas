@@ -1,10 +1,9 @@
-# 技グループが含む技の対応表(旧称move_group_moves、Shared/docs/design.md の
-# move_group_movesに対応)。
+# 技グループが含む技の対応表(Shared/docs/design.md の move_group_movesに対応)。
 #
 # unique_id: このパイプラインは複合PK/複合UNIQUEに対応していないため、
 # UNIQUE(group_id, move_id)相当の制約はこの行の代理キー(unique_id)で代替している。
-name: move_group_master
-input_csv: move_group_master
+name: move_group_moves
+input_csv: move_group_moves_master
 fields:
   - name: unique_id
     type: int

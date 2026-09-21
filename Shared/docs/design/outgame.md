@@ -203,7 +203,7 @@ PUT /players/me/party
 PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 ```
 
-グループ内の候補技(`move_group_master`)から選択する。マスタ側の変更は不要で、
+グループ内の候補技(`move_group_moves`)から選択する。マスタ側の変更は不要で、
 `player_pachimon_moves`の対象slotをUPDATEするだけで実現できる。
 
 リクエスト
@@ -279,7 +279,7 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 
 `UNIQUE(player_pachimon_id, slot)`
 
-スカウトで個体が生成される際、対応する`move_group_master`の`is_initial = TRUE`の行をそのまま
+スカウトで個体が生成される際、対応する`move_group_moves`の`is_initial = TRUE`の行をそのまま
 複製して初期セットする(詳細は[scout.md](scout.md)参照)。技の付け替えは、このテーブルの
 対象slotをUPDATEするだけで実現でき、マスタ側の変更は不要。
 

@@ -198,7 +198,7 @@ fn roll_candidates(
         };
 
         let moves: Vec<i64> = master
-            .move_group_master
+            .move_group_moves
             .iter()
             .filter(|row| row.group_id == pachimon.move_group_id && row.is_initial)
             .map(|row| row.move_id)

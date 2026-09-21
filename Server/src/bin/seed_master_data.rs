@@ -5,13 +5,13 @@
 // このコマンドを実行してDBへ反映したのち、サーバーを再起動して反映する(詳細は
 // Shared/docs/design/architecture.mdの「マスターデータ運用」参照)。
 //
-// move_groups → moves → move_group_master → pachimonの順で投入する
-// (move_group_master/pachimonの外部キー制約を満たすため)。
+// move_groups → moves → move_group_moves → pachimonの順で投入する
+// (move_group_moves/pachimonの外部キー制約を満たすため)。
 //
 // 実行方法: cargo run --bin seed_master_data
 use sqlx::MySqlPool;
 
-use Server::master::{self, MoveGroupMaster, MoveGroups, Moves, Pachimon};
+use Server::master::{self, MoveGroupMoves, MoveGroups, Moves, Pachimon};
 
 #[tokio::main]
 async fn main() {
@@ -28,17 +28,17 @@ async fn main() {
     let moves = master::seed_moves_data();
     seed_moves(&pool, &moves).await;
 
-    let move_group_master = master::seed_move_group_master_data();
-    seed_move_group_master(&pool, &move_group_master).await;
+    let move_group_moves = master::seed_move_group_moves_data();
+    seed_move_group_moves(&pool, &move_group_moves).await;
 
     let pachimon = master::seed_pachimon_data();
     seed_pachimon(&pool, &pachimon).await;
 
     println!(
-        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_master: {}件, pachimon: {}件)",
+        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件)",
         move_groups.len(),
         moves.len(),
-        move_group_master.len(),
+        move_group_moves.len(),
         pachimon.len()
     );
 }
@@ -86,10 +86,10 @@ async fn seed_moves(pool: &MySqlPool, moves: &[Moves]) {
     }
 }
 
-async fn seed_move_group_master(pool: &MySqlPool, rows: &[MoveGroupMaster]) {
+async fn seed_move_group_moves(pool: &MySqlPool, rows: &[MoveGroupMoves]) {
     for r in rows {
         sqlx::query(
-            "INSERT INTO move_group_master (unique_id, group_id, move_id, is_initial) \
+            "INSERT INTO move_group_moves (unique_id, group_id, move_id, is_initial) \
              VALUES (?, ?, ?, ?) \
              ON DUPLICATE KEY UPDATE \
                 group_id = VALUES(group_id), \

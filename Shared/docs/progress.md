@@ -27,10 +27,12 @@ Server側API実装状況までの作業内容・進捗・残タスクを整理�
 
 - [x] スキーマ定義(`schema/tables/*.yaml`, `schema/enums/*.yaml`)
 - [x] CSVデータ配置(`Shared/master-data/csv/`)
-- [ ] クライアント向け生成・配置 → Unityプロジェクト自体(`ProjectSettings/`等)がまだ無いため、
-  `Client/Assets/`配下の生成物(`Scripts/Domain/MasterData/*`, `StreamingAssets/MasterData/
-  masterdata.bytes`)はいったん削除した。`config.yaml`の配置先設定自体は生きているので、
-  Unityプロジェクト作成後に`./run.sh copy-models && ./run.sh copy-client-bytes`で再配置できる
+- [x] クライアント向け生成・配置 → Unityプロジェクト作成後、`config.yaml`の配置先を
+  `Client/AtlasUnityProject/Assets/`配下に更新し、`./run.sh copy-models && ./run.sh copy-loader
+  && ./run.sh copy-client-bytes`で配置済み。`Scripts/Domain/MasterData/*`(型・ローダー)、
+  `masterdata.bytes`は`StreamingAssets`ではなくAddressables経由で配布する方針のため
+  `Assets/Addressables/MasterData/masterdata.bytes`に配置(Addressable Groupへのマーク付けは
+  Unity Editor側の作業として別途必要)
 - [x] サーバー向け生成・配置(`Server/src/master/generated/*.rs`, `Server/master_data/*.json`)
 - [x] `cargo check`によるコンパイル確認
 - [x] `config.yaml`の`realtime_loader_dest_dir`/`realtime_bytes_dest_dir`を、確定した配置先
@@ -51,7 +53,7 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | `pachimon` | 36 | `pachimon_id`は4桁(1001〜1036)。1001-1018がrarity=S、1019-1024がA、1025-1030がB、1031-1036がC |
 | `move_groups` | 36 | 現状は1パチモン=1グループ(仮データ)。スキーマ上は将来の使い回しに対応 |
 | `moves` | 38 | 各パチモン専用技36 + 全グループ共通の汎用技2(状態技は0件) |
-| `move_group_master` | 108 | 技グループ所属技の対応表(旧`move_group_moves`)。代理キー`unique_id`を追加 |
+| `move_group_moves` | 108 | 技グループ所属技の対応表(旧`move_group_master`。「Master」がMasterMemory/MasterDataLoaderと紛らわしいため改名)。代理キー`unique_id`を追加 |
 | `type_chart` | 324 | 18タイプ×18タイプの全組み合わせ(第9世代準拠の標準タイプ相性)。`effectiveness`はENUM(`IMMUNE`/`NOT_VERY_EFFECTIVE`/`NORMAL`/`SUPER_EFFECTIVE`相当) |
 
 ### 残タスク
@@ -86,18 +88,18 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
 - テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計36件)
-- マイグレーション15本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
+- マイグレーション16本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
   move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
   players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
-  scout_banners・scout_rolls)
+  scout_banners・scout_rolls/move_group_master→move_group_movesへのリネーム)
 - `pachimon`マスタはDBに保存し、起動時にメモリキャッシュへ読み込む設計(`src/master/cache.rs`)。
-  `move_group_master`も同様にキャッシュ対象(`moves`/`move_groups`はスカウトのロジック上
+  `move_group_moves`も同様にキャッシュ対象(`moves`/`move_groups`はスカウトのロジック上
   参照不要なためDB投入のみでキャッシュ対象外)。更新時は`cargo run --bin seed_master_data`で
   JSON→DBへUPSERTしてから再起動する運用
 - スカウト(ガチャ)は`design/scout.md`の設計通り実装。`scout_banners`はmaster-data-pipeline対象外
   (専用バイナリ`cargo run --bin seed_scout_banners`で常設バナー1件をUPSERT)。候補10体の抽選は
   `rand`クレート(`WeightedIndex`)でレアリティを重み付き抽選→`pachimon`を等確率選出→IVsをランダム
-  生成(0-31)→`move_group_master.is_initial=TRUE`の技を初期技として確定、という流れ。gems減算は
+  生成(0-31)→`move_group_moves.is_initial=TRUE`の技を初期技として確定、という流れ。gems減算は
   `pool.begin()`によるトランザクションで、offer(roll)作成・候補selectのDB更新はこのコードベースで
   初めての`Transaction`利用
 - `player_pachimon`/`player_pachimon_moves`のモデル・テーブルを実装(outgame.md参照)。levelカラムは
@@ -162,9 +164,10 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
   `master-data-pipeline`とは別モジュール)として実装済み。`dotnet run -- generate`でDTO
   (`Dto/*.cs`)とタグ単位の通信APIクライアント(`Client/*ApiClient.cs`、`UnityWebRequest`を
   `UniTask`でラップ、VContainer非依存)を生成し、`dotnet run -- copy`で
-  `Client/Assets/Scripts/Domain.Api/`へ配置する。詳細は`api-codegen/README.md`参照
+  `Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Api/`へ配置する
+  (Domainレイヤーではないため`Atlas.Infrastructure.Api`名前空間に配置)。詳細は
+  `api-codegen/README.md`参照
 - 残タスク: 生成したC#コードをUnityプロジェクト側で実際にコンパイル確認すること
-  (`ProjectSettings/`等のUnityプロジェクト本体・UniTaskパッケージ導入が未着手のため)。
   `nullable`・列挙型・クエリパラメータはapi-codegen未対応(現状のAPIには存在しないため後回し)
 
 ## 5. 残タスク一覧(統合)

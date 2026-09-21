@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MoveGroupMaster {
+pub struct MoveGroupMoves {
     pub unique_id: i64,
     pub group_id: i64,
     pub move_id: i64,

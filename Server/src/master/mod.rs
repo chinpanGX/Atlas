@@ -2,7 +2,7 @@ pub mod cache;
 pub mod generated;
 
 pub use cache::MasterData;
-pub use generated::{MoveGroupMaster, MoveGroups, Moves, Pachimon, PachimonType, Rarity};
+pub use generated::{MoveGroupMoves, MoveGroups, Moves, Pachimon, PachimonType, Rarity};
 
 /// master-data-pipelineが生成した各種マスタのJSON。
 ///
@@ -15,7 +15,7 @@ pub use generated::{MoveGroupMaster, MoveGroups, Moves, Pachimon, PachimonType, 
 const PACHIMON_JSON: &str = include_str!("../../master_data/pachimon.json");
 const MOVE_GROUPS_JSON: &str = include_str!("../../master_data/move_groups.json");
 const MOVES_JSON: &str = include_str!("../../master_data/moves.json");
-const MOVE_GROUP_MASTER_JSON: &str = include_str!("../../master_data/move_group_master.json");
+const MOVE_GROUP_MOVES_JSON: &str = include_str!("../../master_data/move_group_moves.json");
 
 /// パチモンマスタのJSON文字列をパースする。
 ///
@@ -45,7 +45,7 @@ pub fn parse_moves(json: &str) -> Result<Vec<Moves>, serde_json::Error> {
 ///
 /// # Errors
 /// JSONの形式が不正な場合に`serde_json::Error`を返す。
-pub fn parse_move_group_master(json: &str) -> Result<Vec<MoveGroupMaster>, serde_json::Error> {
+pub fn parse_move_group_moves(json: &str) -> Result<Vec<MoveGroupMoves>, serde_json::Error> {
     serde_json::from_str(json)
 }
 
@@ -77,9 +77,9 @@ pub fn seed_moves_data() -> Vec<Moves> {
 ///
 /// # Panics
 /// 埋め込み済みJSONのパースに失敗した場合(ビルド成果物の不整合)にpanicする。
-pub fn seed_move_group_master_data() -> Vec<MoveGroupMaster> {
-    parse_move_group_master(MOVE_GROUP_MASTER_JSON)
-        .expect("master_data/move_group_master.json のパースに失敗しました")
+pub fn seed_move_group_moves_data() -> Vec<MoveGroupMoves> {
+    parse_move_group_moves(MOVE_GROUP_MOVES_JSON)
+        .expect("master_data/move_group_moves.json のパースに失敗しました")
 }
 
 #[cfg(test)]
@@ -141,30 +141,30 @@ mod tests {
         assert_eq!(moves.len(), 38);
     }
 
-    /// master_data/move_group_master.jsonが正しくパースできることを確認する。
+    /// master_data/move_group_moves.jsonが正しくパースできることを確認する。
     #[test]
-    fn test_parse_move_group_master_loads_master_data() {
-        let rows = parse_move_group_master(MOVE_GROUP_MASTER_JSON).expect("パースに成功するはず");
+    fn test_parse_move_group_moves_loads_master_data() {
+        let rows = parse_move_group_moves(MOVE_GROUP_MOVES_JSON).expect("パースに成功するはず");
         assert_eq!(rows.len(), 108);
     }
 
-    /// move_group_masterの`unique_id`が重複していないことを確認する(マスタデータの整合性検証)。
+    /// move_group_movesの`unique_id`が重複していないことを確認する(マスタデータの整合性検証)。
     #[test]
-    fn test_move_group_master_unique_ids_are_unique() {
-        let rows = parse_move_group_master(MOVE_GROUP_MASTER_JSON).unwrap();
+    fn test_move_group_moves_unique_ids_are_unique() {
+        let rows = parse_move_group_moves(MOVE_GROUP_MOVES_JSON).unwrap();
         let mut ids: Vec<i64> = rows.iter().map(|r| r.unique_id).collect();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), rows.len());
     }
 
-    /// move_group_masterが参照するgroup_id/move_idが、それぞれmove_groups/movesに
+    /// move_group_movesが参照するgroup_id/move_idが、それぞれmove_groups/movesに
     /// 実在することを確認する(FK制約と同等の整合性をユニットテストレベルでも担保する)。
     #[test]
-    fn test_move_group_master_references_are_valid() {
+    fn test_move_group_moves_references_are_valid() {
         let groups = parse_move_groups(MOVE_GROUPS_JSON).unwrap();
         let moves = parse_moves(MOVES_JSON).unwrap();
-        let rows = parse_move_group_master(MOVE_GROUP_MASTER_JSON).unwrap();
+        let rows = parse_move_group_moves(MOVE_GROUP_MOVES_JSON).unwrap();
 
         let group_ids: std::collections::HashSet<i64> =
             groups.iter().map(|g| g.move_group_id).collect();

@@ -54,7 +54,7 @@ cargo run --bin seed_master_data   # master_data/*.json を MySQL へ UPSERT
 ```
 
 **現状 `seed_master_data` は `pachimon` テーブルしか対応していない**
-(`moves` / `move_groups` / `move_group_master` はファイル生成のみでDB未投入、
+(`moves` / `move_groups` / `move_group_moves` はファイル生成のみでDB未投入、
 `Shared/docs/progress.md` 参照)。他テーブルを投入対象にする場合は
 `master-data-schema-add` スキルの手順に従って `cache.rs` / `seed_master_data.rs` を
 先に拡張する必要がある。

@@ -117,12 +117,12 @@ async fn seed_banner(pool: &MySqlPool, cost_per_roll: i32, active: bool) -> Stri
     banner_id
 }
 
-/// スカウトの抽選ロジックが参照するマスタデータ(pachimon/move_groups/moves/move_group_master)を
+/// スカウトの抽選ロジックが参照するマスタデータ(pachimon/move_groups/moves/move_group_moves)を
 /// 直接DBへ投入する。`MasterData`は起動時(`AppState::from_pool`呼び出し時)に一度だけDBから
 /// 読み込まれるため、この呼び出しは`AppState::from_pool`より前に行う必要がある。
 ///
 /// `seed_banner`が`rate_table = {"C": 1.0}`固定なので、候補は必ずrarity=C(4)のパチモンから
-/// 選ばれる。`move_group_master`は`is_initial=true`を1件だけ含める。
+/// 選ばれる。`move_group_moves`は`is_initial=true`を1件だけ含める。
 async fn seed_test_master_data(pool: &MySqlPool) {
     sqlx::query("INSERT INTO move_groups (move_group_id, name) VALUES (1, 'テストグループ')")
         .execute(pool)
@@ -138,7 +138,7 @@ async fn seed_test_master_data(pool: &MySqlPool) {
     .unwrap();
 
     sqlx::query(
-        "INSERT INTO move_group_master (unique_id, group_id, move_id, is_initial) VALUES (1, 1, 1, TRUE)",
+        "INSERT INTO move_group_moves (unique_id, group_id, move_id, is_initial) VALUES (1, 1, 1, TRUE)",
     )
     .execute(pool)
     .await
