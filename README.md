@@ -17,7 +17,7 @@ Atlas/
 
 ## 実装状況(Server)
 
-### 実装済み(結合テスト16件で動作確認済み、`cd Server && cargo test`)
+### 実装済み(結合テスト36件で動作確認済み、`cd Server && cargo test`)
 
 | メソッド | パス | 説明 |
 |---|---|---|
@@ -28,10 +28,13 @@ Atlas/
 | GET | `/players/me` | 自分のプレイヤー情報取得 |
 | POST | `/chat/send` | メッセージ送信 |
 | GET | `/chat/poll` | メッセージ受信/取得 |
+| GET | `/scout/banners` | 開催中のスカウトバナー一覧 |
+| POST | `/scout/rolls` | 紹介を受ける(gems消費・候補10体をロール) |
+| POST | `/scout/rolls/{rollId}/select` | 候補から1体を選んで入手 |
 
 ### 未実装
 
-- パチモン・スカウト系(`/scout/banners`, `/scout/banners/{id}/pull`, `/players/me/pachimon`, `/players/me/party`等)
+- パーティ編成・技の付け替え(`/players/me/pachimon`, `/players/me/party`等)
 - マッチング系(`/battle/queue`等)
 - 内部API(`/internal/battle/result`)
 - MagicOnion(C#)によるリアルタイム対戦サーバー

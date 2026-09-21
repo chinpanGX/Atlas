@@ -80,29 +80,36 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | GET | /players/me |
 | POST | /chat/send |
 | GET | /chat/poll |
+| GET | /scout/banners |
+| POST | /scout/rolls |
+| POST | /scout/rolls/{rollId}/select |
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
-- テスト: `tests/{auth,chat,device,player,master_data}_api_test.rs`
-- マイグレーション6本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化)
+- テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計36件)
+- マイグレーション15本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
+  move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
+  players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
+  scout_banners・scout_rolls)
 - `pachimon`マスタはDBに保存し、起動時にメモリキャッシュへ読み込む設計(`src/master/cache.rs`)。
-  更新時は`cargo run --bin seed_master_data`でJSON→DBへUPSERTしてから再起動する運用
+  `move_group_master`も同様にキャッシュ対象(`moves`/`move_groups`はスカウトのロジック上
+  参照不要なためDB投入のみでキャッシュ対象外)。更新時は`cargo run --bin seed_master_data`で
+  JSON→DBへUPSERTしてから再起動する運用
+- スカウト(ガチャ)は`design/scout.md`の設計通り実装。`scout_banners`はmaster-data-pipeline対象外
+  (専用バイナリ`cargo run --bin seed_scout_banners`で常設バナー1件をUPSERT)。候補10体の抽選は
+  `rand`クレート(`WeightedIndex`)でレアリティを重み付き抽選→`pachimon`を等確率選出→IVsをランダム
+  生成(0-31)→`move_group_master.is_initial=TRUE`の技を初期技として確定、という流れ。gems減算は
+  `pool.begin()`によるトランザクションで、offer(roll)作成・候補selectのDB更新はこのコードベースで
+  初めての`Transaction`利用
+- `player_pachimon`/`player_pachimon_moves`のモデル・テーブルを実装(outgame.md参照)。levelカラムは
+  持たない(全パチモン固定レベル50、design/battle.md参照)
 
 ### 未実装
 
 | セクション | 内容 |
 |---|---|
-| パチモン・スカウト | `/scout/*`, `/players/me/pachimon`, `/players/me/party`, 技の付け替え等 |
 | マッチング | `/battle/queue*` |
 | 内部API | `/internal/battle/result` |
-| `player_pachimon` | プレイヤー所持データのモデル/テーブル自体が未着手 |
-
-### 今回発見したギャップ
-
-`moves` / `move_groups` / `move_group_master` は`master_data/*.json`とRust struct
-(`src/master/generated/`)までは生成・配置済みだが、**`cache.rs`と`seed_master_data.rs`は
-まだ`pachimon`しか扱っていない**。DBテーブル自体も未作成で、マイグレーションのコメントにも
-「move_groupsテーブルが未実装のため外部キー制約を付けない」という古い記述が残ったまま。
-技データはファイルとしては存在するが、DBに投入されておらずAPIサーバーからは参照できない。
+| パーティ編成・技の付け替え | `/players/me/pachimon`, `/players/me/party`, `PUT /players/me/pachimon/{id}/moves/{slot}`(outgame.md #8-10、スカウトでの初期取得とは別) |
 
 ## 4. クライアント / バトルサーバー / API連携
 
@@ -165,14 +172,14 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | # | 内容 | 領域 |
 |---|---|---|
 | 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 | バトルサーバー |
-| 2 | `moves`/`move_groups`/`move_group_master`のDBテーブル作成・`cache.rs`/`seed_master_data.rs`対応 | server/master-data |
-| 3 | `player_pachimon`(所持データ)のモデル・テーブル・API実装 | server |
-| 4 | スカウトAPI(`/scout/*`)実装 | server |
+| ~~2~~ | ~~`moves`/`move_groups`/`move_group_master`のDBテーブル作成・`cache.rs`/`seed_master_data.rs`対応~~ → 完了(マイグレーション追加・`cache.rs`で`move_group_master`をキャッシュ・`seed_master_data`で3テーブルとも投入。詳細は上記「3. Server API実装状況」参照) | server/master-data |
+| ~~3~~ | ~~`player_pachimon`(所持データ)のモデル・テーブル・API実装~~ → 完了(スカウトでの入手時に作成。パーティ編成・技の付け替えAPI自体は引き続き未実装、上記「未実装」参照) | server |
+| ~~4~~ | ~~スカウトAPI(`/scout/*`)実装~~ → 完了(`GET /scout/banners`, `POST /scout/rolls`, `POST /scout/rolls/{rollId}/select`。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
 | 5 | マッチングAPI(`/battle/queue*`)実装 | server |
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
 | 9 | Unityクライアント側の実装一式(プロジェクト構築、通信、UI、ゲームロジック) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
-| 11 | `scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入 | server |
+| ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |

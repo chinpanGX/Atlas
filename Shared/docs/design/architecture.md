@@ -31,6 +31,19 @@ Rust/Axum API Server    C#/MagicOnion Server
 - MagicOnion Hubのリクエスト/レスポンスDTO(`JoinResult`等)はDBと無関係な独立したC#クラス
   なので、C#の規約通り`PascalCase`で定義してよい(命名規則の衝突は起きない)
 
+## クライアント利用ライブラリ
+
+UnityClientは`com.cysharp`/`jp.hadashikick`スコープのOpenUPMレジストリ(`Client/AtlasUnityProject/Packages/manifest.json`の`scopedRegistries`)経由で以下を導入する。ビルド設定はIL2CPP前提。
+
+- DI: VContainer(`jp.hadashikick.vcontainer`)
+- 非同期: UniTask(`com.cysharp.unitask`)
+- シリアライズ: MessagePack for C#(`com.github.messagepack-csharp`) — MasterMemory/MagicOnionが内部で利用
+- マスターデータ: MasterMemory(`com.cysharp.mastermemory`) — `master-data-pipeline`生成物のランタイム
+- リアルタイム対戦通信: MagicOnion Client(`com.cysharp.magiconion.client.unity`)。トランスポートは`Grpc.Net.Client`標準の`SocketsHttpHandler`ではなく`YetAnotherHttpHandler`(`com.cysharp.yetanotherhttphandler`)を使う。IL2CPP環境では標準ハンドラのHTTP/2(ALPN)ネゴシエーションが不安定なため、Editor/IL2CPP問わず同一のネイティブHTTP/2実装に統一する
+- REST通信(認証/スカウト/チャット): 上記とは独立して`UnityWebRequest`のまま。`api-codegen`が生成する`Domain.Api`(`UnityWebRequest`を`UniTask`でラップ、VContainer非依存)を利用する。gRPC側への統一は行わない(RustサーバーをOpenAPI/RESTからprotobuf/gRPCへ作り直すコストに見合わないため)
+- アセット管理: Addressables(`com.unity.addressables`、導入済み)
+- テスト: Unity Test Framework(導入済み)。モンキーテスト(Anjin等)は実装が一定進んでから改めて検討する
+
 ## マスターデータ設計
 
 本家ポケモンのバトルシステムから、天候・フィールド・持ち物・特性・技の追加効果を排除した
