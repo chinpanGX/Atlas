@@ -291,6 +291,26 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 - 以下はミニマム版のスコープ外として明確に対象外とする: 送信済み行動の取り消し、対戦中の
   簡易チャット/リアクション、観戦機能
 
+### 技選択時のPP制限(UI側)
+
+`Atlas.BattleCore`はPP0の技が渡されると例外を投げるのみで、選ばせないための防止策は
+呼び出し側の責務(上記「PP消費」参照)。Atlasでは**Viewが残りPP0の技をボタン非活性/
+非表示にする**ことでこれを担保する(送信そのものを防ぐ)。
+
+- 各技の`max_pp`は`Domain.MasterData`(`moves`テーブル、静的データ)から取得できるが、
+  対戦中に何回消費したか(残りPP)は`PachimonBattleState`/`ActionResult`のどちらにも
+  専用フィールドを持たない。他のフィールド同様「差分のみ送り、フルスナップショットは
+  送らない」設計方針(上記「Payloadは全体スナップショットではなく差分〜」参照)に
+  合わせ、残りPP用の新規フィールドをPayloadに追加することはしない
+- 代わりに`BattlePresenter`がローカルで導出する: 自分側のパチモンが場に出た時点で
+  そのパチモンの技一覧の`max_pp`を初期値として`MoveId`ごとに保持し、以後`OnTurnResult`で
+  `ActionResult.PlayerId == self`かつ`Type == Move`を受信するたびに該当`MoveId`の残りPPを
+  1減算する(命中/外れ/状態技を問わず消費するBattleCore側の仕様と一致させる)
+- `BattleViewState`に技ごとの残りPPを公開する状態
+  (例: `ReactiveProperty<IReadOnlyDictionary<string, int>> SelfMovePp`)を追加し、
+  Viewは残りPPが0の`MoveId`をボタン非活性/非表示にする
+- 相手側の技PPはUIに表示しないため(仕様上不要)、この導出・保持は自分側のみで行う
+
 ### 段階的実装ロードマップ
 
 | Stage | 内容 | 疎通範囲 |
@@ -568,6 +588,14 @@ damage = floor(floor(floor(2 * level / 5 + 2) * base_power * A / D) / 50 + 2)
 
 `category = 'status'`(状態技)は追加効果を実装しない都合上、現状は効果なし。初期習得技
 (`is_initial`)は物理/特殊技のみで構成する運用とする。
+
+### PP消費
+
+技を選択した時点で、命中/外れ/状態技に関わらず対象の技のPPを1消費する(本家ポケモン準拠、
+実装は`PachimonState.ConsumeMovePp`/[PachimonState.cs](../../BattleCore/Runtime/PachimonState.cs)参照)。
+PPが0の技が渡された場合は`ArgumentException`を投げる。呼び出し側がPP0の技を渡さないことを
+前提にした設計であり、その防止策(UIでの選択制限)は下記「[技選択時のPP制限(UI側)]
+(#技選択時のpp制限ui側)」で扱う。
 
 ### 実効ステータス計算
 

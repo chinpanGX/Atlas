@@ -4,5 +4,6 @@ namespace Atlas.BattleCore
         ElementType MoveType,
         MoveCategory Category,
         int BasePower,
-        int Accuracy);
+        int Accuracy,
+        int MaxPp);
 }

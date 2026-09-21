@@ -135,6 +135,9 @@ namespace Atlas.BattleCore
             var defender = defenderSide.Active;
             var move = attacker.Moves[action.MoveIndex];
 
+            // PP消費: 命中/外れ/状態技に関わらず、技を選択した時点で1消費する
+            attacker.ConsumeMovePp(action.MoveIndex);
+
             // 命中判定Section
             bool hit = TurnResolver.RollHit(move, random);
             if (!hit)

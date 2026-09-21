@@ -9,7 +9,7 @@ namespace Atlas.BattleCore.Tests
                 PrimaryType: ElementType.Normal, SecondaryType: null);
 
         private static PachimonState MakePachimon(int speed) =>
-            new(MakeStats(speed), new[] { new MoveData(ElementType.Normal, MoveCategory.Physical, 40, 100) });
+            new(MakeStats(speed), new[] { new MoveData(ElementType.Normal, MoveCategory.Physical, 40, 100, 15) });
 
         private static BattleState MakeState(int p1Speed, int p2Speed) => new(
             new BattleSide(new[] { MakePachimon(p1Speed) }),
@@ -69,7 +69,7 @@ namespace Atlas.BattleCore.Tests
         [Test]
         public void RollHit_RandomAtOrBelowAccuracy_Hits()
         {
-            var move = new MoveData(ElementType.Normal, MoveCategory.Physical, 40, Accuracy: 90);
+            var move = new MoveData(ElementType.Normal, MoveCategory.Physical, 40, Accuracy: 90, MaxPp: 15);
 
             Assert.IsTrue(TurnResolver.RollHit(move, new FixedRandomSource(ints: new[] { 90 })));
             Assert.IsFalse(TurnResolver.RollHit(move, new FixedRandomSource(ints: new[] { 91 })));

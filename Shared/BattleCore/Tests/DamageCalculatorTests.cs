@@ -11,8 +11,8 @@ namespace Atlas.BattleCore.Tests
 
         private static MoveData MakeMove(
             ElementType moveType = ElementType.Normal, MoveCategory category = MoveCategory.Physical,
-            int basePower = 80, int accuracy = 100) =>
-            new(moveType, category, basePower, accuracy);
+            int basePower = 80, int accuracy = 100, int maxPp = 15) =>
+            new(moveType, category, basePower, accuracy, maxPp);
 
         [Test]
         public void Calculate_NoStabNoCritNormalType_MatchesBaseFormula()

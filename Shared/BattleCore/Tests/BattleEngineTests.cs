@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using NUnit.Framework;
 
@@ -9,9 +10,9 @@ namespace Atlas.BattleCore.Tests
             new(Level: 50, Hp: hp, Atk: atk, Def: def, SpAtk: atk, SpDef: def, Speed: speed,
                 PrimaryType: ElementType.Normal, SecondaryType: null);
 
-        private static PachimonState MakeMon(int hp, int atk = 50, int def = 50, int speed = 50, int accuracy = 100) =>
+        private static PachimonState MakeMon(int hp, int atk = 50, int def = 50, int speed = 50, int accuracy = 100, int maxPp = 15) =>
             new(MakeStats(hp, atk, def, speed),
-                new[] { new MoveData(ElementType.Normal, MoveCategory.Physical, BasePower: 40, Accuracy: accuracy) });
+                new[] { new MoveData(ElementType.Normal, MoveCategory.Physical, BasePower: 40, Accuracy: accuracy, MaxPp: maxPp) });
 
         [Test]
         public void ProcessTurn_BothUseMoves_FasterActsFirstAndDamageApplied()
@@ -126,7 +127,7 @@ namespace Atlas.BattleCore.Tests
             var p1 = new BattleSide(new[]
             {
                 new PachimonState(MakeStats(100, 50, 50, 100),
-                    new[] { new MoveData(ElementType.Normal, MoveCategory.Status, BasePower: 0, Accuracy: 100) }),
+                    new[] { new MoveData(ElementType.Normal, MoveCategory.Status, BasePower: 0, Accuracy: 100, MaxPp: 15) }),
             });
             var p2 = new BattleSide(new[] { MakeMon(hp: 100, speed: 10) });
             var state = new BattleState(p1, p2);
@@ -139,6 +140,47 @@ namespace Atlas.BattleCore.Tests
             Assert.IsTrue(outcome.Hit);
             Assert.AreEqual(0, outcome.DamageDealt);
             Assert.AreEqual(100, p2.Active.CurrentHp);
+        }
+
+        [Test]
+        public void ProcessTurn_MoveHits_ConsumesOnePp()
+        {
+            var p1 = new BattleSide(new[] { MakeMon(hp: 100, speed: 100, maxPp: 3) });
+            var p2 = new BattleSide(new[] { MakeMon(hp: 100, speed: 10) });
+            var state = new BattleState(p1, p2);
+            var random = new FixedRandomSource(ints: new[] { 5, 100 }, doubles: new[] { 1.0 });
+            var typeChart = new StaticTypeChart();
+
+            BattleEngine.ProcessTurn(state, PlayerAction.UseMove(0), null, typeChart, random);
+
+            Assert.AreEqual(2, p1.Active.CurrentPp[0]);
+        }
+
+        [Test]
+        public void ProcessTurn_MoveMisses_StillConsumesPp()
+        {
+            var p1 = new BattleSide(new[] { MakeMon(hp: 100, speed: 100, accuracy: 50, maxPp: 3) });
+            var p2 = new BattleSide(new[] { MakeMon(hp: 100, speed: 10) });
+            var state = new BattleState(p1, p2);
+            var random = new FixedRandomSource(ints: new[] { 51 }, doubles: new double[0]);
+            var typeChart = new StaticTypeChart();
+
+            BattleEngine.ProcessTurn(state, PlayerAction.UseMove(0), null, typeChart, random);
+
+            Assert.AreEqual(2, p1.Active.CurrentPp[0]);
+        }
+
+        [Test]
+        public void ProcessTurn_MoveWithNoRemainingPp_ThrowsArgumentException()
+        {
+            var p1 = new BattleSide(new[] { MakeMon(hp: 100, speed: 100, maxPp: 0) });
+            var p2 = new BattleSide(new[] { MakeMon(hp: 100, speed: 10) });
+            var state = new BattleState(p1, p2);
+            var random = new FixedRandomSource();
+            var typeChart = new StaticTypeChart();
+
+            Assert.Throws<ArgumentException>(() =>
+                BattleEngine.ProcessTurn(state, PlayerAction.UseMove(0), null, typeChart, random));
         }
 
         [Test]
