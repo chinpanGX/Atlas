@@ -1,0 +1,1946 @@
+[
+  {
+    "attack_type": 1,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 1
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 2
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 3
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 4
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 5
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 6
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 7
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 8
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 9
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 10
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 11
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 12
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 13,
+    "effectiveness": 2,
+    "type_chart_id": 13
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 14,
+    "effectiveness": 1,
+    "type_chart_id": 14
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 15
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 16
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 17
+  },
+  {
+    "attack_type": 1,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 18
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 19
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 2,
+    "effectiveness": 2,
+    "type_chart_id": 20
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 3,
+    "effectiveness": 2,
+    "type_chart_id": 21
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 22
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 5,
+    "effectiveness": 4,
+    "type_chart_id": 23
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 6,
+    "effectiveness": 4,
+    "type_chart_id": 24
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 25
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 26
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 27
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 28
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 29
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 12,
+    "effectiveness": 4,
+    "type_chart_id": 30
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 13,
+    "effectiveness": 2,
+    "type_chart_id": 31
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 32
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 15,
+    "effectiveness": 2,
+    "type_chart_id": 33
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 34
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 17,
+    "effectiveness": 4,
+    "type_chart_id": 35
+  },
+  {
+    "attack_type": 2,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 36
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 37
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 2,
+    "effectiveness": 4,
+    "type_chart_id": 38
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 3,
+    "effectiveness": 2,
+    "type_chart_id": 39
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 40
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 5,
+    "effectiveness": 2,
+    "type_chart_id": 41
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 42
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 43
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 44
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 9,
+    "effectiveness": 4,
+    "type_chart_id": 45
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 46
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 47
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 48
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 13,
+    "effectiveness": 4,
+    "type_chart_id": 49
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 50
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 15,
+    "effectiveness": 2,
+    "type_chart_id": 51
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 52
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 17,
+    "effectiveness": 3,
+    "type_chart_id": 53
+  },
+  {
+    "attack_type": 3,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 54
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 55
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 56
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 3,
+    "effectiveness": 4,
+    "type_chart_id": 57
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 4,
+    "effectiveness": 2,
+    "type_chart_id": 58
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 5,
+    "effectiveness": 2,
+    "type_chart_id": 59
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 60
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 61
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 62
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 9,
+    "effectiveness": 1,
+    "type_chart_id": 63
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 10,
+    "effectiveness": 4,
+    "type_chart_id": 64
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 65
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 66
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 67
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 68
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 15,
+    "effectiveness": 2,
+    "type_chart_id": 69
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 70
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 17,
+    "effectiveness": 3,
+    "type_chart_id": 71
+  },
+  {
+    "attack_type": 4,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 72
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 73
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 2,
+    "effectiveness": 2,
+    "type_chart_id": 74
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 3,
+    "effectiveness": 4,
+    "type_chart_id": 75
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 76
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 5,
+    "effectiveness": 2,
+    "type_chart_id": 77
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 78
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 79
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 8,
+    "effectiveness": 2,
+    "type_chart_id": 80
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 9,
+    "effectiveness": 4,
+    "type_chart_id": 81
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 10,
+    "effectiveness": 2,
+    "type_chart_id": 82
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 83
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 12,
+    "effectiveness": 2,
+    "type_chart_id": 84
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 13,
+    "effectiveness": 4,
+    "type_chart_id": 85
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 86
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 15,
+    "effectiveness": 2,
+    "type_chart_id": 87
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 88
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 89
+  },
+  {
+    "attack_type": 5,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 90
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 91
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 2,
+    "effectiveness": 2,
+    "type_chart_id": 92
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 3,
+    "effectiveness": 2,
+    "type_chart_id": 93
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 94
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 5,
+    "effectiveness": 4,
+    "type_chart_id": 95
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 6,
+    "effectiveness": 2,
+    "type_chart_id": 96
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 97
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 98
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 9,
+    "effectiveness": 4,
+    "type_chart_id": 99
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 10,
+    "effectiveness": 4,
+    "type_chart_id": 100
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 101
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 102
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 103
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 104
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 15,
+    "effectiveness": 4,
+    "type_chart_id": 105
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 106
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 107
+  },
+  {
+    "attack_type": 6,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 108
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 1,
+    "effectiveness": 4,
+    "type_chart_id": 109
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 110
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 111
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 112
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 113
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 6,
+    "effectiveness": 4,
+    "type_chart_id": 114
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 115
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 8,
+    "effectiveness": 2,
+    "type_chart_id": 116
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 117
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 10,
+    "effectiveness": 2,
+    "type_chart_id": 118
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 11,
+    "effectiveness": 2,
+    "type_chart_id": 119
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 12,
+    "effectiveness": 2,
+    "type_chart_id": 120
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 13,
+    "effectiveness": 4,
+    "type_chart_id": 121
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 14,
+    "effectiveness": 1,
+    "type_chart_id": 122
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 123
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 16,
+    "effectiveness": 4,
+    "type_chart_id": 124
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 17,
+    "effectiveness": 4,
+    "type_chart_id": 125
+  },
+  {
+    "attack_type": 7,
+    "defend_type": 18,
+    "effectiveness": 2,
+    "type_chart_id": 126
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 127
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 128
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 129
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 130
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 5,
+    "effectiveness": 4,
+    "type_chart_id": 131
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 132
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 133
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 8,
+    "effectiveness": 2,
+    "type_chart_id": 134
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 9,
+    "effectiveness": 2,
+    "type_chart_id": 135
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 136
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 137
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 138
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 13,
+    "effectiveness": 2,
+    "type_chart_id": 139
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 14,
+    "effectiveness": 2,
+    "type_chart_id": 140
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 141
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 142
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 17,
+    "effectiveness": 1,
+    "type_chart_id": 143
+  },
+  {
+    "attack_type": 8,
+    "defend_type": 18,
+    "effectiveness": 4,
+    "type_chart_id": 144
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 145
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 2,
+    "effectiveness": 4,
+    "type_chart_id": 146
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 147
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 4,
+    "effectiveness": 4,
+    "type_chart_id": 148
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 5,
+    "effectiveness": 2,
+    "type_chart_id": 149
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 150
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 151
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 8,
+    "effectiveness": 4,
+    "type_chart_id": 152
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 153
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 10,
+    "effectiveness": 1,
+    "type_chart_id": 154
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 155
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 12,
+    "effectiveness": 2,
+    "type_chart_id": 156
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 13,
+    "effectiveness": 4,
+    "type_chart_id": 157
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 158
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 159
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 160
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 17,
+    "effectiveness": 4,
+    "type_chart_id": 161
+  },
+  {
+    "attack_type": 9,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 162
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 163
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 164
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 165
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 4,
+    "effectiveness": 2,
+    "type_chart_id": 166
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 5,
+    "effectiveness": 4,
+    "type_chart_id": 167
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 168
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 7,
+    "effectiveness": 4,
+    "type_chart_id": 169
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 170
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 171
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 172
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 173
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 12,
+    "effectiveness": 4,
+    "type_chart_id": 174
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 13,
+    "effectiveness": 2,
+    "type_chart_id": 175
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 176
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 177
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 178
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 179
+  },
+  {
+    "attack_type": 10,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 180
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 181
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 182
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 183
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 184
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 185
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 186
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 7,
+    "effectiveness": 4,
+    "type_chart_id": 187
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 8,
+    "effectiveness": 4,
+    "type_chart_id": 188
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 189
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 190
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 11,
+    "effectiveness": 2,
+    "type_chart_id": 191
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 192
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 193
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 194
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 195
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 16,
+    "effectiveness": 1,
+    "type_chart_id": 196
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 197
+  },
+  {
+    "attack_type": 11,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 198
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 199
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 2,
+    "effectiveness": 2,
+    "type_chart_id": 200
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 201
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 202
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 5,
+    "effectiveness": 4,
+    "type_chart_id": 203
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 204
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 7,
+    "effectiveness": 2,
+    "type_chart_id": 205
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 8,
+    "effectiveness": 2,
+    "type_chart_id": 206
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 207
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 10,
+    "effectiveness": 2,
+    "type_chart_id": 208
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 11,
+    "effectiveness": 4,
+    "type_chart_id": 209
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 210
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 211
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 14,
+    "effectiveness": 2,
+    "type_chart_id": 212
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 213
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 16,
+    "effectiveness": 4,
+    "type_chart_id": 214
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 215
+  },
+  {
+    "attack_type": 12,
+    "defend_type": 18,
+    "effectiveness": 2,
+    "type_chart_id": 216
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 217
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 2,
+    "effectiveness": 4,
+    "type_chart_id": 218
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 219
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 220
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 221
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 6,
+    "effectiveness": 4,
+    "type_chart_id": 222
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 7,
+    "effectiveness": 2,
+    "type_chart_id": 223
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 224
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 9,
+    "effectiveness": 2,
+    "type_chart_id": 225
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 10,
+    "effectiveness": 4,
+    "type_chart_id": 226
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 227
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 12,
+    "effectiveness": 4,
+    "type_chart_id": 228
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 229
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 230
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 231
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 232
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 233
+  },
+  {
+    "attack_type": 13,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 234
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 1,
+    "effectiveness": 1,
+    "type_chart_id": 235
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 236
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 237
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 238
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 239
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 240
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 241
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 242
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 243
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 244
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 11,
+    "effectiveness": 4,
+    "type_chart_id": 245
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 246
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 247
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 14,
+    "effectiveness": 4,
+    "type_chart_id": 248
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 249
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 16,
+    "effectiveness": 2,
+    "type_chart_id": 250
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 17,
+    "effectiveness": 3,
+    "type_chart_id": 251
+  },
+  {
+    "attack_type": 14,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 252
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 253
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 254
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 255
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 256
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 257
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 258
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 259
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 260
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 261
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 262
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 263
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 264
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 265
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 266
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 15,
+    "effectiveness": 4,
+    "type_chart_id": 267
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 268
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 269
+  },
+  {
+    "attack_type": 15,
+    "defend_type": 18,
+    "effectiveness": 1,
+    "type_chart_id": 270
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 271
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 2,
+    "effectiveness": 3,
+    "type_chart_id": 272
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 273
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 274
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 275
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 276
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 7,
+    "effectiveness": 2,
+    "type_chart_id": 277
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 278
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 279
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 280
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 11,
+    "effectiveness": 4,
+    "type_chart_id": 281
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 282
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 283
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 14,
+    "effectiveness": 4,
+    "type_chart_id": 284
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 285
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 16,
+    "effectiveness": 2,
+    "type_chart_id": 286
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 17,
+    "effectiveness": 3,
+    "type_chart_id": 287
+  },
+  {
+    "attack_type": 16,
+    "defend_type": 18,
+    "effectiveness": 2,
+    "type_chart_id": 288
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 289
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 2,
+    "effectiveness": 2,
+    "type_chart_id": 290
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 3,
+    "effectiveness": 2,
+    "type_chart_id": 291
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 4,
+    "effectiveness": 2,
+    "type_chart_id": 292
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 293
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 6,
+    "effectiveness": 4,
+    "type_chart_id": 294
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 7,
+    "effectiveness": 3,
+    "type_chart_id": 295
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 8,
+    "effectiveness": 3,
+    "type_chart_id": 296
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 297
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 298
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 299
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 300
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 13,
+    "effectiveness": 4,
+    "type_chart_id": 301
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 302
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 15,
+    "effectiveness": 3,
+    "type_chart_id": 303
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 16,
+    "effectiveness": 3,
+    "type_chart_id": 304
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 305
+  },
+  {
+    "attack_type": 17,
+    "defend_type": 18,
+    "effectiveness": 4,
+    "type_chart_id": 306
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 1,
+    "effectiveness": 3,
+    "type_chart_id": 307
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 2,
+    "effectiveness": 2,
+    "type_chart_id": 308
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 3,
+    "effectiveness": 3,
+    "type_chart_id": 309
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 4,
+    "effectiveness": 3,
+    "type_chart_id": 310
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 5,
+    "effectiveness": 3,
+    "type_chart_id": 311
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 6,
+    "effectiveness": 3,
+    "type_chart_id": 312
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 7,
+    "effectiveness": 4,
+    "type_chart_id": 313
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 8,
+    "effectiveness": 2,
+    "type_chart_id": 314
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 9,
+    "effectiveness": 3,
+    "type_chart_id": 315
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 10,
+    "effectiveness": 3,
+    "type_chart_id": 316
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 11,
+    "effectiveness": 3,
+    "type_chart_id": 317
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 12,
+    "effectiveness": 3,
+    "type_chart_id": 318
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 13,
+    "effectiveness": 3,
+    "type_chart_id": 319
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 14,
+    "effectiveness": 3,
+    "type_chart_id": 320
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 15,
+    "effectiveness": 4,
+    "type_chart_id": 321
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 16,
+    "effectiveness": 4,
+    "type_chart_id": 322
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 17,
+    "effectiveness": 2,
+    "type_chart_id": 323
+  },
+  {
+    "attack_type": 18,
+    "defend_type": 18,
+    "effectiveness": 3,
+    "type_chart_id": 324
+  }
+]

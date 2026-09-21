@@ -1,5 +1,6 @@
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::error::AppError;
 use crate::extractor::AuthenticatedDevice;
@@ -7,14 +8,14 @@ use crate::service::{chat_service, player_service};
 use crate::state::AppState;
 
 /// チャット送信APIのリクエストボディ。
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SendMessageRequest {
     pub content: String,
 }
 
 /// チャット送信APIのレスポンスボディ。
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SendMessageResponse {
     pub message_id: String,
@@ -29,6 +30,18 @@ pub struct SendMessageResponse {
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に
 /// `AppError::NotFound`を返す。
+#[utoipa::path(
+    post,
+    path = "/chat/send",
+    request_body = SendMessageRequest,
+    responses(
+        (status = 200, description = "メッセージ送信成功", body = SendMessageResponse),
+        (status = 401, description = "未認証"),
+        (status = 404, description = "プレイヤー未作成"),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "chat",
+)]
 pub async fn send_message_handler(
     State(state): State<AppState>,
     device: AuthenticatedDevice,
@@ -44,7 +57,7 @@ pub async fn send_message_handler(
 }
 
 /// チャットメッセージ1件分のレスポンスDTO。
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageDto {
     pub message_id: String,
@@ -54,7 +67,7 @@ pub struct MessageDto {
 }
 
 /// チャット受信APIのレスポンスボディ。
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PollMessagesResponse {
     pub messages: Vec<MessageDto>,
@@ -64,6 +77,16 @@ pub struct PollMessagesResponse {
 ///
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`を返す。
+#[utoipa::path(
+    get,
+    path = "/chat/poll",
+    responses(
+        (status = 200, description = "メッセージ一覧", body = PollMessagesResponse),
+        (status = 401, description = "未認証"),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "chat",
+)]
 pub async fn poll_messages_handler(
     State(state): State<AppState>,
     _device: AuthenticatedDevice,

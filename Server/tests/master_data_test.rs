@@ -19,6 +19,11 @@ async fn test_load_master_data_when_empty(pool: MySqlPool) {
 /// 正しくロードされることを確認する。
 #[sqlx::test]
 async fn test_load_master_data_with_seeded_rows(pool: MySqlPool) {
+    sqlx::query("INSERT INTO move_groups (move_group_id, name) VALUES (1, 'イフリーガ')")
+        .execute(&pool)
+        .await
+        .unwrap();
+
     sqlx::query(
         "INSERT INTO pachimon \
             (pachimon_id, name, primary_type, secondary_type, base_hp, base_atk, base_def, \

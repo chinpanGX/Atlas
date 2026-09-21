@@ -1,14 +1,17 @@
 // マスタデータ投入コマンド。
 //
-// master-data-pipelineが生成したmaster_data/*.json(現状はpachimon.jsonのみ)を
-// MySQLへUPSERTする。APIサーバー自体は起動時にDBからマスタを読み込みメモリキャッシュを
-// 参照する設計のため、マスタ更新時はこのコマンドを実行してDBへ反映したのち、
-// サーバーを再起動して反映する(詳細はShared/docs/design/architecture.mdの「マスターデータ運用」参照)。
+// master-data-pipelineが生成したmaster_data/*.jsonをMySQLへUPSERTする。APIサーバー自体は
+// 起動時にDBからマスタを読み込みメモリキャッシュを参照する設計のため、マスタ更新時は
+// このコマンドを実行してDBへ反映したのち、サーバーを再起動して反映する(詳細は
+// Shared/docs/design/architecture.mdの「マスターデータ運用」参照)。
+//
+// move_groups → moves → move_group_master → pachimonの順で投入する
+// (move_group_master/pachimonの外部キー制約を満たすため)。
 //
 // 実行方法: cargo run --bin seed_master_data
 use sqlx::MySqlPool;
 
-use Server::master::{self, Pachimon};
+use Server::master::{self, MoveGroupMaster, MoveGroups, Moves, Pachimon};
 
 #[tokio::main]
 async fn main() {
@@ -19,10 +22,88 @@ async fn main() {
         .await
         .expect("Failed to connect to database");
 
+    let move_groups = master::seed_move_groups_data();
+    seed_move_groups(&pool, &move_groups).await;
+
+    let moves = master::seed_moves_data();
+    seed_moves(&pool, &moves).await;
+
+    let move_group_master = master::seed_move_group_master_data();
+    seed_move_group_master(&pool, &move_group_master).await;
+
     let pachimon = master::seed_pachimon_data();
     seed_pachimon(&pool, &pachimon).await;
 
-    println!("マスタデータの投入が完了しました(pachimon: {}件)", pachimon.len());
+    println!(
+        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_master: {}件, pachimon: {}件)",
+        move_groups.len(),
+        moves.len(),
+        move_group_master.len(),
+        pachimon.len()
+    );
+}
+
+async fn seed_move_groups(pool: &MySqlPool, move_groups: &[MoveGroups]) {
+    for g in move_groups {
+        sqlx::query(
+            "INSERT INTO move_groups (move_group_id, name) VALUES (?, ?) \
+             ON DUPLICATE KEY UPDATE name = VALUES(name)",
+        )
+        .bind(g.move_group_id)
+        .bind(&g.name)
+        .execute(pool)
+        .await
+        .unwrap_or_else(|err| {
+            panic!("move_group_id={}のシード投入に失敗しました: {err}", g.move_group_id)
+        });
+    }
+}
+
+async fn seed_moves(pool: &MySqlPool, moves: &[Moves]) {
+    for m in moves {
+        sqlx::query(
+            "INSERT INTO moves \
+                (move_id, name, move_type, category, base_power, accuracy, max_pp) \
+             VALUES (?, ?, ?, ?, ?, ?, ?) \
+             ON DUPLICATE KEY UPDATE \
+                name = VALUES(name), \
+                move_type = VALUES(move_type), \
+                category = VALUES(category), \
+                base_power = VALUES(base_power), \
+                accuracy = VALUES(accuracy), \
+                max_pp = VALUES(max_pp)",
+        )
+        .bind(m.move_id)
+        .bind(&m.name)
+        .bind(m.move_type as u8)
+        .bind(m.category as u8)
+        .bind(m.base_power)
+        .bind(m.accuracy)
+        .bind(m.max_pp)
+        .execute(pool)
+        .await
+        .unwrap_or_else(|err| panic!("move_id={}のシード投入に失敗しました: {err}", m.move_id));
+    }
+}
+
+async fn seed_move_group_master(pool: &MySqlPool, rows: &[MoveGroupMaster]) {
+    for r in rows {
+        sqlx::query(
+            "INSERT INTO move_group_master (unique_id, group_id, move_id, is_initial) \
+             VALUES (?, ?, ?, ?) \
+             ON DUPLICATE KEY UPDATE \
+                group_id = VALUES(group_id), \
+                move_id = VALUES(move_id), \
+                is_initial = VALUES(is_initial)",
+        )
+        .bind(r.unique_id)
+        .bind(r.group_id)
+        .bind(r.move_id)
+        .bind(r.is_initial)
+        .execute(pool)
+        .await
+        .unwrap_or_else(|err| panic!("unique_id={}のシード投入に失敗しました: {err}", r.unique_id));
+    }
 }
 
 async fn seed_pachimon(pool: &MySqlPool, pachimon: &[Pachimon]) {

@@ -1,6 +1,6 @@
 use sqlx::MySqlPool;
 
-use super::{Pachimon, PachimonType, Rarity};
+use super::{MoveGroupMaster, Pachimon, PachimonType, Rarity};
 
 /// 起動時にDBから読み込むマスタデータのメモリキャッシュ。
 ///
@@ -8,8 +8,12 @@ use super::{Pachimon, PachimonType, Rarity};
 /// `load`でこのキャッシュを構築し、以降は`AppState`経由で参照するだけにする
 /// (`Shared/docs/design/architecture.md`の「マスターデータ運用」参照)。マスタ更新の反映は
 /// `seed_master_data`コマンドでのDB再投入とサーバー再起動で行う。
+///
+/// `moves`/`move_groups`はスカウト等のロジックからは参照されない(技IDのみを扱うため)ので
+/// キャッシュ対象外とし、DB上に存在すれば足りるものとしている。
 pub struct MasterData {
     pub pachimon: Vec<Pachimon>,
+    pub move_group_master: Vec<MoveGroupMaster>,
 }
 
 impl MasterData {
@@ -19,8 +23,12 @@ impl MasterData {
     /// DBアクセスに失敗した場合に`sqlx::Error`を返す。
     pub async fn load(pool: &MySqlPool) -> Result<Self, sqlx::Error> {
         let pachimon = load_pachimon(pool).await?;
+        let move_group_master = load_move_group_master(pool).await?;
 
-        Ok(MasterData { pachimon })
+        Ok(MasterData {
+            pachimon,
+            move_group_master,
+        })
     }
 }
 
@@ -83,4 +91,30 @@ fn pachimon_type_from_u8(value: u8) -> PachimonType {
 fn rarity_from_u8(value: u8) -> Rarity {
     serde_json::from_value(serde_json::Value::from(value))
         .unwrap_or_else(|_| panic!("不正なRarity値がDBに保存されています: {value}"))
+}
+
+#[derive(sqlx::FromRow)]
+struct MoveGroupMasterRow {
+    unique_id: i64,
+    group_id: i64,
+    move_id: i64,
+    is_initial: bool,
+}
+
+async fn load_move_group_master(pool: &MySqlPool) -> Result<Vec<MoveGroupMaster>, sqlx::Error> {
+    let rows: Vec<MoveGroupMasterRow> = sqlx::query_as(
+        "SELECT unique_id, group_id, move_id, is_initial FROM move_group_master ORDER BY unique_id",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| MoveGroupMaster {
+            unique_id: row.unique_id,
+            group_id: row.group_id,
+            move_id: row.move_id,
+            is_initial: row.is_initial,
+        })
+        .collect())
 }

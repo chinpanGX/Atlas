@@ -1,5 +1,9 @@
 ﻿use axum::Router;
-use crate::api::{auth, chat, device, player};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
+
+use crate::api::{auth, chat, device, player, scout};
+use crate::openapi::ApiDoc;
 use crate::state::AppState;
 
 pub fn create_router(state: AppState) -> Router {
@@ -14,5 +18,12 @@ pub fn create_router(state: AppState) -> Router {
         .route("/players/me", axum::routing::get(player::get_me_handler))
         .route("/chat/send", axum::routing::post(chat::send_message_handler))
         .route("/chat/poll", axum::routing::get(chat::poll_messages_handler))
+        .route("/scout/banners", axum::routing::get(scout::list_banners_handler))
+        .route("/scout/rolls", axum::routing::post(scout::create_roll_handler))
+        .route(
+            "/scout/rolls/:rollId/select",
+            axum::routing::post(scout::select_roll_handler),
+        )
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(state)
 }

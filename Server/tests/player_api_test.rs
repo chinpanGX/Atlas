@@ -103,7 +103,7 @@ async fn test_create_and_get_player(pool: MySqlPool) {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["nickname"], "テストプレイヤー");
-    assert_eq!(json["gems"], 0);
+    assert_eq!(json["gems"], 300);
     assert!(!json["playerId"].as_str().unwrap().is_empty());
 
     let get_response = get_me(app.clone(), Some(&access_token)).await;
@@ -113,7 +113,7 @@ async fn test_create_and_get_player(pool: MySqlPool) {
         .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["nickname"], "テストプレイヤー");
-    assert_eq!(json["gems"], 0);
+    assert_eq!(json["gems"], 300);
 }
 
 /// 同一デバイスで2回目のプレイヤー作成を行うと409(重複)が返ることを確認する。

@@ -70,5 +70,77 @@
   {
     "move_group_id": 1018,
     "name": "リュウガネ"
+  },
+  {
+    "move_group_id": 1019,
+    "name": "ブレイズホッパー"
+  },
+  {
+    "move_group_id": 1020,
+    "name": "サイコビーコン"
+  },
+  {
+    "move_group_id": 1021,
+    "name": "シャドースプラッシュ"
+  },
+  {
+    "move_group_id": 1022,
+    "name": "ユキビャッコ"
+  },
+  {
+    "move_group_id": 1023,
+    "name": "アクアポルガ"
+  },
+  {
+    "move_group_id": 1024,
+    "name": "フレイムセイジ"
+  },
+  {
+    "move_group_id": 1025,
+    "name": "サンダーグローブ"
+  },
+  {
+    "move_group_id": 1026,
+    "name": "インフェルモス"
+  },
+  {
+    "move_group_id": 1027,
+    "name": "クロスマグナ"
+  },
+  {
+    "move_group_id": 1028,
+    "name": "ハイドロシェル"
+  },
+  {
+    "move_group_id": 1029,
+    "name": "ボーンフレイム"
+  },
+  {
+    "move_group_id": 1030,
+    "name": "オオゾラリュウ"
+  },
+  {
+    "move_group_id": 1031,
+    "name": "トリプルドラガ"
+  },
+  {
+    "move_group_id": 1032,
+    "name": "ブレイズコッコ"
+  },
+  {
+    "move_group_id": 1033,
+    "name": "シフォンテール"
+  },
+  {
+    "move_group_id": 1034,
+    "name": "コウテイガード"
+  },
+  {
+    "move_group_id": 1035,
+    "name": "アックスキング"
+  },
+  {
+    "move_group_id": 1036,
+    "name": "シャドーグリン"
   }
 ]

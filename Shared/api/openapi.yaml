@@ -1,0 +1,577 @@
+# DO NOT EDIT - `cargo run --bin export_openapi` (Server/) が自動生成するファイルです
+openapi: 3.1.0
+info:
+  title: Server
+  description: ''
+  license:
+    name: ''
+  version: 0.1.0
+paths:
+  /auth/verify:
+    get:
+      tags:
+      - auth
+      summary: アクセストークンを検証するAPIハンドラ。
+      description: |-
+        `Authorization: Bearer <access_token>`ヘッダーのトークンが有効であれば`200`、
+        ヘッダーが無い・トークンが無効(期限切れ・存在しない)であれば`401`を返す。
+        検証自体は`AuthenticatedDevice`extractorが行う。
+      operationId: verify_token_handler
+      responses:
+        '200':
+          description: トークンが有効
+        '401':
+          description: トークンが無い、または無効
+      security:
+      - bearer_auth: []
+  /chat/poll:
+    get:
+      tags:
+      - chat
+      summary: 全プレイヤー共通のメッセージ一覧を取得するAPIハンドラ。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`を返す。
+      operationId: poll_messages_handler
+      responses:
+        '200':
+          description: メッセージ一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollMessagesResponse'
+        '401':
+          description: 未認証
+      security:
+      - bearer_auth: []
+  /chat/send:
+    post:
+      tags:
+      - chat
+      summary: メッセージを送信するAPIハンドラ。
+      description: |-
+        認証済みデバイスに紐づくプレイヤーを送信者として、全プレイヤー共通の
+        チャットにメッセージを投稿する。
+
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に
+        `AppError::NotFound`を返す。
+      operationId: send_message_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+        required: true
+      responses:
+        '200':
+          description: メッセージ送信成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMessageResponse'
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
+  /devices:
+    post:
+      tags:
+      - device
+      summary: 新しいデバイスを登録するAPIハンドラ。
+      description: |-
+        リクエストボディの`secret_key`を元にデバイスを登録し、
+        発行された`device_id`をレスポンスとして返す。
+
+        # Arguments
+        * `state` - アプリケーション共有状態(DBコネクションプールなどを含む)
+        * `req` - リクエストボディ(`secret_key`を含む)
+
+        # Returns
+        登録に成功した場合、`device_id`を含む`RegisterDeviceResponse`を返す。
+
+        # Errors
+        デバイス登録処理(`device_service::register`)が失敗した場合に`AppError`を返す。
+      operationId: register_device_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceRequest'
+        required: true
+      responses:
+        '200':
+          description: デバイス登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterDeviceResponse'
+  /devices/authenticate:
+    post:
+      tags:
+      - device
+      summary: デバイスを認証し、アクセストークンを発行するAPIハンドラ。
+      description: |-
+        `device_id` + `secret_key`が一致すればアクセストークンを新規発行する。
+        1つの`device_id`につき有効なトークンは常に1つのみで、再認証時は
+        古いトークンを上書き(無効化)する。
+
+        # Arguments
+        * `state` - アプリケーション共有状態(DBコネクションプールなどを含む)
+        * `req` - リクエストボディ(`device_id`・`secret_key`を含む)
+
+        # Returns
+        認証に成功した場合、`access_token`・`expires_in`を含む
+        `AuthenticateDeviceResponse`を返す。
+
+        # Errors
+        `device_id`が存在しない、または`secret_key`が一致しない場合に
+        `AppError::Unauthorized`を返す。
+      operationId: authenticate_device_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticateDeviceRequest'
+        required: true
+      responses:
+        '200':
+          description: 認証成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticateDeviceResponse'
+        '401':
+          description: device_idまたはsecret_keyが不正
+  /players:
+    post:
+      tags:
+      - player
+      summary: プレイヤーを作成し、認証済みデバイスに紐付けるAPIハンドラ。
+      description: |-
+        1つの`device_id`につきプレイヤーは1件のみで、既に作成済みの場合は`409`を返す。
+
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、既にプレイヤーが存在する場合に
+        `AppError::Conflict`を返す。
+      operationId: create_player_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlayerRequest'
+        required: true
+      responses:
+        '200':
+          description: プレイヤー作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerResponse'
+        '401':
+          description: 未認証
+        '409':
+          description: このデバイスには既にプレイヤーが存在する
+      security:
+      - bearer_auth: []
+  /players/me:
+    get:
+      tags:
+      - player
+      summary: 認証済みデバイスに紐づく自分のプレイヤー情報を取得するAPIハンドラ。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に
+        `AppError::NotFound`を返す。
+      operationId: get_me_handler
+      responses:
+        '200':
+          description: プレイヤー情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerResponse'
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
+  /scout/banners:
+    get:
+      tags:
+      - scout
+      summary: 開催中のスカウトバナー一覧を取得するAPIハンドラ。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`を返す。
+      operationId: list_banners_handler
+      responses:
+        '200':
+          description: 開催中のスカウトバナー一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListBannersResponse'
+        '401':
+          description: 未認証
+      security:
+      - bearer_auth: []
+  /scout/rolls:
+    post:
+      tags:
+      - scout
+      summary: 紹介を受け、gemsを消費して候補10体をロールするAPIハンドラ。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、バナーが存在しない場合に`AppError::NotFound`、
+        バナーが開催期間外またはgemsが不足している場合に`AppError::BadRequest`を返す。
+      operationId: create_roll_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRollRequest'
+        required: true
+      responses:
+        '200':
+          description: 紹介成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateRollResponse'
+        '400':
+          description: バナー開催期間外またはgems不足
+        '401':
+          description: 未認証
+        '404':
+          description: バナー未存在
+      security:
+      - bearer_auth: []
+  /scout/rolls/{rollId}/select:
+    post:
+      tags:
+      - scout
+      summary: 保存済みの候補から1体を選んで恒久的に入手するAPIハンドラ。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、rollが存在しない・自分のものでない場合に
+        `AppError::NotFound`、`index`が範囲外の場合に`AppError::BadRequest`、
+        既に選択済みの場合に`AppError::Conflict`を返す。
+      operationId: select_roll_handler
+      parameters:
+      - name: rollId
+        in: path
+        description: 紹介ID
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectRollRequest'
+        required: true
+      responses:
+        '200':
+          description: 入手成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectRollResponse'
+        '400':
+          description: indexが範囲外
+        '401':
+          description: 未認証
+        '404':
+          description: roll未存在
+        '409':
+          description: 既に選択済み
+      security:
+      - bearer_auth: []
+components:
+  schemas:
+    AuthenticateDeviceRequest:
+      type: object
+      description: |-
+        デバイス認証APIのリクエストボディ。
+
+        # Fields
+        * `device_id` - 認証対象のデバイスID
+        * `secret_key` - デバイス登録時に指定した秘密鍵(平文)
+      required:
+      - deviceId
+      - secretKey
+      properties:
+        deviceId:
+          type: string
+        secretKey:
+          type: string
+    AuthenticateDeviceResponse:
+      type: object
+      description: |-
+        デバイス認証APIのレスポンスボディ。
+
+        # Fields
+        * `access_token` - 発行されたアクセストークン
+        * `expires_in` - アクセストークンの有効期間(秒)
+      required:
+      - accessToken
+      - expiresIn
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+    BannerDto:
+      type: object
+      description: |-
+        スカウトバナー1件分のレスポンスDTO。排出率(`rate_table`)は含めない
+        (`Shared/docs/design/scout.md`参照)。
+      required:
+      - bannerId
+      - name
+      - costPerRoll
+      - startAt
+      - endAt
+      properties:
+        bannerId:
+          type: string
+        costPerRoll:
+          type: integer
+          format: int32
+        endAt:
+          type: string
+          format: date-time
+        name:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+    CandidateDto:
+      type: object
+      description: 紹介の候補1体分のレスポンスDTO。
+      required:
+      - index
+      - pachimonId
+      - rarity
+      - ivs
+      - moves
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        ivs:
+          $ref: '#/components/schemas/IvsDto'
+        moves:
+          type: array
+          items:
+            type: integer
+            format: int64
+        pachimonId:
+          type: integer
+          format: int64
+        rarity:
+          type: string
+    CreatePlayerRequest:
+      type: object
+      description: プレイヤー作成APIのリクエストボディ。
+      required:
+      - nickname
+      properties:
+        nickname:
+          type: string
+    CreateRollRequest:
+      type: object
+      description: 紹介を受けるAPIのリクエストボディ。
+      required:
+      - bannerId
+      properties:
+        bannerId:
+          type: string
+    CreateRollResponse:
+      type: object
+      description: 紹介を受けるAPIのレスポンスボディ。
+      required:
+      - rollId
+      - candidates
+      - gems
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateDto'
+        gems:
+          type: integer
+          format: int32
+        rollId:
+          type: string
+    IvsDto:
+      type: object
+      description: 個体値のレスポンスDTO。
+      required:
+      - hp
+      - atk
+      - def
+      - spatk
+      - spdef
+      - speed
+      properties:
+        atk:
+          type: integer
+          format: int32
+        def:
+          type: integer
+          format: int32
+        hp:
+          type: integer
+          format: int32
+        spatk:
+          type: integer
+          format: int32
+        spdef:
+          type: integer
+          format: int32
+        speed:
+          type: integer
+          format: int32
+    ListBannersResponse:
+      type: object
+      description: スカウトバナー一覧APIのレスポンスボディ。
+      required:
+      - banners
+      properties:
+        banners:
+          type: array
+          items:
+            $ref: '#/components/schemas/BannerDto'
+    MessageDto:
+      type: object
+      description: チャットメッセージ1件分のレスポンスDTO。
+      required:
+      - messageId
+      - playerId
+      - content
+      - createdAt
+      properties:
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messageId:
+          type: string
+        playerId:
+          type: string
+    PlayerResponse:
+      type: object
+      description: プレイヤー情報のレスポンスボディ。
+      required:
+      - playerId
+      - nickname
+      - gems
+      properties:
+        gems:
+          type: integer
+          format: int32
+        nickname:
+          type: string
+        playerId:
+          type: string
+    PollMessagesResponse:
+      type: object
+      description: チャット受信APIのレスポンスボディ。
+      required:
+      - messages
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageDto'
+    RegisterDeviceRequest:
+      type: object
+      description: |-
+        デバイス登録APIのリクエストボディ。
+
+        # Fields
+        * `secret_key` - クライアント側で生成されたランダムな秘密鍵(平文)
+      required:
+      - secretKey
+      properties:
+        secretKey:
+          type: string
+    RegisterDeviceResponse:
+      type: object
+      description: |-
+        デバイス登録APIのレスポンスボディ。
+
+        # Fields
+        * `device_id` - 新規に発行されたデバイスID
+      required:
+      - deviceId
+      properties:
+        deviceId:
+          type: string
+    SelectRollRequest:
+      type: object
+      description: 候補から1体を選ぶAPIのリクエストボディ。
+      required:
+      - index
+      properties:
+        index:
+          type: integer
+          format: int32
+    SelectRollResponse:
+      type: object
+      description: 候補から1体を選んで入手するAPIのレスポンスボディ。
+      required:
+      - playerPachimonId
+      - pachimonId
+      - rarity
+      properties:
+        pachimonId:
+          type: integer
+          format: int64
+        playerPachimonId:
+          type: string
+        rarity:
+          type: string
+    SendMessageRequest:
+      type: object
+      description: チャット送信APIのリクエストボディ。
+      required:
+      - content
+      properties:
+        content:
+          type: string
+    SendMessageResponse:
+      type: object
+      description: チャット送信APIのレスポンスボディ。
+      required:
+      - messageId
+      - createdAt
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        messageId:
+          type: string
+  securitySchemes:
+    bearer_auth:
+      type: http
+      scheme: bearer
+      bearerFormat: access_token
+tags:
+- name: device
+  description: デバイス登録・認証
+- name: auth
+  description: アクセストークン検証
+- name: player
+  description: プレイヤー管理
+- name: chat
+  description: チャット
+- name: scout
+  description: スカウト(ガチャ)

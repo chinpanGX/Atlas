@@ -35,8 +35,8 @@ Rust側からDBへ直接INSERT/UPSERTする運用とする。期間限定バナ�
 | # | メソッド | パス | 説明 | 認証 |
 |---|---|---|---|---|
 | 1 | GET | `/scout/banners` | 開催中のスカウトバナー(セレクト)一覧 | 要 |
-| 2 | POST | `/scout/banners/{id}/offers` | 紹介を受ける(gems消費・候補10体をロール) | 要 |
-| 3 | POST | `/scout/offers/{offerId}/select` | 候補から1体を選んで入手 | 要 |
+| 2 | POST | `/scout/rolls` | 紹介を受ける(gems消費・候補10体をロール) | 要 |
+| 3 | POST | `/scout/rolls/{rollId}/select` | 候補から1体を選んで入手 | 要 |
 
 ### 1. スカウトバナー一覧
 
@@ -51,7 +51,7 @@ GET /scout/banners
 ```json
 {
   "banners": [
-    { "bannerId": "...", "name": "ピックアップスカウト", "costPerOffer": 150, "startAt": "...", "endAt": "..." }
+    { "bannerId": "...", "name": "ピックアップスカウト", "costPerRoll": 150, "startAt": "...", "endAt": "..." }
   ]
 }
 ```
@@ -59,24 +59,35 @@ GET /scout/banners
 ### 2. 紹介を受ける
 
 ```
-POST /scout/banners/{id}/offers
+POST /scout/rolls
 ```
 
-リクエストボディなし。呼び出すたびに1回分のgemsを消費し、新しい候補10体をロールする。
+リクエスト
+
+```json
+{ "bannerId": "..." }
+```
+
+`bannerId`は`GET /scout/banners`で取得した開催中バナーのIDを指定する。呼び出すたびに1回分の
+gemsを消費し、新しい候補10体をロールする。
+
+`bannerId`をURLパス(`/scout/banners/{id}/rolls`)ではなくbodyに置いているのは、一般的なREST設計
+(識別子はパスに置く)よりも、ソーシャルゲームでよく使われるRPCスタイル(パラメータをbodyに集約し、
+仕様変更に強くする)を優先した判断。`/chat/send`等、他のAtlas APIの命名とも一貫性がある。
 
 処理の流れ:
 
 1. 対象バナーが開催期間内(`start_at <= now <= end_at`)か検証
-2. `players.gems`から`cost_per_offer`を減算(不足していれば`400`)
+2. `players.gems`から`cost_per_roll`を減算(不足していれば`400`)
 3. 候補10体を独立に抽選(下記「抽選ロジック」参照)。パチモン・個体値・技はこの時点で確定する
-4. `scout_offers`に候補10体をまとめて保存(`selected_index`は`NULL`)
+4. `scout_rolls`に候補10体をまとめて保存(`selected_index`は`NULL`)
 5. 候補一覧を返す
 
 レスポンス
 
 ```json
 {
-  "offerId": "...",
+  "rollId": "...",
   "candidates": [
     {
       "index": 0,
@@ -93,7 +104,7 @@ POST /scout/banners/{id}/offers
 ### 3. 候補から1体を選んで入手
 
 ```
-POST /scout/offers/{offerId}/select
+POST /scout/rolls/{rollId}/select
 ```
 
 リクエスト
@@ -104,13 +115,13 @@ POST /scout/offers/{offerId}/select
 
 処理の流れ:
 
-1. `offerId`が呼び出し元プレイヤー自身のものであること、`selected_index`が未確定である
+1. `rollId`が呼び出し元プレイヤー自身のものであること、`selected_index`が未確定である
    ことを検証(二重選択防止)
 2. `index`の妥当性検証(0-9)
 3. `candidates[index]`の内容(`pachimonId`・`ivs`・`moves`)をそのまま`player_pachimon` /
    `player_pachimon_moves`へコピーして登録(再抽選はしない。紹介時点で確定済みの個体を
    そのまま入手する)
-4. `scout_offers.selected_index` / `selected_at`を更新
+4. `scout_rolls.selected_index` / `selected_at`を更新
 5. 選ばなかった9体はどこにも永続化されない
 
 レスポンス
@@ -143,7 +154,7 @@ POST /scout/offers/{offerId}/select
 3. 個体値(`ivs`)をランダム生成(範囲・形式は`player_pachimon.ivs`に準拠)
 4. `move_group_master`の`is_initial = TRUE`の技を、その候補の確定技セットとして保持
 
-生成した10体分をまとめて`scout_offers.candidates`(JSON)に保存する。選択(`select`)時は
+生成した10体分をまとめて`scout_rolls.candidates`(JSON)に保存する。選択(`select`)時は
 再抽選を行わず、保存済みの内容をそのまま`player_pachimon`にコピーするだけでよい。
 
 - 同レアリティ内は均等抽選(重み付けが必要になったら`pachimon`に`weight`カラムを追加で対応)
@@ -158,15 +169,15 @@ POST /scout/offers/{offerId}/select
 | `banner_id` | CHAR(26) | PRIMARY KEY | ULID |
 | `name` | VARCHAR(100) | NOT NULL | |
 | `rate_table` | JSON | NOT NULL | レアリティ別確率。合計1.0(例: `{"S":0.03,"A":0.12,"B":0.35,"C":0.50}`) |
-| `cost_per_offer` | INT | NOT NULL | 紹介1回(候補10体ロール)あたりのgems消費量 |
+| `cost_per_roll` | INT | NOT NULL | 紹介1回(候補10体ロール)あたりのgems消費量 |
 | `start_at` | DATETIME(3) | NOT NULL | |
 | `end_at` | DATETIME(3) | NOT NULL | |
 
-### scout_offers(紹介の記録)
+### scout_rolls(紹介の記録)
 
 | カラム名 | 型 | 制約 | 説明 |
 |---|---|---|---|
-| `offer_id` | CHAR(26) | PRIMARY KEY | ULID |
+| `roll_id` | CHAR(26) | PRIMARY KEY | ULID |
 | `player_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `players.player_id` | |
 | `banner_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `scout_banners.banner_id` | |
 | `candidates` | JSON | NOT NULL | 候補10体の配列。各要素は`{"pachimonId":12,"rarity":"S","ivs":{...},"moves":[3,7,12,18]}` |
@@ -180,7 +191,7 @@ POST /scout/offers/{offerId}/select
 
 ## 未確定の論点
 
-- gemsは紹介(`offers`)作成時点で消費が確定する。選択(`select`)せず放置した場合も
+- gemsは紹介(`rolls`)作成時点で消費が確定する。選択(`select`)せず放置した場合も
   返却されない(本家のトライアル無料仕様とは異なるが、シンプル化のためこの挙動を許容する)
-- 未選択のまま残った`scout_offers`に有効期限・自動失効の仕組みは設けない
+- 未選択のまま残った`scout_rolls`に有効期限・自動失効の仕組みは設けない
   (初期スコープ外。運用上問題になれば追加検討)

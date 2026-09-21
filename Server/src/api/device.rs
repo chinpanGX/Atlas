@@ -1,5 +1,6 @@
 ﻿use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::error::AppError;
 use crate::service::{auth_service, device_service};
@@ -9,7 +10,7 @@ use crate::state::AppState;
 ///
 /// # Fields
 /// * `secret_key` - クライアント側で生成されたランダムな秘密鍵(平文)
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterDeviceRequest {
     pub secret_key: String,
@@ -19,7 +20,7 @@ pub struct RegisterDeviceRequest {
 ///
 /// # Fields
 /// * `device_id` - 新規に発行されたデバイスID
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterDeviceResponse {
     pub device_id: String,
@@ -39,6 +40,15 @@ pub struct RegisterDeviceResponse {
 ///
 /// # Errors
 /// デバイス登録処理(`device_service::register`)が失敗した場合に`AppError`を返す。
+#[utoipa::path(
+    post,
+    path = "/devices",
+    request_body = RegisterDeviceRequest,
+    responses(
+        (status = 200, description = "デバイス登録成功", body = RegisterDeviceResponse),
+    ),
+    tag = "device",
+)]
 pub async fn register_device_handler(
     State(state): State<AppState>,
     Json(req): Json<RegisterDeviceRequest>,
@@ -55,7 +65,7 @@ pub async fn register_device_handler(
 /// # Fields
 /// * `device_id` - 認証対象のデバイスID
 /// * `secret_key` - デバイス登録時に指定した秘密鍵(平文)
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticateDeviceRequest {
     pub device_id: String,
@@ -67,7 +77,7 @@ pub struct AuthenticateDeviceRequest {
 /// # Fields
 /// * `access_token` - 発行されたアクセストークン
 /// * `expires_in` - アクセストークンの有効期間(秒)
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticateDeviceResponse {
     pub access_token: String,
@@ -91,6 +101,16 @@ pub struct AuthenticateDeviceResponse {
 /// # Errors
 /// `device_id`が存在しない、または`secret_key`が一致しない場合に
 /// `AppError::Unauthorized`を返す。
+#[utoipa::path(
+    post,
+    path = "/devices/authenticate",
+    request_body = AuthenticateDeviceRequest,
+    responses(
+        (status = 200, description = "認証成功", body = AuthenticateDeviceResponse),
+        (status = 401, description = "device_idまたはsecret_keyが不正"),
+    ),
+    tag = "device",
+)]
 pub async fn authenticate_device_handler(
     State(state): State<AppState>,
     Json(req): Json<AuthenticateDeviceRequest>,

@@ -10,8 +10,10 @@ axum = "0.7"
 # 非同期ランタイム。axum/sqlxの async fn を実行するために必須
 tokio = { version = "1", features = ["full"] }
 
-# DBアクセス(MySQL)。マイグレーション管理・コンパイル時クエリチェックも担う
-sqlx = { version = "0.8", features = ["runtime-tokio", "mysql", "macros", "chrono"] }
+# DBアクセス(MySQL)。マイグレーション管理・コンパイル時クエリチェックも担う。
+# jsonフィーチャは、スカウトのivs/candidates等のJSON列をsqlx::types::Json<T>で
+# 直接bind/decodeするために使用する
+sqlx = { version = "0.8", features = ["runtime-tokio", "mysql", "macros", "chrono", "json"] }
 
 # .envファイルから環境変数(DATABASE_URLなど)を読み込む
 dotenvy = "0.15"
@@ -30,6 +32,15 @@ ulid = "1"
 
 # secret_keyのハッシュ化(パスワードの安全な保存)に使用
 argon2 = "0.5"
+
+# handlerの#[utoipa::path]注釈からOpenAPI仕様書(api.yaml)を生成する
+utoipa = { version = "5", features = ["chrono", "yaml"] }
+
+# 生成したOpenAPI仕様書をブラウザで確認するためのSwagger UI(/swagger-ui)
+utoipa-swagger-ui = { version = "8", features = ["axum"] }
+
+# スカウトの排出率抽選・個体値のランダム生成に使用
+rand = "0.8"
 
 
 [dev-dependencies]

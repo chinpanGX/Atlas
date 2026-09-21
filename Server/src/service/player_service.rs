@@ -36,7 +36,7 @@ pub async fn create(pool: &MySqlPool, device_id: &str, nickname: &str) -> Result
         player_id,
         device_id: device_id.to_string(),
         nickname: nickname.to_string(),
-        gems: 0,
+        gems: 300,
         created_at: Utc::now().naive_utc(),
     })
 }

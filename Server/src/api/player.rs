@@ -1,5 +1,6 @@
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::error::AppError;
 use crate::extractor::AuthenticatedDevice;
@@ -7,14 +8,14 @@ use crate::service::player_service;
 use crate::state::AppState;
 
 /// プレイヤー作成APIのリクエストボディ。
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CreatePlayerRequest {
     pub nickname: String,
 }
 
 /// プレイヤー情報のレスポンスボディ。
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerResponse {
     pub player_id: String,
@@ -29,6 +30,18 @@ pub struct PlayerResponse {
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`、既にプレイヤーが存在する場合に
 /// `AppError::Conflict`を返す。
+#[utoipa::path(
+    post,
+    path = "/players",
+    request_body = CreatePlayerRequest,
+    responses(
+        (status = 200, description = "プレイヤー作成成功", body = PlayerResponse),
+        (status = 401, description = "未認証"),
+        (status = 409, description = "このデバイスには既にプレイヤーが存在する"),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "player",
+)]
 pub async fn create_player_handler(
     State(state): State<AppState>,
     device: AuthenticatedDevice,
@@ -48,6 +61,17 @@ pub async fn create_player_handler(
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に
 /// `AppError::NotFound`を返す。
+#[utoipa::path(
+    get,
+    path = "/players/me",
+    responses(
+        (status = 200, description = "プレイヤー情報", body = PlayerResponse),
+        (status = 401, description = "未認証"),
+        (status = 404, description = "プレイヤー未作成"),
+    ),
+    security(("bearer_auth" = [])),
+    tag = "player",
+)]
 pub async fn get_me_handler(
     State(state): State<AppState>,
     device: AuthenticatedDevice,
