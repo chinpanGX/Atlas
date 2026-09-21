@@ -27,11 +27,16 @@ Server側API実装状況までの作業内容・進捗・残タスクを整理�
 
 - [x] スキーマ定義(`schema/tables/*.yaml`, `schema/enums/*.yaml`)
 - [x] CSVデータ配置(`Shared/master-data/csv/`)
-- [x] クライアント向け生成・配置(`Client/Assets/Scripts/Domain.MasterData/*`, `masterdata.bytes`)
+- [ ] クライアント向け生成・配置 → Unityプロジェクト自体(`ProjectSettings/`等)がまだ無いため、
+  `Client/Assets/`配下の生成物(`Scripts/Domain/MasterData/*`, `StreamingAssets/MasterData/
+  masterdata.bytes`)はいったん削除した。`config.yaml`の配置先設定自体は生きているので、
+  Unityプロジェクト作成後に`./run.sh copy-models && ./run.sh copy-client-bytes`で再配置できる
 - [x] サーバー向け生成・配置(`Server/src/master/generated/*.rs`, `Server/master_data/*.json`)
 - [x] `cargo check`によるコンパイル確認
-- [ ] realtime_server(MagicOnion)プロジェクトが未作成のため、`copy_destinations`の該当パスが仮のまま
-  (`__REALTIME_SERVER_NOT_YET_CREATED__`)
+- [x] `config.yaml`の`realtime_loader_dest_dir`/`realtime_bytes_dest_dir`を、確定した配置先
+  (`BattleServer/`、design/battle.md参照)に更新(プレースホルダ`__REALTIME_SERVER_NOT_YET_CREATED__`から変更)
+- [ ] `BattleServer/`プロジェクト自体がまだ存在しないため、`copy-loader`/`copy-realtime-bytes`は
+  引き続き実行できない(パスは正しいが対象ディレクトリが無い)
 
 ## 2. マスターデータ内容(パチモン・技)
 
@@ -47,12 +52,16 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | `move_groups` | 36 | 現状は1パチモン=1グループ(仮データ)。スキーマ上は将来の使い回しに対応 |
 | `moves` | 38 | 各パチモン専用技36 + 全グループ共通の汎用技2(状態技は0件) |
 | `move_group_master` | 108 | 技グループ所属技の対応表(旧`move_group_moves`)。代理キー`unique_id`を追加 |
+| `type_chart` | 324 | 18タイプ×18タイプの全組み合わせ(第9世代準拠の標準タイプ相性)。`effectiveness`はENUM(`IMMUNE`/`NOT_VERY_EFFECTIVE`/`NORMAL`/`SUPER_EFFECTIVE`相当) |
 
 ### 残タスク
 
 - [x] `rarity`がS以外(A/B/C)のパチモンが無い問題 → 使用率ランキング19-36位を元にA/B/C各6体を追加し解消(`scout_banners.rate_table`が機能する状態になった)
-- [ ] `type_chart`(タイプ相性表)未実装。`multiplier`がDECIMAL前提だが、パイプラインの型システムが
-      int/string/bool/enumのみで小数非対応のため設計要検討(int化 or 倍率enum化)
+- [x] `type_chart`(タイプ相性表)未実装 → `effectiveness`ENUM(`type_effectiveness.yaml`)+代理キー
+      `type_chart_id`で複合UNIQUE制約を回避する形でテーブル追加。全324行投入し
+      `normalize-csv`/`resolve-enums`/`validate`/`generate-csharp`/`build-client`/`build-server`
+      まで一通り実行して検証済み(`cargo check`も確認)。ENUM→倍率変換・複合タイプの掛け合わせは
+      `Atlas.BattleCore`側にハードコードする方針(design/battle.md参照)
 - [ ] 技の内容が最小限(専用技1+共通技2のみ、状態技0件、技の付け替え候補の広がりが薄い)
 - [ ] `base_power`のNULL代替(0埋め)運用が実データ未検証(状態技が無いため)
 
@@ -95,7 +104,7 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 「move_groupsテーブルが未実装のため外部キー制約を付けない」という古い記述が残ったまま。
 技データはファイルとしては存在するが、DBに投入されておらずAPIサーバーからは参照できない。
 
-## 4. クライアント / リアルタイムサーバー / API連携
+## 4. クライアント / バトルサーバー / API連携
 
 design/architecture.mdの全体構成(`Unity Client ←REST→ Rust/Axum`, `Unity Client ←gRPC/StreamingHub→ C#/MagicOnion`)
 に対して、現状は以下の状態。
@@ -106,31 +115,64 @@ design/architecture.mdの全体構成(`Unity Client ←REST→ Rust/Axum`, `Unit
 Models/Enums/`masterdata.bytes`)以外に実体が無い。Unityプロジェクトとしての体裁
 (`ProjectSettings/`, `Packages/`等)自体が未作成で、通信・UI・ゲームロジックは何も無い状態。
 
-### リアルタイムサーバー(C#/MagicOnion)
+### Atlas.BattleCore(Shared/BattleCore/)
+
+design/battle.md「バトルコアロジック(ダメージ計算・命中率)」「内部構造(Section / Event /
+EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0の骨組みからStage 1相当へ)。
+
+- `BattleEngine.ProcessTurn`を唯一の公開エントリポイントとして、ターン処理Section
+  (強制交代チェック→行動順決定→行動実行→交代/技効果→命中判定→ダメージ計算→瀕死チェック→
+  技効果後処理)を実装。技効果後処理は`MoveHitEvent`/`IMoveHitEventHandler`によるEventフックの
+  形にしてあり、現状反応するEventHandlerは0個(設計通り)
+- ダメージ計算式(`DamageCalculator`)・行動順決定と命中判定(`TurnResolver`)は
+  `IRandomSource`/`ITypeChart`経由で乱数・タイプ相性を注入する形で実装し、`Domain.MasterData`や
+  UnityEngineには依存しない
+- Unity EditModeテスト(`Tests/`配下、`DamageCalculatorTests`/`TurnResolverTests`/
+  `BattleEngineTests`)を追加。シード固定の`FixedRandomSource`/`StaticTypeChart`で決定論的に
+  検証(ダメージ計算式・STAB・タイプ相性(複合タイプの丸め含む)・急所・最低保証ダメージ1・
+  行動順序・強制交代の強制/解消・全滅による決着等)。dotnet CLIでのビルド確認は行ったが、
+  Unity Editor上での実行(EditModeテストランナー)自体は未実施(Unityプロジェクトが未構築のため)
+
+呼び出し側(Client側`MockBattleConnection`、バトルサーバー側`IBattleHub`実装)は両方ともまだ
+存在しないため、Atlas.BattleCoreは単体では動くが実際のバトル画面・通信からはまだ呼ばれていない。
+
+### バトルサーバー(C#/MagicOnion)
 
 design/battle.mdで「対戦中の判定をメモリ上で行う」役割として設計されているが、プロジェクト自体が
-まだ存在しない(`realtime_server`に相当するディレクトリが無い)。`IBattleHub`等のHub定義、
-選出フェーズ、ダメージ計算ロジックはすべて未着手。
+まだ存在しない(`BattleServer/`は`.gitkeep`のみ)。`IBattleHub`等のHub定義、選出フェーズは未着手。
+ダメージ計算・行動順決定のロジック自体は`Atlas.BattleCore`側に実装済みのため、Hub実装時は
+そちらを呼び出すだけで済む(上記「Atlas.BattleCore」参照)。
 
 ### APIサーバー ⇔ Unity Client 間のコード生成(API codegen)
 
-`Shared/docs/feature-api-codegen.md`に構想メモがあるが未実装。Rustのhandlerから
-`utoipa`で`api.yaml`(OpenAPI仕様書)を生成し、そこからUnity側のRequest/Response型を
-自動生成する仕組み(候補: `openapi-generator` / `NSwag` / 自作スクリプト)。現状はREST APIの
-型がRust側にしか存在せず、Unity側で使う型は手書きするか未定義の状態。
+`Shared/docs/feature-api-codegen.md`参照。①②とも実装済み。
+
+- ①Rust handler→OpenAPI(`utoipa`):全handler(`device`/`auth`/`player`/`chat`/`scout`)に
+  `#[utoipa::path(...)]`を付与し、`cargo run --bin export_openapi`(`Server/`)で
+  `Shared/api/openapi.yaml`を生成できる。サーバー起動中は`/swagger-ui`でSwagger UIとしても
+  確認できる(Postman代替)
+- ②OpenAPI→Unity C#:プロジェクト非依存の共通ツール`api-codegen`(Atlasリポジトリ直下、
+  `master-data-pipeline`とは別モジュール)として実装済み。`dotnet run -- generate`でDTO
+  (`Dto/*.cs`)とタグ単位の通信APIクライアント(`Client/*ApiClient.cs`、`UnityWebRequest`を
+  `UniTask`でラップ、VContainer非依存)を生成し、`dotnet run -- copy`で
+  `Client/Assets/Scripts/Domain.Api/`へ配置する。詳細は`api-codegen/README.md`参照
+- 残タスク: 生成したC#コードをUnityプロジェクト側で実際にコンパイル確認すること
+  (`ProjectSettings/`等のUnityプロジェクト本体・UniTaskパッケージ導入が未着手のため)。
+  `nullable`・列挙型・クエリパラメータはapi-codegen未対応(現状のAPIには存在しないため後回し)
 
 ## 5. 残タスク一覧(統合)
 
 | # | 内容 | 領域 |
 |---|---|---|
-| 1 | realtime_server(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 | realtime_server |
+| 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 | バトルサーバー |
 | 2 | `moves`/`move_groups`/`move_group_master`のDBテーブル作成・`cache.rs`/`seed_master_data.rs`対応 | server/master-data |
 | 3 | `player_pachimon`(所持データ)のモデル・テーブル・API実装 | server |
 | 4 | スカウトAPI(`/scout/*`)実装 | server |
 | 5 | マッチングAPI(`/battle/queue*`)実装 | server |
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
-| 7 | `type_chart`(タイプ相性)の設計・実装 | master-data/pipeline |
+| ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
 | 9 | Unityクライアント側の実装一式(プロジェクト構築、通信、UI、ゲームロジック) | client |
-| 10 | API codegen(Rust handler→OpenAPI→Unity C#型)の導入 | server/client連携 |
+| ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | 11 | `scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入 | server |
+| ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |

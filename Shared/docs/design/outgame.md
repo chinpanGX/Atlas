@@ -171,7 +171,6 @@ GET /players/me/pachimon
     {
       "playerPachimonId": "...",
       "pachimonId": 12,
-      "level": 5,
       "partySlot": null,
       "moves": [ { "slot": 1, "moveId": 3 } ]
     }
@@ -197,7 +196,6 @@ PUT /players/me/party
 2. 同一`player_pachimon_id`を複数slotに設定不可
 3. 同一パチモンの重複は許可(本家の「同種族1体まで」制約は入れない)
 4. 指定した`player_pachimon_id`が呼び出したプレイヤー自身の所持個体であることをサーバー側で検証
-5. レベル制限はなし(将来拡張)
 
 ### 10. 技の付け替え
 
@@ -266,7 +264,6 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 | `player_pachimon_id` | CHAR(26) | PRIMARY KEY | ULID |
 | `player_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `players.player_id` | |
 | `pachimon_id` | INT | NOT NULL, FOREIGN KEY → `pachimon.pachimon_id` | |
-| `level` | INT | NOT NULL | |
 | `ivs` | JSON | NOT NULL | |
 | `party_slot` | INT | NULL可 | 1-6、NULL=ボックス。`UNIQUE(player_id, party_slot)` |
 | `effort_values` | JSON | NOT NULL | 例: `{"hp":0,"atk":0,"def":0,"spatk":0,"spdef":0,"speed":0}`、デフォルト全0(将来の努力値64ポイント配分用、現状は未使用) |
@@ -286,7 +283,11 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 複製して初期セットする(詳細は[scout.md](scout.md)参照)。技の付け替えは、このテーブルの
 対象slotをUPDATEするだけで実現でき、マスタ側の変更は不要。
 
+**レベルについて**: このゲームはバトルが主目的であり、経験値によるレベルアップという育成要素は
+持たない。全パチモンは内部的に固定レベル50(競技対戦フォーマットの慣例)として扱う。
+プレイヤーごと・個体ごとに変動する値ではないため`player_pachimon`にカラムを持たせず、
+`Atlas.BattleCore`側の定数として保持する(詳細は[battle.md](battle.md)参照)。
+
 ## 未確定の論点
 
-- パーティ編成のレベル制限は将来拡張として保留
 - 努力値(64ポイント)の自由配分機能とその上限チェックは未実装(`effort_values`カラムは用意済み)

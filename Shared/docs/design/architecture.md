@@ -104,24 +104,29 @@ defend_type) → effectiveness`という関係(マップ)のみで、`effectiven
 ## マスターデータ運用
 
 - 正(source of truth)は`Shared/master-data/`のスキーマ・CSV。
-  `master-data-pipeline`(別リポジトリ、Atlas配下にclone)がこれを読み込み、Unity/realtime_server
-  共有のC#型(`Shared/MasterData/`、後述)・Unity向け`masterdata.bytes`・realtime_server向け
-  `masterdata.bytes`相当のバイナリ・Rust向け`*.rs`/`*.json`を生成する
-- C#の型(Models/Enums)は`Shared/MasterData/`にUnity Package(UPM)+薄い`.csproj`として配置し、
-  ClientとrealtimeServerの両方が同じ型を参照する(`Shared/BattleCore`と同じ構成。詳細は
-  [battle.md](battle.md)参照)
+  `master-data-pipeline`(別リポジトリ、Atlas配下にclone)がこれを読み込み、C#型(Models/Enums、
+  `MasterMemory`+`MessagePack`ベース)・`masterdata.bytes`(常に暗号化)・Rust向け`*.rs`/`*.json`
+  を生成する
+- C#の型(Models/Enums)とローダー(`MasterDataLoader.cs`/`AesCrypto.cs`)はUnityEngineに依存しない
+  Pure C#で生成される。**専用の共有パッケージ(UPM等)は作らない**。`master-data-pipeline`自体が
+  同一の生成物をClientとバトルサーバーの両方へ個別にコピーする仕組み(`copy-models` /
+  `copy-loader` / `copy-client-bytes` / `copy-realtime-bytes`)を既に持っているため、
+  `config.yaml`の`copy_destinations`(`realtime_loader_dest_dir`/`realtime_bytes_dest_dir`は
+  `BattleServer/`配下を指すよう設定済み、プロジェクト作成後に有効化する)を書き換えるだけで
+  両方に同じ型・同じ実データが配置される(2箇所にコピーされるだけで、実体は常にスキーマ+CSV
+  から再生成されるため乖離しない)
 - 実データ(値)の読み込み方法は対象ごとに異なる:
   - Client: `Assets/StreamingAssets/masterdata.bytes`をアプリ起動時に読み込む
   - Rust/Axum: 起動時にDBから全マスタを1回読み込み、`Arc<MasterData>`としてメモリに保持する
     (`Server/src/master/cache.rs`)。各リクエストハンドラはこのキャッシュを参照するだけ
-  - realtime_server: Clientと同様に`masterdata.bytes`相当のバイナリを`RealtimeServer/`配下に
+  - バトルサーバー: Clientと同様に`masterdata.bytes`相当のバイナリを`BattleServer/`配下に
     直接配置し、起動時に読み込んでメモリに保持する。DBへの接続やRust内部APIへの問い合わせは
     行わない(Rustの「DBキャッシュ」方式より単純な「ファイル配置のみ」で済ませる)
 - マスタ更新の反映は「`cargo run --bin seed_master_data`でJSON→DBへUPSERT → Rustサーバー再起動」
-  (Rust)、「pipelineで生成→配置→再起動」(Client/realtime_server)で行う。無停止反映の仕組みは、
+  (Rust)、「pipelineで生成→配置→再起動」(Client/バトルサーバー)で行う。無停止反映の仕組みは、
   1台構成の現状の規模では過剰と判断し採用しない
 - Clientへのmasterdata配布をCDN(S3+CloudFront)経由にする案を検討中だが、バージョニング・
-  差分検知等の詳細は現時点では対象外として保留する。realtime_server/Rustの読み込み方式には
+  差分検知等の詳細は現時点では対象外として保留する。バトルサーバー/Rustの読み込み方式には
   影響しない
 - 実装状況(`pachimon`のみDB投入・キャッシュ済み、`moves`/`move_groups`/`move_group_master`は
   ファイル生成のみでDB未投入 等)は[progress.md](../progress.md)を参照

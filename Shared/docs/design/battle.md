@@ -5,12 +5,12 @@
 
 ## 実装アーキテクチャ(共通モジュール・段階的実装・自動テスト)
 
-Unity Client、C#/MagicOnionサーバー(realtime_server、未作成)のどちらも同じダメージ計算・
+Unity Client、C#/MagicOnionサーバー(バトルサーバー、未作成)のどちらも同じダメージ計算・
 行動順決定ロジックを持つ必要があるため、両者から参照できる共通モジュールとして切り離す。
-その上で、クライアント単体→APIサーバー込み→realtime_server本番実装、という順に段階を
+その上で、クライアント単体→APIサーバー込み→バトルサーバー本番実装、という順に段階を
 踏んで実装する。
 
-realtime_serverは`Client/`, `Server/`, `Shared/`と並ぶリポジトリルート直下に`RealtimeServer/`
+バトルサーバーは`Client/`, `Server/`, `Shared/`と並ぶリポジトリルート直下に`BattleServer/`
 として配置する(`Server/`がRust API用の名前のため、命名の対称性を取る)。以降の相対パス
 表記(`../Shared/BattleCore/...`等)はこの配置を前提とする。
 
@@ -31,7 +31,7 @@ Connection層: IBattleConnection(Client)
   │   Atlas.BattleCoreを直接呼ぶ                │   Atlas.BattleCoreは呼ばない(結果を受信のみ)
   │                                            │ ネットワーク(gRPC/StreamingHub, MagicOnion)
   ▼                                            ▼
-Atlas.BattleCore(Shared、依存ゼロ)     ◄─呼ぶ─  realtime_server: IBattleHub実装(Stage 3のみ)
+Atlas.BattleCore(Shared、依存ゼロ)     ◄─呼ぶ─  バトルサーバー: IBattleHub実装(Stage 3のみ)
   Section/Event/EventHandler                    Domain.MasterData→BattleCore用の型に変換
                                                  ConcurrentDictionary<matchId, BattleState>
                                                  │ /internal/battle/result(対戦終了時)
@@ -40,8 +40,9 @@ Atlas.BattleCore(Shared、依存ゼロ)     ◄─呼ぶ─  realtime_server: IB
                                          /battle/queue*(マッチング)
                                          battle_matches/battle_turnsへ記録
 
-横断的に存在: Shared/MasterData(Domain.MasterDataの型をUPM+csprojで共有)。
-実データ(masterdata.bytes相当)はClient/realtime_serverがそれぞれ個別にロードする。
+横断的に存在: Domain.MasterData(master-data-pipelineが生成するC#型)。専用の共有パッケージは
+作らず、pipeline自身のcopy-models/copy-loader/copy-*-bytesがClient/バトルサーバー双方へ
+同一の生成物を個別コピーする(architecture.md「マスターデータ運用」参照)。
 Atlas.BattleCoreからは直接参照されない(呼び出し側が変換する)
 ```
 
@@ -51,14 +52,14 @@ Atlas.BattleCoreからは直接参照されない(呼び出し側が変換する
 | Presenter(`BattlePresenter`) | View↔Connectionの仲介、状態のローカル保持 | UniTask, R3, VContainer(DI) | 1〜3 |
 | Connection(`IBattleConnection`) | Mock/Realの切り替え境界 | UniTask、(Mockのみ)`Domain.MasterData`、(Realのみ)MagicOnion Client | 1〜3(実装が変わる) |
 | `Atlas.BattleCore` | ダメージ計算・行動順決定・Section/Event/EventHandler | なし(.NET BCLのみ) | 1〜3(呼び出し元が変わる) |
-| realtime_server(`IBattleHub`) | 対戦の権威側の判定、ブロードキャスト | MagicOnion, `Atlas.BattleCore`, `Domain.MasterData` | 3のみ |
+| バトルサーバー(`IBattleHub`) | 対戦の権威側の判定、ブロードキャスト | MagicOnion, `Atlas.BattleCore`, `Domain.MasterData` | 3のみ |
 | APIサーバー(Rust) | マッチング、結果記録、報酬付与 | Axum, MySQL | 1〜3(マッチングはStage2から) |
-| `Shared/MasterData` | マスタデータの型・実データ共有 | MessagePack, MasterMemory(検討中) | 1〜3 |
+| `Domain.MasterData`(master-data-pipeline生成) | マスタデータの型・実データ(Client/バトルサーバーへ個別コピー) | MessagePack, MasterMemory | 1〜3 |
 
 ### 共通モジュール(Atlas.BattleCore)
 
 `Shared/BattleCore/`にUnity Package(UPM)として配置する。UPMはUnity専用の仕組みで
-realtime_server(Unity外の通常の.NETプロジェクト)からは参照できないため、同じソース
+バトルサーバー(Unity外の通常の.NETプロジェクト)からは参照できないため、同じソース
 フォルダに対して**薄い`.csproj`を併設**し、両者が同一の`.cs`ファイル群を直接参照する形にする。
 
 ```
@@ -73,23 +74,32 @@ Shared/BattleCore/
   Tests/
     Atlas.BattleCore.Tests.asmdef      -- Unity EditModeテスト
     DamageCalculatorTests.cs
-  Atlas.BattleCore.csproj              -- <Compile Include="Runtime/**/*.cs" /> のみ。realtime_server用
+  Atlas.BattleCore.csproj              -- <Compile Include="Runtime/**/*.cs" /> のみ。バトルサーバー用
 ```
 
 - Client側: `Packages/manifest.json`に`"com.atlas.battlecore": "file:../../Shared/BattleCore"`
   でローカルパッケージ参照
-- realtime_server側: `<ProjectReference Include="../Shared/BattleCore/Atlas.BattleCore.csproj" />`
+- バトルサーバー側: `<ProjectReference Include="../Shared/BattleCore/Atlas.BattleCore.csproj" />`
 - `Atlas.BattleCore`は`UnityEngine`・`MagicOnion`・ネットワーク関連の型に一切依存しない
   Pure C#で実装する。`IBattleHub`のDTO(`MoveRequest`等)やUnityの`Random`はこの層に
   持ち込まず、呼び出し側(Hub実装・Client側Connection層)で変換する
 - 乱数(命中判定・急所・ダメージ`0.85〜1.00`)は`IRandomSource`経由で注入し、テスト時は
   シード固定・決定論的な実装に差し替えられるようにする
-- `Atlas.BattleCore`は`Shared/MasterData`(`Domain.MasterData`、[architecture.md](architecture.md)
-  参照)の生成型にも依存しない。以下のような自前の最小型のみを持つ
+- `Atlas.BattleCore`は`Domain.MasterData`(master-data-pipelineが生成するC#型、
+  [architecture.md](architecture.md)参照)の生成型にも依存しない。以下のような自前の
+  最小型のみを持つ
 
   ```csharp
   public enum ElementType { Normal, Fire, Water, /* ... */ }
   public enum MoveCategory { Physical, Special, Status }
+
+  public static class BattleConstants
+  {
+      // このゲームはバトルが主目的で経験値によるレベルアップを持たないため、
+      // 全パチモンは固定レベル50(競技対戦フォーマットの慣例)として扱う。
+      // player_pachimonにlevelカラムは無い(design/outgame.md参照)
+      public const int FixedLevel = 50;
+  }
 
   public readonly record struct ParticipantStats(
       int Level, int Hp, int Atk, int Def, int SpAtk, int SpDef, int Speed,
@@ -99,9 +109,10 @@ Shared/BattleCore/
       ElementType MoveType, MoveCategory Category, int BasePower, int Accuracy);
   ```
 
-  マスタ(`Domain.MasterData`)+プレイヤー所持データ(レベル・個体値等)から`ParticipantStats`/
-  `MoveData`への変換は、呼び出し側(Client Mockのマッピング処理・realtime_serverのHub実装)が
-  それぞれ持つ。BattleCore自身はテストも含めて`Domain.MasterData`を一切必要としない
+  マスタ(`Domain.MasterData`)+プレイヤー所持データ(個体値等)+`BattleConstants.FixedLevel`から
+  `ParticipantStats`/`MoveData`への変換は、呼び出し側(Client Mockのマッピング処理・
+  バトルサーバーのHub実装)がそれぞれ持つ。BattleCore自身はテストも含めて`Domain.MasterData`を
+  一切必要としない
 
 ### 内部構造(Section / Event / EventHandler)
 
@@ -192,8 +203,9 @@ public record PachimonSlot(bool IsRevealed, PachimonBattleState? State);
 // 具体的にどの種族かは場に出るまで分からない、という状態を表現する
 
 public record PachimonBattleState(
-    string PlayerPachimonId, int PachimonId, int Level,
-    int HpPercent, bool IsFainted);
+    string PlayerPachimonId, int PachimonId, int HpPercent, bool IsFainted);
+// Levelは持たない。全パチモン共通の固定値(Atlas.BattleCore.BattleConstants.FixedLevel = 50)
+// なので送信不要(UI側で「Lv.50」と固定表示すればよい)
 // HpPercentは0〜100の整数(丸め)。CurrentHp/MaxHpの生値は自分側・相手側とも送らない。
 // 生値を送るとダメージ量(=ダメージ計算式の出力そのもの)が丸わかりになり、STAB・急所
 // 倍率・乱数範囲といった定数を逆算されやすくなるため
@@ -210,7 +222,7 @@ public record ActionResult(
 // 送り、実際に何%減ったかはPresenterが直前に保持していた値との差分で表現する(表示上の
 // アニメーション用であり、厳密なダメージ量として使わない)
 // Switch時: NewActiveIndexに交代後のインデックスを入れる。相手側の枠が今回初めて
-// 場に出た(初公開)場合のみRevealedPachimonに種族・レベル等を入れる。既知の枠への
+// 場に出た(初公開)場合のみRevealedPachimonに種族等を入れる。既知の枠への
 // 再出し・自分自身の交代の場合はnullでよい(Presenter側で既に保持している情報を使う)
 
 public enum ActionType { Move, Switch, Skip }   // Skip = タイムアウト or 強制交代未対応
@@ -286,7 +298,7 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 | 0 | `Atlas.BattleCore`の骨組み作成(ディレクトリ・asmdef・csproj・EditModeテスト雛形) | なし |
 | 1 | クライアント単体でバトルが完結することを確認 | Client内のみ(ネットワーク通信なし) |
 | 2 | APIサーバー(Rust)込みで疎通確認 | Client ⇔ Rust(`/battle/queue*`) |
-| 3 | realtime_server(MagicOnion)へ本番ロジックを移植 | Client ⇔ realtime_server ⇔ Rust(内部API) |
+| 3 | バトルサーバー(MagicOnion)へ本番ロジックを移植 | Client ⇔ バトルサーバー ⇔ Rust(内部API) |
 
 **Stage 1(クライアント単体)**
 
@@ -305,7 +317,7 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 
 - Rust側に`/battle/queue`系(待機列参加・離脱・マッチ成立確認)を実装し、実際の
   マッチング〜`battleToken`発行までを疎通させる
-- realtime_serverはまだ無いため、`battleToken`取得後のバトル本体は引き続き
+- バトルサーバーはまだ無いため、`battleToken`取得後のバトル本体は引き続き
   `MockBattleConnection`(Stage 1のロジック)で処理する。つまり「マッチングは本物、
   対戦はMock」という組み合わせで、APIサーバー連携部分だけを先に固める
   - 「対戦はMock」の意味: 実際に2人のクライアントがマッチングされても、各クライアントは
@@ -313,9 +325,9 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
     進める。この段階の目的は「マッチングAPIの疎通確認」であり、2人同時のMock対戦合わせを
     実現するものではない
 
-**Stage 3(realtime_server移行)**
+**Stage 3(バトルサーバー移行)**
 
-- `realtime_server`プロジェクトを新規作成し、`Atlas.BattleCore.csproj`を
+- `バトルサーバー`プロジェクトを新規作成し、`Atlas.BattleCore.csproj`を
   `ProjectReference`で参照
 - `IBattleHub`(既存定義、下記参照)を実装し、ダメージ計算・行動順決定は
   `Atlas.BattleCore`をそのまま呼び出す(Stage 1で書いたロジックを再実装しない)
@@ -541,6 +553,8 @@ damage = floor(floor(floor(2 * level / 5 + 2) * base_power * A / D) / 50 + 2)
          * STAB * TypeEffectiveness * Critical * Random
 ```
 
+- `level` = 全パチモン共通の固定値(`Atlas.BattleCore.BattleConstants.FixedLevel = 50`)。
+  このゲームは経験値によるレベルアップを持たないため、個体ごとに変動しない
 - `A` = 攻撃側の実効ステータス(物理技ならatk、特殊技ならspatk)
 - `D` = 防御側の実効ステータス(物理技ならdef、特殊技ならspdef)
 - `STAB` = 技の`move_type`が攻撃側の`primary_type`または`secondary_type`と一致するなら
@@ -548,7 +562,7 @@ damage = floor(floor(floor(2 * level / 5 + 2) * base_power * A / D) / 50 + 2)
 - `TypeEffectiveness` = `type_chart`から取得した`effectiveness`(ENUM)を倍率に変換し、
   複合タイプ(secondary_type)は2回引いて掛け合わせる。`Atlas.BattleCore`は`ITypeChart`
   (`GetMultiplier(attackType, defendType)`)という抽象だけを持ち、実装(マスタからの読み込み)
-  は呼び出し側(Client Mock / realtime_server)が注入する(`IRandomSource`と同じ注入パターン)
+  は呼び出し側(Client Mock / バトルサーバー)が注入する(`IRandomSource`と同じ注入パターン)
 - `Critical` = 発生率固定(1/16程度)、発生時ダメージ`1.5`倍。ランク変動要素はなし
 - `Random` = `0.85〜1.00`の乱数
 
@@ -562,7 +576,8 @@ HP以外 = floor((2 * base + IV + floor(EV/4)) * level / 100) + 5
 HP     = floor((2 * base + IV + floor(EV/4)) * level / 100) + level + 10
 ```
 
-`effort_values`は現状全て0。性格(nature)補正は本家にあるがマスタ設計に存在しないためなし。
+`level`はダメージ計算式と同じく固定値50。`effort_values`は現状全て0。性格(nature)補正は
+本家にあるがマスタ設計に存在しないためなし。
 
 ### 瀕死・交代
 
