@@ -455,7 +455,7 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
 
 プレイヤー作成時(`POST /signup`、[outgame.md](outgame.md)参照)に、初期gemsとして
 `300`を付与する(`player_items`に`item_id: 1`・`quantity: 300`の行を作成、
-[outgame.md](outgame.md)「player_items」参照)。スカウトの紹介コスト例(`150`/回)の
+[architecture.md](architecture.md)「所持リソース設計(items / gems)」参照)。スカウトの紹介コスト例(`150`/回)の
 2回分に相当し、初回起動時点で最低限スカウトを試せるようにする。
 
 ### 対戦勝利報酬

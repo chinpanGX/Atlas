@@ -106,8 +106,9 @@ POST /signup
 `player`作成と同一トランザクションで、`starter_party_slots`マスタ(下記「スターター編成」
 参照)の内容をそのまま複製して初期パーティ(`player_pachimon`・`player_party_slots`)を
 自動付与する。プレイヤーは作成直後から対戦可能な状態になる(選択制ではなく、全プレイヤー
-共通の単一固定編成)。同じトランザクションで`player_items`(下記「DB設計」参照)に
-`item_id: 1`(gems)・`quantity: 300`の行も作成する。gemsの初期値(`300`)と、対戦報酬による
+共通の単一固定編成)。同じトランザクションで`player_items`([architecture.md](architecture.md)
+「所持リソース設計(items / gems)」参照)に`item_id: 1`(gems)・`quantity: 300`の行も作成する。
+gemsの初期値(`300`)と、対戦報酬による
 gems付与の設計は[battle.md](battle.md)の「報酬設計(gems)」を参照。
 
 作成したプレイヤーのデータはこのレスポンスでは返さない。クライアントは`POST /signup`
@@ -309,23 +310,13 @@ POST /edit/pachimon_moves
 | `nickname` | VARCHAR(50) | NOT NULL | プレイヤー名 |
 | `created_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) | 作成日時 |
 
-gems等の所持数は本テーブルに持たず、`player_items`(下記)で管理する。
+gems等の所持数は本テーブルに持たず、`player_items`([architecture.md](architecture.md)
+「所持リソース設計(items / gems)」参照)で管理する。
 
 ### player_items(所持アイテム)
 
-| カラム名 | 型 | 制約 | 説明 |
-|---|---|---|---|
-| `player_id` | CHAR(26) | PRIMARY KEY(複合), FOREIGN KEY → `players.player_id` | |
-| `item_id` | INT | PRIMARY KEY(複合), FOREIGN KEY → `items.item_id` | `items`マスタ(architecture.md「マスターデータ設計」参照)。`item_id: 1`がgems |
-| `quantity` | INT | NOT NULL | 所持数(絶対値) |
-| `updated_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) | |
-
-`player_pachimon`のような割当エンティティ(ULID主キー)ではなく、`(player_id, item_id)`複合PKの
-単純な所持数テーブルにした。アイテムは「何個持っているか」だけが意味を持ち、パーティ編成や
-技の付け替えのように個々の割当を独立したエンティティとして参照する必要が無いため。
-`POST /signup`で`item_id: 1`(gems)・`quantity: 300`の行を作成し、以後は
-`INSERT ... ON DUPLICATE KEY UPDATE`で`quantity`を増減する(スカウトのgems消費は
-[scout.md](scout.md)、対戦報酬のgems付与は[battle.md](battle.md)参照)。
+テーブル定義・設計方針は[architecture.md](architecture.md)「所持リソース設計(items / gems)」
+に集約した(gems等、複数機能をまたいで参照される所持リソースのため)。
 
 ### messages
 

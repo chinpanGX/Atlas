@@ -31,6 +31,40 @@ Rust/Axum API Server    C#/MagicOnion Server
 - MagicOnion Hubのリクエスト/レスポンスDTO(`JoinResult`等)はDBと無関係な独立したC#クラス
   なので、C#の規約通り`PascalCase`で定義してよい(命名規則の衝突は起きない)
 
+## 所持リソース設計(items / gems)
+
+プレイヤーが所持する数量ベースのリソース(gems・将来追加する育成素材等)は、`players`テーブルに
+`gems`のような専用カラムを持たせず、マスタ`items`(下記「マスターデータ設計」参照)+所持数
+テーブル`player_items`という共通の形で一元管理する。「何を」「いくつ」持っているかを
+`(player_id, item_id)`の複合PKで表現する単純な所持数テーブルであり、`player_pachimon`のような
+割当エンティティ(ULID主キー)とは異なる(個々の行を独立したエンティティとして参照する必要が
+無いため)。
+
+現状は`item_id: 1`(ジェム、`gems`)のみを投入する。`quantity`は絶対値(差分ではなく所持数
+そのもの)で、加減算はサーバーが権威を持つ。
+
+### player_items(所持アイテム)
+
+| カラム名 | 型 | 制約 | 説明 |
+|---|---|---|---|
+| `player_id` | CHAR(26) | PRIMARY KEY(複合), FOREIGN KEY → `players.player_id` | |
+| `item_id` | INT | PRIMARY KEY(複合), FOREIGN KEY → `items.item_id` | `items`マスタ(下記「マスターデータ設計」参照)。`item_id: 1`がgems |
+| `quantity` | INT | NOT NULL | 所持数(絶対値) |
+| `updated_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) | |
+
+`INSERT ... ON DUPLICATE KEY UPDATE`で`quantity`を増減する運用を基本とする。
+
+### 各機能での扱い(参照)
+
+`player_items`(gemsを含む)の増減は以下のAPIがそれぞれ担当する。詳細は各設計書を参照。
+
+- 初期付与(`item_id: 1`・`quantity: 300`): `POST /signup`(プレイヤー作成時)、
+  [outgame.md](outgame.md)「4. サインアップ(プレイヤー作成)」参照
+- 消費: `POST /scout/rolls`(紹介1回ごとに`cost_per_roll`を減算)、[scout.md](scout.md)参照
+- 付与: 対戦勝利報酬(`/internal/battle/result`内、固定`50`gems)、
+  [battle.md](battle.md)「報酬設計(gems)」参照
+- APIレスポンスへの反映: `playerDiff.items`(下記「APIレスポンス設計」参照)
+
 ## APIレスポンス設計(通常レスポンス / player_diff)
 
 複数のAPI(サインイン・スカウト確定等)がプレイヤーの所持データ(gems・パチモン等)を変化させる。
@@ -84,11 +118,9 @@ Rust/Axum API Server    C#/MagicOnion Server
   更新された行)/`removed`(削除された行のID)を持つ、共通の差分形式に揃える。`playerDiff`を
   返すAPIは常にこの4種別すべてを含める(変化が無いリソースは`upserted`/`removed`とも空配列)。
   新しいリソース種別(今後の育成素材等)を追加する場合もこの形を踏襲する
-- `items`(`PlayerItemDto`: `itemId`/`quantity`)は`player_items`(`outgame.md`参照)にそのまま
-  対応する。`gems`は`item_id: 1`の`quantity`として表現する(マスタ`items`、architecture.md
-  「マスターデータ設計」参照)。`quantity`は絶対値(差分ではなく所持数そのもの)で、
-  加減算はサーバーが権威を持つ。今後、育成で消費する素材アイテム等を追加する場合もこの
-  リソース種別に行を増やすだけでよい
+- `items`(`PlayerItemDto`: `itemId`/`quantity`)は`player_items`にそのまま対応する(テーブル
+  定義・`gems`(`item_id: 1`)の扱いは上記「所持リソース設計(items / gems)」参照)。今後、
+  育成で消費する素材アイテム等を追加する場合もこのリソース種別に行を増やすだけでよい
 - `pachimon`(`PlayerPachimonDto`: `playerPachimonId`/`pachimonId`)と`pachimonMoveMap`
   (`PlayerPachimonMoveDto`: `playerPachimonMoveId`/`playerPachimonId`/`slot`/`moveId`)は
   `player_pachimon`/`player_pachimon_moves`という別テーブルにそのまま対応させ、独立した
@@ -231,9 +263,8 @@ name           -- 表示名
 ```
 
 現状は`item_id: 1`(ジェム、`gems`)のみを投入する。育成要素(将来、育成素材等を消費する形を
-想定)を実装する際に行を追加する。所持数は`player_items`(所持アイテム、[outgame.md](outgame.md)
-参照)で管理し、`players`テーブルに`gems`のような専用カラムは持たない(旧設計からの変更点。
-下記「APIレスポンス設計」参照)。
+想定)を実装する際に行を追加する。プレイヤーの所持数(`player_items`)を含む設計は上記
+「所持リソース設計(items / gems)」を参照。
 
 ### type_chart(タイプ相性マスタ)
 
