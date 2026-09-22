@@ -2,6 +2,8 @@
 //
 // POST /players (プレイヤー作成) と GET /players/me (自分のプレイヤー情報取得) のテスト。
 // - test_create_and_get_player: 作成→取得の正常系(nickname/gemsの内容を確認)
+// - test_create_player_grants_starter_party: starter_party_slotsマスタの内容が
+//   player_pachimon/player_party_slotsへ複製されることを確認
 // - test_create_player_duplicate: 同一デバイスでの2件目の作成が409になることを確認
 // - test_create_player_unauthenticated: 未認証での作成が401になることを確認
 // - test_get_me_before_create: プレイヤー未作成状態での取得が404になることを確認
@@ -77,7 +79,11 @@ async fn register_and_authenticate(app: Router, secret_key: &str) -> String {
         .to_string()
 }
 
-async fn create_player(app: Router, access_token: &str, nickname: &str) -> axum::response::Response {
+async fn create_player(
+    app: Router,
+    access_token: &str,
+    nickname: &str,
+) -> axum::response::Response {
     app.oneshot(
         Request::builder()
             .method("POST")
@@ -103,14 +109,19 @@ async fn get_me(app: Router, access_token: Option<&str>) -> axum::response::Resp
 }
 
 async fn json_body(response: axum::response::Response) -> Value {
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     serde_json::from_slice(&body).unwrap()
 }
 
 /// `GET /players/me`から呼び出し元プレイヤーの`player_id`を取得する。
 async fn get_player_id(app: Router, access_token: &str) -> String {
     let response = get_me(app, Some(access_token)).await;
-    json_body(response).await["playerId"].as_str().unwrap().to_string()
+    json_body(response).await["playerId"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
 /// パーティ編成・技の付け替えのテストが参照するマスタデータ(pachimon 1件、技グループ2件)を
@@ -118,10 +129,12 @@ async fn get_player_id(app: Router, access_token: &str) -> String {
 /// `move_id=1`(初期技)/`move_id=2`(非初期技)。`move_id=3`は別グループ(`move_group_id=2`)の
 /// 技で、技の付け替えバリデーション(グループ外拒否)のテストに使う。
 async fn seed_test_master_data(pool: &MySqlPool) {
-    sqlx::query("INSERT INTO move_groups (move_group_id, name) VALUES (1, 'グループ1'), (2, 'グループ2')")
-        .execute(pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO move_groups (move_group_id, name) VALUES (1, 'グループ1'), (2, 'グループ2')",
+    )
+    .execute(pool)
+    .await
+    .unwrap();
 
     sqlx::query(
         "INSERT INTO moves (move_id, name, move_type, category, base_power, accuracy, max_pp) VALUES \
@@ -159,23 +172,24 @@ async fn seed_owned_pachimon(pool: &MySqlPool, player_id: &str, pachimon_id: i64
     let zero_stats = json!({"hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0});
 
     sqlx::query(
-        "INSERT INTO player_pachimon (player_pachimon_id, player_id, pachimon_id, ivs, effort_values) \
-         VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO player_pachimon (player_pachimon_id, player_id, pachimon_id, effort_values) \
+         VALUES (?, ?, ?, ?)",
     )
     .bind(&player_pachimon_id)
     .bind(player_id)
     .bind(pachimon_id)
     .bind(sqlx::types::Json(&zero_stats))
-    .bind(sqlx::types::Json(&zero_stats))
     .execute(pool)
     .await
     .unwrap();
 
-    sqlx::query("INSERT INTO player_pachimon_moves (player_pachimon_id, slot, move_id) VALUES (?, 1, 1)")
-        .bind(&player_pachimon_id)
-        .execute(pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO player_pachimon_moves (player_pachimon_id, slot, move_id) VALUES (?, 1, 1)",
+    )
+    .bind(&player_pachimon_id)
+    .execute(pool)
+    .await
+    .unwrap();
 
     player_pachimon_id
 }
@@ -217,7 +231,9 @@ async fn update_move(
     app.oneshot(
         Request::builder()
             .method("PUT")
-            .uri(format!("/players/me/pachimon/{player_pachimon_id}/moves/{slot}"))
+            .uri(format!(
+                "/players/me/pachimon/{player_pachimon_id}/moves/{slot}"
+            ))
             .header("Content-Type", "application/json")
             .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
             .body(Body::from(json!({ "moveId": move_id }).to_string()))
@@ -253,6 +269,43 @@ async fn test_create_and_get_player(pool: MySqlPool) {
     let json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["nickname"], "テストプレイヤー");
     assert_eq!(json["gems"], 300);
+}
+
+/// `starter_party_slots`マスタの内容が、プレイヤー作成時に`player_pachimon`/
+/// `player_party_slots`へ複製されることを確認する。
+#[sqlx::test]
+async fn test_create_player_grants_starter_party(pool: MySqlPool) {
+    seed_test_master_data(&pool).await;
+    sqlx::query("INSERT INTO starter_party_slots (slot_no, pachimon_id) VALUES (1, 1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let state = AppState::from_pool(pool).await;
+    let app = create_router(state);
+
+    let access_token = register_and_authenticate(app.clone(), "starter-secret").await;
+    let create_response = create_player(app.clone(), &access_token, "スターター太郎").await;
+    assert_eq!(create_response.status(), StatusCode::OK);
+
+    let response = list_owned_pachimon(app.clone(), &access_token).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+
+    let pachimon = json["pachimon"].as_array().unwrap();
+    assert_eq!(pachimon.len(), 1);
+    assert_eq!(pachimon[0]["pachimonId"], 1);
+    let moves = pachimon[0]["moves"].as_array().unwrap();
+    assert_eq!(moves.len(), 1);
+    assert_eq!(moves[0]["moveId"], 1); // move_group_id=1のis_initial技(move_id=1)
+
+    let party_slots = json["partySlots"].as_array().unwrap();
+    assert_eq!(party_slots.len(), 1);
+    assert_eq!(party_slots[0]["slot"], 1);
+    assert_eq!(
+        party_slots[0]["playerPachimonId"],
+        pachimon[0]["playerPachimonId"]
+    );
 }
 
 /// 同一デバイスで2回目のプレイヤー作成を行うと409(重複)が返ることを確認する。

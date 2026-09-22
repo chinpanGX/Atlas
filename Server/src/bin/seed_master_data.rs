@@ -5,13 +5,13 @@
 // このコマンドを実行してDBへ反映したのち、サーバーを再起動して反映する(詳細は
 // Shared/docs/design/architecture.mdの「マスターデータ運用」参照)。
 //
-// move_groups → moves → move_group_moves → pachimonの順で投入する
-// (move_group_moves/pachimonの外部キー制約を満たすため)。
+// move_groups → moves → move_group_moves → pachimon → starter_party_slotsの順で投入する
+// (move_group_moves/pachimon/starter_party_slotsの外部キー制約を満たすため)。
 //
 // 実行方法: cargo run --bin seed_master_data
 use sqlx::MySqlPool;
 
-use Server::master::{self, MoveGroupMoves, MoveGroups, Moves, Pachimon};
+use Server::master::{self, MoveGroupMoves, MoveGroups, Moves, Pachimon, StarterPartySlots};
 
 #[tokio::main]
 async fn main() {
@@ -34,12 +34,16 @@ async fn main() {
     let pachimon = master::seed_pachimon_data();
     seed_pachimon(&pool, &pachimon).await;
 
+    let starter_party_slots = master::seed_starter_party_slots_data();
+    seed_starter_party_slots(&pool, &starter_party_slots).await;
+
     println!(
-        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件)",
+        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件, starter_party_slots: {}件)",
         move_groups.len(),
         moves.len(),
         move_group_moves.len(),
-        pachimon.len()
+        pachimon.len(),
+        starter_party_slots.len()
     );
 }
 
@@ -54,7 +58,10 @@ async fn seed_move_groups(pool: &MySqlPool, move_groups: &[MoveGroups]) {
         .execute(pool)
         .await
         .unwrap_or_else(|err| {
-            panic!("move_group_id={}のシード投入に失敗しました: {err}", g.move_group_id)
+            panic!(
+                "move_group_id={}のシード投入に失敗しました: {err}",
+                g.move_group_id
+            )
         });
     }
 }
@@ -141,7 +148,24 @@ async fn seed_pachimon(pool: &MySqlPool, pachimon: &[Pachimon]) {
         .execute(pool)
         .await
         .unwrap_or_else(|err| {
-            panic!("pachimon_id={}のシード投入に失敗しました: {err}", p.pachimon_id)
+            panic!(
+                "pachimon_id={}のシード投入に失敗しました: {err}",
+                p.pachimon_id
+            )
         });
+    }
+}
+
+async fn seed_starter_party_slots(pool: &MySqlPool, slots: &[StarterPartySlots]) {
+    for s in slots {
+        sqlx::query(
+            "INSERT INTO starter_party_slots (slot_no, pachimon_id) VALUES (?, ?) \
+             ON DUPLICATE KEY UPDATE pachimon_id = VALUES(pachimon_id)",
+        )
+        .bind(s.slot_no)
+        .bind(s.pachimon_id)
+        .execute(pool)
+        .await
+        .unwrap_or_else(|err| panic!("slot_no={}のシード投入に失敗しました: {err}", s.slot_no));
     }
 }

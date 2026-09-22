@@ -1,17 +1,72 @@
 use std::collections::HashSet;
 
-use sqlx::MySqlPool;
+use sqlx::{MySql, MySqlPool, Transaction};
 use ulid::Ulid;
 
 use crate::error::AppError;
 use crate::master::MasterData;
-use crate::model::player_pachimon::{OwnedPachimon, PlayerPachimonMove};
+use crate::model::player_pachimon::{OwnedPachimon, PlayerPachimon, PlayerPachimonMove};
 use crate::model::player_party_slot::PlayerPartySlot;
 
 /// `PUT /players/me/party`リクエストの1slot分の入力。
 pub struct PartySlotInput {
     pub slot: i32,
     pub player_pachimon_id: String,
+}
+
+/// `pachimon_id`の個体を1体生成し、`moves`(技グループの`is_initial`技)を初期技としてセットする。
+/// スカウトでの入手(`scout_service::select_candidate`)・スターター編成の付与
+/// (`player_service::create`)の両方から共通で使う。呼び出し元のトランザクション内で実行する。
+///
+/// 努力値(`effort_values`)は付与時点では常に全ステータス0とする(配分機能は未実装)。
+///
+/// # Errors
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn grant(
+    tx: &mut Transaction<'_, MySql>,
+    player_id: &str,
+    pachimon_id: i64,
+    moves: &[i64],
+) -> Result<PlayerPachimon, AppError> {
+    let player_pachimon_id = Ulid::new().to_string();
+    let effort_values =
+        serde_json::json!({"hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0});
+
+    sqlx::query(
+        "INSERT INTO player_pachimon (player_pachimon_id, player_id, pachimon_id, effort_values) \
+         VALUES (?, ?, ?, ?)",
+    )
+    .bind(&player_pachimon_id)
+    .bind(player_id)
+    .bind(pachimon_id)
+    .bind(sqlx::types::Json(&effort_values))
+    .execute(&mut **tx)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    for (slot, move_id) in moves.iter().enumerate() {
+        sqlx::query("INSERT INTO player_pachimon_moves (player_pachimon_id, slot, move_id) VALUES (?, ?, ?)")
+            .bind(&player_pachimon_id)
+            .bind(slot as i32 + 1)
+            .bind(*move_id)
+            .execute(&mut **tx)
+            .await
+            .map_err(|_| AppError::InternalError)?;
+    }
+
+    let obtained_at: (chrono::NaiveDateTime,) =
+        sqlx::query_as("SELECT obtained_at FROM player_pachimon WHERE player_pachimon_id = ?")
+            .bind(&player_pachimon_id)
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(|_| AppError::InternalError)?;
+
+    Ok(PlayerPachimon {
+        player_pachimon_id,
+        player_id: player_id.to_string(),
+        pachimon_id,
+        obtained_at: obtained_at.0,
+    })
 }
 
 /// 認証済みプレイヤーの所持パチモン一覧を、各個体の覚えている技と合わせて取得する。
@@ -57,7 +112,10 @@ pub async fn list_owned(pool: &MySqlPool, player_id: &str) -> Result<Vec<OwnedPa
 ///
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
-pub async fn list_party(pool: &MySqlPool, player_id: &str) -> Result<Vec<PlayerPartySlot>, AppError> {
+pub async fn list_party(
+    pool: &MySqlPool,
+    player_id: &str,
+) -> Result<Vec<PlayerPartySlot>, AppError> {
     let rows: Vec<(String, i32, String)> = sqlx::query_as(
         "SELECT party_slot_id, slot, player_pachimon_id FROM player_party_slots \
          WHERE player_id = ? ORDER BY slot",
@@ -69,12 +127,14 @@ pub async fn list_party(pool: &MySqlPool, player_id: &str) -> Result<Vec<PlayerP
 
     Ok(rows
         .into_iter()
-        .map(|(party_slot_id, slot, player_pachimon_id)| PlayerPartySlot {
-            party_slot_id,
-            player_id: player_id.to_string(),
-            slot,
-            player_pachimon_id,
-        })
+        .map(
+            |(party_slot_id, slot, player_pachimon_id)| PlayerPartySlot {
+                party_slot_id,
+                player_id: player_id.to_string(),
+                slot,
+                player_pachimon_id,
+            },
+        )
         .collect())
 }
 
@@ -100,7 +160,9 @@ pub async fn set_party(
     let mut seen_ids = HashSet::new();
     for s in &slots {
         if !(1..=6).contains(&s.slot) {
-            return Err(AppError::BadRequest("slot must be between 1 and 6".to_string()));
+            return Err(AppError::BadRequest(
+                "slot must be between 1 and 6".to_string(),
+            ));
         }
         if !seen_slots.insert(s.slot) {
             return Err(AppError::BadRequest("duplicate slot".to_string()));
@@ -182,7 +244,9 @@ pub async fn update_move(
     move_id: i64,
 ) -> Result<PlayerPachimonMove, AppError> {
     if !(1..=4).contains(&slot) {
-        return Err(AppError::BadRequest("slot must be between 1 and 4".to_string()));
+        return Err(AppError::BadRequest(
+            "slot must be between 1 and 4".to_string(),
+        ));
     }
 
     let row: Option<(i64,)> = sqlx::query_as(

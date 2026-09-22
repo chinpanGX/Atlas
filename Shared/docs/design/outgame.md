@@ -107,6 +107,11 @@ POST /players
 `gems`の初期値(`300`)と、対戦報酬によるgems付与の設計は[battle.md](battle.md)の
 「報酬設計(gems)」を参照。
 
+`player`作成と同一トランザクションで、`starter_party_slots`マスタ(下記「スターター編成」
+参照)の内容をそのまま複製して初期パーティ(`player_pachimon`・`player_party_slots`)を
+自動付与する。プレイヤーは作成直後から対戦可能な状態になる(選択制ではなく、全プレイヤー
+共通の単一固定編成)。
+
 ### 5. 自分のプレイヤー情報取得
 
 ```
@@ -276,11 +281,13 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 | `player_pachimon_id` | CHAR(26) | PRIMARY KEY | ULID |
 | `player_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `players.player_id` | |
 | `pachimon_id` | INT | NOT NULL, FOREIGN KEY → `pachimon.pachimon_id` | |
-| `ivs` | JSON | NOT NULL | |
 | `effort_values` | JSON | NOT NULL | 例: `{"hp":0,"atk":0,"def":0,"spatk":0,"spdef":0,"speed":0}`、デフォルト全0(将来の努力値64ポイント配分用、現状は未使用) |
 | `obtained_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) | |
 
 パーティ編成状況は本テーブルの属性としては持たず、`player_party_slots`(下記)に分離する。
+
+個体値(IV)の概念は持たない(ポケモンチャンピオンズ準拠で廃止)。個体差は努力値
+(`effort_values`)のみで表現する(実効ステータス計算式は[battle.md](battle.md)参照)。
 
 ### player_party_slots(パーティ編成)
 
@@ -297,6 +304,20 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 (`api-codegen`が現状`nullable`未対応のため。`Shared/docs/progress.md`参照)。パーティ編成
 (`PUT /players/me/party`)は既存行を全削除してから指定されたslot分だけ新しいULIDで
 再作成する(全置き換え)。
+
+### starter_party_slots(スターター編成マスタ)
+
+| カラム名 | 型 | 制約 | 説明 |
+|---|---|---|---|
+| `slot_no` | BIGINT | PRIMARY KEY | 1-6 |
+| `pachimon_id` | BIGINT | NOT NULL, FOREIGN KEY → `pachimon.pachimon_id` | |
+
+`master-data-pipeline`が生成するマスタテーブル(`Shared/master-data/schema/tables/`
+参照)。全プレイヤー共通の単一固定編成(選択制ではない)で、`pachimon_id`は必ず埋まっている
+(nullable無し)。`POST /players`(プレイヤー作成)時にこの内容をそのまま複製して
+`player_pachimon`(初期技込み)・`player_party_slots`を生成する
+(`src/service/player_service.rs::grant_starter_party`参照)。他のマスタ同様、更新の反映には
+`seed_master_data`実行とサーバー再起動が必要(無停止反映は非対応)。
 
 ### player_pachimon_moves(現在覚えている技)
 

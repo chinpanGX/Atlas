@@ -63,18 +63,6 @@ pub async fn list_banners_handler(
     }))
 }
 
-/// 個体値のレスポンスDTO。
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct IvsDto {
-    pub hp: i32,
-    pub atk: i32,
-    pub def: i32,
-    pub spatk: i32,
-    pub spdef: i32,
-    pub speed: i32,
-}
-
 /// 紹介を受けるAPIのリクエストボディ。
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -89,7 +77,6 @@ pub struct CandidateDto {
     pub index: usize,
     pub pachimon_id: i64,
     pub rarity: String,
-    pub ivs: IvsDto,
     pub moves: Vec<i64>,
 }
 
@@ -144,14 +131,6 @@ pub async fn create_roll_handler(
                 index,
                 pachimon_id: candidate.pachimon_id,
                 rarity: candidate.rarity,
-                ivs: IvsDto {
-                    hp: candidate.ivs.hp,
-                    atk: candidate.ivs.atk,
-                    def: candidate.ivs.def,
-                    spatk: candidate.ivs.spatk,
-                    spdef: candidate.ivs.spdef,
-                    speed: candidate.ivs.speed,
-                },
                 moves: candidate.moves,
             })
             .collect(),
@@ -204,7 +183,8 @@ pub async fn select_roll_handler(
 ) -> Result<Json<SelectRollResponse>, AppError> {
     let player = player_service::find_by_device_id(&state.pool, &device.device_id).await?;
     let player_pachimon =
-        scout_service::select_candidate(&state.pool, &player.player_id, &roll_id, req.index).await?;
+        scout_service::select_candidate(&state.pool, &player.player_id, &roll_id, req.index)
+            .await?;
 
     let pachimon = state
         .master

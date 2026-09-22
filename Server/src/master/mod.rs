@@ -2,7 +2,9 @@ pub mod cache;
 pub mod generated;
 
 pub use cache::MasterData;
-pub use generated::{MoveGroupMoves, MoveGroups, Moves, Pachimon, PachimonType, Rarity};
+pub use generated::{
+    MoveGroupMoves, MoveGroups, Moves, Pachimon, PachimonType, Rarity, StarterPartySlots,
+};
 
 /// master-data-pipelineが生成した各種マスタのJSON。
 ///
@@ -16,6 +18,7 @@ const PACHIMON_JSON: &str = include_str!("../../master_data/pachimon.json");
 const MOVE_GROUPS_JSON: &str = include_str!("../../master_data/move_groups.json");
 const MOVES_JSON: &str = include_str!("../../master_data/moves.json");
 const MOVE_GROUP_MOVES_JSON: &str = include_str!("../../master_data/move_group_moves.json");
+const STARTER_PARTY_SLOTS_JSON: &str = include_str!("../../master_data/starter_party_slots.json");
 
 /// パチモンマスタのJSON文字列をパースする。
 ///
@@ -49,6 +52,14 @@ pub fn parse_move_group_moves(json: &str) -> Result<Vec<MoveGroupMoves>, serde_j
     serde_json::from_str(json)
 }
 
+/// スターター編成マスタのJSON文字列をパースする。
+///
+/// # Errors
+/// JSONの形式が不正な場合に`serde_json::Error`を返す。
+pub fn parse_starter_party_slots(json: &str) -> Result<Vec<StarterPartySlots>, serde_json::Error> {
+    serde_json::from_str(json)
+}
+
 /// `seed_master_data`コマンドが参照する、埋め込み済みパチモンマスタのシードデータ。
 ///
 /// # Panics
@@ -62,7 +73,8 @@ pub fn seed_pachimon_data() -> Vec<Pachimon> {
 /// # Panics
 /// 埋め込み済みJSONのパースに失敗した場合(ビルド成果物の不整合)にpanicする。
 pub fn seed_move_groups_data() -> Vec<MoveGroups> {
-    parse_move_groups(MOVE_GROUPS_JSON).expect("master_data/move_groups.json のパースに失敗しました")
+    parse_move_groups(MOVE_GROUPS_JSON)
+        .expect("master_data/move_groups.json のパースに失敗しました")
 }
 
 /// `seed_master_data`コマンドが参照する、埋め込み済み技マスタのシードデータ。
@@ -80,6 +92,15 @@ pub fn seed_moves_data() -> Vec<Moves> {
 pub fn seed_move_group_moves_data() -> Vec<MoveGroupMoves> {
     parse_move_group_moves(MOVE_GROUP_MOVES_JSON)
         .expect("master_data/move_group_moves.json のパースに失敗しました")
+}
+
+/// `seed_master_data`コマンドが参照する、埋め込み済みスターター編成マスタのシードデータ。
+///
+/// # Panics
+/// 埋め込み済みJSONのパースに失敗した場合(ビルド成果物の不整合)にpanicする。
+pub fn seed_starter_party_slots_data() -> Vec<StarterPartySlots> {
+    parse_starter_party_slots(STARTER_PARTY_SLOTS_JSON)
+        .expect("master_data/starter_party_slots.json のパースに失敗しました")
 }
 
 #[cfg(test)]
@@ -171,8 +192,53 @@ mod tests {
         let move_ids: std::collections::HashSet<i64> = moves.iter().map(|m| m.move_id).collect();
 
         for row in &rows {
-            assert!(group_ids.contains(&row.group_id), "未知のgroup_id: {}", row.group_id);
-            assert!(move_ids.contains(&row.move_id), "未知のmove_id: {}", row.move_id);
+            assert!(
+                group_ids.contains(&row.group_id),
+                "未知のgroup_id: {}",
+                row.group_id
+            );
+            assert!(
+                move_ids.contains(&row.move_id),
+                "未知のmove_id: {}",
+                row.move_id
+            );
+        }
+    }
+
+    /// master_data/starter_party_slots.jsonが正しくパースでき、6slot分ロードできることを確認する。
+    #[test]
+    fn test_parse_starter_party_slots_loads_master_data() {
+        let slots =
+            parse_starter_party_slots(STARTER_PARTY_SLOTS_JSON).expect("パースに成功するはず");
+        assert_eq!(slots.len(), 6);
+    }
+
+    /// starter_party_slotsの`slot_no`が重複していないことを確認する(マスタデータの整合性検証)。
+    #[test]
+    fn test_starter_party_slots_slot_no_are_unique() {
+        let slots = parse_starter_party_slots(STARTER_PARTY_SLOTS_JSON).unwrap();
+        let mut slot_nos: Vec<i64> = slots.iter().map(|s| s.slot_no).collect();
+        slot_nos.sort_unstable();
+        slot_nos.dedup();
+        assert_eq!(slot_nos.len(), slots.len());
+    }
+
+    /// starter_party_slotsが参照するpachimon_idが、pachimonマスタに実在することを確認する
+    /// (FK制約と同等の整合性をユニットテストレベルでも担保する)。
+    #[test]
+    fn test_starter_party_slots_references_are_valid() {
+        let pachimon = parse_pachimon(PACHIMON_JSON).unwrap();
+        let slots = parse_starter_party_slots(STARTER_PARTY_SLOTS_JSON).unwrap();
+
+        let pachimon_ids: std::collections::HashSet<i64> =
+            pachimon.iter().map(|p| p.pachimon_id).collect();
+
+        for slot in &slots {
+            assert!(
+                pachimon_ids.contains(&slot.pachimon_id),
+                "未知のpachimon_id: {}",
+                slot.pachimon_id
+            );
         }
     }
 }

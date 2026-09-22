@@ -58,6 +58,7 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | `moves` | 38 | 各パチモン専用技36 + 全グループ共通の汎用技2(状態技は0件) |
 | `move_group_moves` | 108 | 技グループ所属技の対応表(旧`move_group_master`。「Master」がMasterMemory/MasterDataLoaderと紛らわしいため改名)。代理キー`unique_id`を追加 |
 | `type_chart` | 324 | 18タイプ×18タイプの全組み合わせ(第9世代準拠の標準タイプ相性)。`effectiveness`はENUM(`IMMUNE`/`NOT_VERY_EFFECTIVE`/`NORMAL`/`SUPER_EFFECTIVE`相当) |
+| `starter_party_slots` | 6 | 新規プレイヤーへ自動付与する固定スターター編成(1-6slot)。仮値としてrarity=Cの6体(1031-1036)を採用 |
 
 ### 残タスク
 
@@ -94,11 +95,12 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
 - テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計52件)
-- マイグレーション17本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
+- マイグレーション19本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
   move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
   players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
   scout_banners・scout_rolls/move_group_master→move_group_movesへのリネーム/
-  player_party_slotsテーブル作成・player_pachimon.party_slot列削除)
+  player_party_slotsテーブル作成・player_pachimon.party_slot列削除/
+  starter_party_slotsテーブル作成/player_pachimon.ivs列削除)
 - パーティ編成・技の付け替え(`GET/PUT /players/me/pachimon*`, `PUT /players/me/party`)を実装
   (outgame.md #8-10)。パーティ編成は当初`player_pachimon.party_slot`(nullable INT)属性として
   設計したが、①`api-codegen`が現状OpenAPIの`nullable`(`type: [T, 'null']`)に未対応で
@@ -114,12 +116,21 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
   JSON→DBへUPSERTしてから再起動する運用
 - スカウト(ガチャ)は`design/scout.md`の設計通り実装。`scout_banners`はmaster-data-pipeline対象外
   (専用バイナリ`cargo run --bin seed_scout_banners`で常設バナー1件をUPSERT)。候補10体の抽選は
-  `rand`クレート(`WeightedIndex`)でレアリティを重み付き抽選→`pachimon`を等確率選出→IVsをランダム
-  生成(0-31)→`move_group_moves.is_initial=TRUE`の技を初期技として確定、という流れ。gems減算は
+  `rand`クレート(`WeightedIndex`)でレアリティを重み付き抽選→`pachimon`を等確率選出→
+  `move_group_moves.is_initial=TRUE`の技を初期技として確定、という流れ。gems減算は
   `pool.begin()`によるトランザクションで、offer(roll)作成・候補selectのDB更新はこのコードベースで
   初めての`Transaction`利用
 - `player_pachimon`/`player_pachimon_moves`のモデル・テーブルを実装(outgame.md参照)。levelカラムは
   持たない(全パチモン固定レベル50、design/battle.md参照)
+- **個体値(IV)の概念を廃止**(ポケモンチャンピオンズ準拠)。`player_pachimon.ivs`列を削除し、
+  スカウトのIVランダム生成ロジックも削除。実効ステータス計算式(design/battle.md)からIV項を
+  除去し、種族値+努力値(`effort_values`、常に0固定)のみで決まる形にした
+- **スターター編成機能を実装**。`starter_party_slots`マスタ(新規、6slot)を追加し、`POST /players`
+  (プレイヤー作成)と同一トランザクションで、その内容をそのまま`player_pachimon`(初期技込み)・
+  `player_party_slots`へ複製する。「pachimon_id+初期技から個体を1体生成する」処理はスカウトの
+  `select_candidate`と共通のため、`player_pachimon_service::grant`という共有関数に切り出し、
+  スカウト側もそちらを呼ぶようにリファクタした。専用の`reward_service`のような新しい層は作らず、
+  既存の`player_pachimon_service`に集約する判断とした
 
 ### 未実装
 

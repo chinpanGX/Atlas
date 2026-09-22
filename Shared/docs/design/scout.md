@@ -79,7 +79,7 @@ gemsを消費し、新しい候補10体をロールする。
 
 1. 対象バナーが開催期間内(`start_at <= now <= end_at`)か検証
 2. `players.gems`から`cost_per_roll`を減算(不足していれば`400`)
-3. 候補10体を独立に抽選(下記「抽選ロジック」参照)。パチモン・個体値・技はこの時点で確定する
+3. 候補10体を独立に抽選(下記「抽選ロジック」参照)。パチモン・技はこの時点で確定する
 4. `scout_rolls`に候補10体をまとめて保存(`selected_index`は`NULL`)
 5. 候補一覧を返す
 
@@ -93,7 +93,6 @@ gemsを消費し、新しい候補10体をロールする。
       "index": 0,
       "pachimonId": 12,
       "rarity": "S",
-      "ivs": { "hp": 20, "atk": 15, "def": 31, "spatk": 4, "spdef": 9, "speed": 27 },
       "moves": [3, 7, 12, 18]
     }
   ],
@@ -118,7 +117,7 @@ POST /scout/rolls/{rollId}/select
 1. `rollId`が呼び出し元プレイヤー自身のものであること、`selected_index`が未確定である
    ことを検証(二重選択防止)
 2. `index`の妥当性検証(0-9)
-3. `candidates[index]`の内容(`pachimonId`・`ivs`・`moves`)をそのまま`player_pachimon` /
+3. `candidates[index]`の内容(`pachimonId`・`moves`)をそのまま`player_pachimon` /
    `player_pachimon_moves`へコピーして登録(再抽選はしない。紹介時点で確定済みの個体を
    そのまま入手する)
 4. `scout_rolls.selected_index` / `selected_at`を更新
@@ -151,8 +150,11 @@ POST /scout/rolls/{rollId}/select
 1. `rate_table`から乱数でレアリティを1つ抽選(重み付き抽選)
 2. 決まったレアリティに紐づく`pachimon`(`rarity`カラム一致)を全件取得し、その中から
    等確率で1件をランダム選出
-3. 個体値(`ivs`)をランダム生成(範囲・形式は`player_pachimon.ivs`に準拠)
-4. `move_group_moves`の`is_initial = TRUE`の技を、その候補の確定技セットとして保持
+3. `move_group_moves`の`is_initial = TRUE`の技を、その候補の確定技セットとして保持
+
+個体値(IV)の概念は持たない(ポケモンチャンピオンズ準拠で廃止。詳細は[outgame.md](outgame.md)の
+`player_pachimon`定義、[battle.md](battle.md)の「実効ステータス計算」参照)。個体差は
+努力値(`effort_values`、育成要素)のみで表現する。
 
 生成した10体分をまとめて`scout_rolls.candidates`(JSON)に保存する。選択(`select`)時は
 再抽選を行わず、保存済みの内容をそのまま`player_pachimon`にコピーするだけでよい。
@@ -180,7 +182,7 @@ POST /scout/rolls/{rollId}/select
 | `roll_id` | CHAR(26) | PRIMARY KEY | ULID |
 | `player_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `players.player_id` | |
 | `banner_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `scout_banners.banner_id` | |
-| `candidates` | JSON | NOT NULL | 候補10体の配列。各要素は`{"pachimonId":12,"rarity":"S","ivs":{...},"moves":[3,7,12,18]}` |
+| `candidates` | JSON | NOT NULL | 候補10体の配列。各要素は`{"pachimonId":12,"rarity":"S","moves":[3,7,12,18]}` |
 | `selected_index` | INT | NULL可 | 選択された候補のindex(0-9)。未選択は`NULL` |
 | `created_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) | 紹介を受けた日時(gems消費日時) |
 | `selected_at` | DATETIME(3) | NULL可 | 選択(入手確定)した日時 |

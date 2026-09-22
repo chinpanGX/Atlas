@@ -113,6 +113,18 @@ max_pp
 
 追加効果(状態異常付与・能力変化など)は排除。状態技自体は定義できるが効果の実装は対象外。
 
+### starter_party_slots(スターター編成マスタ)
+
+```
+slot_no        PK(1-6)
+pachimon_id    FK -> pachimon(必ず埋まっている。nullable無し)
+```
+
+新規プレイヤー作成時にこの内容をそのまま複製し、初期パーティ(`player_pachimon`+
+`player_party_slots`)として付与する(全プレイヤー共通の単一固定編成、選択制ではない)。
+詳細は[outgame.md](outgame.md)の「4. プレイヤー作成」「starter_party_slots(スターター編成
+マスタ)」参照。
+
 ### type_chart(タイプ相性マスタ)
 
 ```

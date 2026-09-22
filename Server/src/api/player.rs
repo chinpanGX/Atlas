@@ -50,7 +50,9 @@ pub async fn create_player_handler(
     device: AuthenticatedDevice,
     Json(req): Json<CreatePlayerRequest>,
 ) -> Result<Json<PlayerResponse>, AppError> {
-    let player = player_service::create(&state.pool, &device.device_id, &req.nickname).await?;
+    let player =
+        player_service::create(&state.pool, &state.master, &device.device_id, &req.nickname)
+            .await?;
 
     Ok(Json(PlayerResponse {
         player_id: player.player_id,

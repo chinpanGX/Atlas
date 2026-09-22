@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use super::player_pachimon::Ivs;
-
 /// 紹介の候補1体分(Shared/docs/design/scout.md参照)。`scout_rolls.candidates`(JSON配列)の
 /// 要素として保存し、そのままAPIレスポンスの候補としても使う。
 ///
@@ -10,7 +8,6 @@ use super::player_pachimon::Ivs;
 pub struct ScoutCandidate {
     pub pachimon_id: i64,
     pub rarity: String,
-    pub ivs: Ivs,
     pub moves: Vec<i64>,
 }
 

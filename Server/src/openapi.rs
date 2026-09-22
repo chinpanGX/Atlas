@@ -66,7 +66,6 @@ impl Modify for SecurityAddon {
         chat::PollMessagesResponse,
         scout::BannerDto,
         scout::ListBannersResponse,
-        scout::IvsDto,
         scout::CandidateDto,
         scout::CreateRollRequest,
         scout::CreateRollResponse,

@@ -463,14 +463,11 @@ components:
       - index
       - pachimonId
       - rarity
-      - ivs
       - moves
       properties:
         index:
           type: integer
           minimum: 0
-        ivs:
-          $ref: '#/components/schemas/IvsDto'
         moves:
           type: array
           items:
@@ -514,35 +511,6 @@ components:
           format: int32
         rollId:
           type: string
-    IvsDto:
-      type: object
-      description: 個体値のレスポンスDTO。
-      required:
-      - hp
-      - atk
-      - def
-      - spatk
-      - spdef
-      - speed
-      properties:
-        atk:
-          type: integer
-          format: int32
-        def:
-          type: integer
-          format: int32
-        hp:
-          type: integer
-          format: int32
-        spatk:
-          type: integer
-          format: int32
-        spdef:
-          type: integer
-          format: int32
-        speed:
-          type: integer
-          format: int32
     ListBannersResponse:
       type: object
       description: スカウトバナー一覧APIのレスポンスボディ。

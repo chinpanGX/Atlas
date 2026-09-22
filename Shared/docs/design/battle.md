@@ -109,7 +109,7 @@ Shared/BattleCore/
       ElementType MoveType, MoveCategory Category, int BasePower, int Accuracy);
   ```
 
-  マスタ(`Domain.MasterData`)+プレイヤー所持データ(個体値等)+`BattleConstants.FixedLevel`から
+  マスタ(`Domain.MasterData`)+プレイヤー所持データ(努力値等)+`BattleConstants.FixedLevel`から
   `ParticipantStats`/`MoveData`への変換は、呼び出し側(Client Mockのマッピング処理・
   バトルサーバーのHub実装)がそれぞれ持つ。BattleCore自身はテストも含めて`Domain.MasterData`を
   一切必要としない
@@ -606,9 +606,11 @@ PPが0の技が渡された場合は`ArgumentException`を投げる。呼び出�
 
 ### 実効ステータス計算
 
+個体値(IV)の概念は持たない(ポケモンチャンピオンズ準拠で廃止)。
+
 ```
-HP以外 = floor((2 * base + IV + floor(EV/4)) * level / 100) + 5
-HP     = floor((2 * base + IV + floor(EV/4)) * level / 100) + level + 10
+HP以外 = floor((2 * base + floor(EV/4)) * level / 100) + 5
+HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
 ```
 
 `level`はダメージ計算式と同じく固定値50。`effort_values`は現状全て0。性格(nature)補正は
