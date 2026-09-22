@@ -45,13 +45,19 @@ pub async fn grant(
     .map_err(|_| AppError::InternalError)?;
 
     for (slot, move_id) in moves.iter().enumerate() {
-        sqlx::query("INSERT INTO player_pachimon_moves (player_pachimon_id, slot, move_id) VALUES (?, ?, ?)")
-            .bind(&player_pachimon_id)
-            .bind(slot as i32 + 1)
-            .bind(*move_id)
-            .execute(&mut **tx)
-            .await
-            .map_err(|_| AppError::InternalError)?;
+        let player_pachimon_move_id = Ulid::new().to_string();
+        sqlx::query(
+            "INSERT INTO player_pachimon_moves \
+                (player_pachimon_move_id, player_pachimon_id, slot, move_id) \
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(&player_pachimon_move_id)
+        .bind(&player_pachimon_id)
+        .bind(slot as i32 + 1)
+        .bind(*move_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(|_| AppError::InternalError)?;
     }
 
     let obtained_at: (chrono::NaiveDateTime,) =
@@ -86,8 +92,9 @@ pub async fn list_owned(pool: &MySqlPool, player_id: &str) -> Result<Vec<OwnedPa
 
     let mut owned = Vec::with_capacity(rows.len());
     for (player_pachimon_id, pachimon_id) in rows {
-        let move_rows: Vec<(i32, i64)> = sqlx::query_as(
-            "SELECT slot, move_id FROM player_pachimon_moves WHERE player_pachimon_id = ? ORDER BY slot",
+        let move_rows: Vec<(String, i32, i64)> = sqlx::query_as(
+            "SELECT player_pachimon_move_id, slot, move_id FROM player_pachimon_moves \
+             WHERE player_pachimon_id = ? ORDER BY slot",
         )
         .bind(&player_pachimon_id)
         .fetch_all(pool)
@@ -99,7 +106,13 @@ pub async fn list_owned(pool: &MySqlPool, player_id: &str) -> Result<Vec<OwnedPa
             pachimon_id,
             moves: move_rows
                 .into_iter()
-                .map(|(slot, move_id)| PlayerPachimonMove { slot, move_id })
+                .map(
+                    |(player_pachimon_move_id, slot, move_id)| PlayerPachimonMove {
+                        player_pachimon_move_id,
+                        slot,
+                        move_id,
+                    },
+                )
                 .collect(),
         });
     }
@@ -276,10 +289,17 @@ pub async fn update_move(
         ));
     }
 
+    // 新規slotの場合のみ使われるULID。既存slotの更新時はON DUPLICATE KEY UPDATEの対象に
+    // player_pachimon_move_idを含めないため、既存の値がそのまま維持される。
+    let new_player_pachimon_move_id = Ulid::new().to_string();
+
     sqlx::query(
-        "INSERT INTO player_pachimon_moves (player_pachimon_id, slot, move_id) VALUES (?, ?, ?) \
+        "INSERT INTO player_pachimon_moves \
+            (player_pachimon_move_id, player_pachimon_id, slot, move_id) \
+         VALUES (?, ?, ?, ?) \
          ON DUPLICATE KEY UPDATE move_id = VALUES(move_id)",
     )
+    .bind(&new_player_pachimon_move_id)
     .bind(player_pachimon_id)
     .bind(slot)
     .bind(move_id)
@@ -287,5 +307,19 @@ pub async fn update_move(
     .await
     .map_err(|_| AppError::InternalError)?;
 
-    Ok(PlayerPachimonMove { slot, move_id })
+    let player_pachimon_move_id: (String,) = sqlx::query_as(
+        "SELECT player_pachimon_move_id FROM player_pachimon_moves \
+         WHERE player_pachimon_id = ? AND slot = ?",
+    )
+    .bind(player_pachimon_id)
+    .bind(slot)
+    .fetch_one(pool)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    Ok(PlayerPachimonMove {
+        player_pachimon_move_id: player_pachimon_move_id.0,
+        slot,
+        move_id,
+    })
 }

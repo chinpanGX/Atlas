@@ -605,14 +605,19 @@ components:
           type: string
     PlayerPachimonMoveDto:
       type: object
-      description: 所持パチモン1体分の、覚えている技のレスポンスDTO。
+      description: |-
+        所持パチモン1体分の、覚えている技のレスポンスDTO。`playerPachimonMoveId`は割当自体のULID
+        (`Shared/docs/design/outgame.md`参照)。
       required:
+      - playerPachimonMoveId
       - slot
       - moveId
       properties:
         moveId:
           type: integer
           format: int64
+        playerPachimonMoveId:
+          type: string
         slot:
           type: integer
           format: int32
@@ -743,6 +748,7 @@ components:
       description: 技の付け替えAPIのレスポンスボディ。
       required:
       - playerPachimonId
+      - playerPachimonMoveId
       - slot
       - moveId
       properties:
@@ -750,6 +756,8 @@ components:
           type: integer
           format: int64
         playerPachimonId:
+          type: string
+        playerPachimonMoveId:
           type: string
         slot:
           type: integer

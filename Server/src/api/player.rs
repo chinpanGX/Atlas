@@ -90,10 +90,12 @@ pub async fn get_me_handler(
     }))
 }
 
-/// 所持パチモン1体分の、覚えている技のレスポンスDTO。
+/// 所持パチモン1体分の、覚えている技のレスポンスDTO。`playerPachimonMoveId`は割当自体のULID
+/// (`Shared/docs/design/outgame.md`参照)。
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerPachimonMoveDto {
+    pub player_pachimon_move_id: String,
     pub slot: i32,
     pub move_id: i64,
 }
@@ -161,6 +163,7 @@ pub async fn list_owned_pachimon_handler(
                     .moves
                     .into_iter()
                     .map(|m| PlayerPachimonMoveDto {
+                        player_pachimon_move_id: m.player_pachimon_move_id,
                         slot: m.slot,
                         move_id: m.move_id,
                     })
@@ -262,6 +265,7 @@ pub struct UpdateMoveRequest {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateMoveResponse {
     pub player_pachimon_id: String,
+    pub player_pachimon_move_id: String,
     pub slot: i32,
     pub move_id: i64,
 }
@@ -310,6 +314,7 @@ pub async fn update_pachimon_move_handler(
 
     Ok(Json(UpdateMoveResponse {
         player_pachimon_id,
+        player_pachimon_move_id: updated.player_pachimon_move_id,
         slot: updated.slot,
         move_id: updated.move_id,
     }))

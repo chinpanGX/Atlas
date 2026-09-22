@@ -94,13 +94,14 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | PUT | /players/me/pachimon/{playerPachimonId}/moves/{slot} |
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
-- テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計52件)
+- テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計53件)
 - マイグレーション19本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
   move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
   players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
   scout_banners・scout_rolls/move_group_master→move_group_movesへのリネーム/
   player_party_slotsテーブル作成・player_pachimon.party_slot列削除/
-  starter_party_slotsテーブル作成/player_pachimon.ivs列削除)
+  starter_party_slotsテーブル作成/player_pachimon.ivs列削除/
+  player_pachimon_movesへのULID主キー(player_pachimon_move_id)追加)
 - パーティ編成・技の付け替え(`GET/PUT /players/me/pachimon*`, `PUT /players/me/party`)を実装
   (outgame.md #8-10)。パーティ編成は当初`player_pachimon.party_slot`(nullable INT)属性として
   設計したが、①`api-codegen`が現状OpenAPIの`nullable`(`type: [T, 'null']`)に未対応で
@@ -110,6 +111,12 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
   `PUT /players/me/party`は既存行を全削除してから指定分だけ新しいULIDで再作成する(全置き換え)。
   技の付け替えは`player_pachimon_moves`に対する`INSERT ... ON DUPLICATE KEY UPDATE`
   (既存slotの上書き・未使用slotへの新規セット両対応)
+- `player_pachimon_moves`に専用のULID主キー(`player_pachimon_move_id`)を追加(既存は
+  `UNIQUE(player_pachimon_id, slot)`のみでPK無しだった)。`player_party_slots`等と同様に
+  「割当自体を独立したエンティティとしてULIDで参照できる」方針に揃える設計上の指摘を受けて修正。
+  `INSERT ... ON DUPLICATE KEY UPDATE`の`UPDATE`句に`player_pachimon_move_id`を含めないことで、
+  既存slotの付け替え時はIDが変わらず維持されるようにした(新規slotのみ新しいULIDを採番)。
+  開発初期のためデータ移行はせずテーブルを作り直す形で対応
 - `pachimon`マスタはDBに保存し、起動時にメモリキャッシュへ読み込む設計(`src/master/cache.rs`)。
   `move_group_moves`も同様にキャッシュ対象(`moves`/`move_groups`はスカウトのロジック上
   参照不要なためDB投入のみでキャッシュ対象外)。更新時は`cargo run --bin seed_master_data`で

@@ -323,15 +323,16 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 
 | カラム名 | 型 | 制約 | 説明 |
 |---|---|---|---|
+| `player_pachimon_move_id` | CHAR(26) | PRIMARY KEY | ULID。割当自体を独立したエンティティとして扱う(他テーブルと同様の方針) |
 | `player_pachimon_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `player_pachimon.player_pachimon_id` | |
-| `slot` | INT | NOT NULL | 1-4 |
+| `slot` | INT | NOT NULL | 1-4。`UNIQUE(player_pachimon_id, slot)` |
 | `move_id` | INT | NOT NULL, FOREIGN KEY → `moves.move_id` | |
-
-`UNIQUE(player_pachimon_id, slot)`
 
 スカウトで個体が生成される際、対応する`move_group_moves`の`is_initial = TRUE`の行をそのまま
 複製して初期セットする(詳細は[scout.md](scout.md)参照)。技の付け替えは、このテーブルの
-対象slotをUPDATEするだけで実現でき、マスタ側の変更は不要。
+対象slotをUPDATEするだけで実現でき、マスタ側の変更は不要。`INSERT ... ON DUPLICATE KEY UPDATE`
+の`UPDATE`句に`player_pachimon_move_id`を含めないことで、既存slotの付け替え時はこのIDが
+変わらず維持される(新規slotへの初回セット時のみ新しいULIDが採番される)。
 
 **レベルについて**: このゲームはバトルが主目的であり、経験値によるレベルアップという育成要素は
 持たない。全パチモンは内部的に固定レベル50(競技対戦フォーマットの慣例)として扱う。

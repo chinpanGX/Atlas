@@ -5,9 +5,11 @@ pub struct PlayerPachimon {
     pub obtained_at: chrono::NaiveDateTime,
 }
 
-/// `player_pachimon_moves`の1行分(覚えている技)。
-#[derive(Debug, Clone, Copy)]
+/// `player_pachimon_moves`の1行分(覚えている技)。割当自体を`player_pachimon_move_id`(ULID)で
+/// 一意に参照できる(他テーブルと同様の方針、Shared/docs/design/outgame.md参照)。
+#[derive(Debug, Clone)]
 pub struct PlayerPachimonMove {
+    pub player_pachimon_move_id: String,
     pub slot: i32,
     pub move_id: i64,
 }

@@ -19,6 +19,8 @@
 // - test_set_party_duplicate_player_pachimon_id: 同一player_pachimon_idの重複指定で400になることを確認
 // - test_set_party_not_owned: 他人のplayer_pachimon_idを指定すると404になることを確認
 // - test_update_move_success: 候補技への付け替え成功を確認
+// - test_update_move_preserves_id_on_existing_slot: 既存slotへの付け替えでplayer_pachimon_move_id
+//   (割当自体のULID)が変わらないことを確認
 // - test_update_move_invalid_candidate: グループ外の技を指定すると400になることを確認
 // - test_update_move_out_of_range_slot: slotが範囲外(5)だと400になることを確認
 // - test_update_move_not_owned: 他人のplayer_pachimon_idを指定すると404になることを確認
@@ -184,8 +186,11 @@ async fn seed_owned_pachimon(pool: &MySqlPool, player_id: &str, pachimon_id: i64
     .unwrap();
 
     sqlx::query(
-        "INSERT INTO player_pachimon_moves (player_pachimon_id, slot, move_id) VALUES (?, 1, 1)",
+        "INSERT INTO player_pachimon_moves \
+            (player_pachimon_move_id, player_pachimon_id, slot, move_id) \
+         VALUES (?, ?, 1, 1)",
     )
+    .bind(ulid::Ulid::new().to_string())
     .bind(&player_pachimon_id)
     .execute(pool)
     .await
@@ -598,6 +603,7 @@ async fn test_update_move_success(pool: MySqlPool) {
     assert_eq!(json["playerPachimonId"], player_pachimon_id);
     assert_eq!(json["slot"], 2);
     assert_eq!(json["moveId"], 2);
+    assert!(!json["playerPachimonMoveId"].as_str().unwrap().is_empty());
 
     let stored: (i64,) = sqlx::query_as(
         "SELECT move_id FROM player_pachimon_moves WHERE player_pachimon_id = ? AND slot = 2",
@@ -607,6 +613,45 @@ async fn test_update_move_success(pool: MySqlPool) {
     .await
     .unwrap();
     assert_eq!(stored.0, 2);
+}
+
+/// 既存slot(初期技が入っている`slot=1`)への付け替えでは、`player_pachimon_move_id`
+/// (割当自体のULID)が変わらず維持されることを確認する。
+#[sqlx::test]
+async fn test_update_move_preserves_id_on_existing_slot(pool: MySqlPool) {
+    seed_test_master_data(&pool).await;
+    let state = AppState::from_pool(pool.clone()).await;
+    let app = create_router(state);
+
+    let access_token = register_and_authenticate(app.clone(), "move-secret-preserve").await;
+    create_player(app.clone(), &access_token, "技テスト維持").await;
+    let player_id = get_player_id(app.clone(), &access_token).await;
+    let player_pachimon_id = seed_owned_pachimon(&pool, &player_id, 1).await;
+
+    let before: (String,) = sqlx::query_as(
+        "SELECT player_pachimon_move_id FROM player_pachimon_moves \
+         WHERE player_pachimon_id = ? AND slot = 1",
+    )
+    .bind(&player_pachimon_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // slot=1は初期技(move_id=1)がセット済み。同じslotへ別の候補技へ付け替える。
+    let response = update_move(app.clone(), &access_token, &player_pachimon_id, 1, 2).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+    assert_eq!(json["playerPachimonMoveId"], before.0);
+
+    let after: (String,) = sqlx::query_as(
+        "SELECT player_pachimon_move_id FROM player_pachimon_moves \
+         WHERE player_pachimon_id = ? AND slot = 1",
+    )
+    .bind(&player_pachimon_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(after.0, before.0);
 }
 
 /// 技グループ外の技を指定すると400が返ることを確認する。
