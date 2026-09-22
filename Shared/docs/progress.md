@@ -251,6 +251,17 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   再認証リトライ(outgame.mdの補足で「望ましい」とされる挙動)は未実装で、起動時に一度だけ
   認証する疎通確認レベルの実装に留めている(残タスク参照)。ニックネーム入力画面が無いため
   新規プレイヤー作成時は固定文字列「プレイヤー」を使う
+- **client-architecture.mdとの既知の乖離**: 「インターフェース単位」節が想定していた
+  `IDeviceRepository`/`IAuthRepository`という命名・構成ではなく、実際は`IDeviceConnection`
+  (バトルの`IBattleConnection`と同じ「Connection」命名を流用)+`IAuthService`が
+  デバイス登録・認証・プレイヤー作成をまとめてオーケストレーションする形になった。また
+  設計書には無い`IDeviceCredentialsRepository`/`AccessTokenStore`(ローカル永続化・
+  アクセストークン保持)を新規に導入している。Real実装(`RealDeviceConnection`/
+  `RealPlayerRepository`/`AuthService`)も、設計書が想定していた別サブアセンブリ
+  `Atlas.Infrastructure.Rest`ではなく、既存の`Atlas.Infrastructure`(base)に直接
+  置いている。1回きりの認証フローに`IAuthRepository`やサブアセンブリ分割を導入するほどの
+  複雑さが無いと判断した実装時の簡略化だが、設計書の更新・実装の手直しはどちらも今回は
+  見送り、乖離があることだけ明記しておく
 - 実装メモ: `record`/`record struct`はUnity Editorが固定するC#言語バージョン(9.0)では
   使えない(C# 10以降が必要)。`Atlas.Domain`等のシンプルなデータ型は通常の`readonly struct`/
   `class`で書く
@@ -322,6 +333,7 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体、バトル画面(Mock)、デバイス認証・サインアップ疎通(Real)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
 | 14 | アクセストークンの事前有効期限チェック・401時の再認証リトライ(design/outgame.md補足で「望ましい」とされる挙動、現状は起動時に一度認証するのみ) | client |
 | 15 | サインアップ疎通(デバイス登録〜プレイヤー作成)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
+| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入(設計のみ完了、実装未着手)。`playerId`/`nickname`は共通型を作らず必要なAPI(`POST /sign-in`)が個別に返す。`gems`は`players.gems`列を廃止し、新設する`items`マスタ(`master-data-pipeline`)+`player_items`所持テーブルへ一般化(`item_id: 1`=gems、将来の育成素材消費を見据えた設計)。デバイス認証・サインアップ・サインインの分離(`POST /devices/authenticate`はトークン発行のみに戻す、`POST /players`→`POST /signup`に改名し`200`ボディ無しに変更、`POST /sign-in`新設)、`GET /players/me`・`GET /players/me/pachimon`の廃止、`PUT /players/me/party`→`POST /edit/party`・`PUT /players/me/pachimon/{id}/moves/{slot}`→`POST /edit/pachimon_moves`(識別子はボディへ)への変更、`POST /scout/rolls`(gems消費、旧レスポンスの`gems`フィールドを`playerDiff.items`化)・`POST /scout/rolls/{rollId}/select`(gemsは変化しないことが判明、`items`は空配列)のレスポンスを`playerDiff`化。詳細はarchitecture.md「APIレスポンス設計」「マスターデータ設計(items)」・outgame.md・scout.md参照。master-data-schema-addスキルでitemsマスタ追加→Server(handler/DTO/OpenAPI、player_itemsマイグレーション)→`api-codegen`再生成→Client(ローカル永続化実装含む)の順で対応予定 | server/client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |

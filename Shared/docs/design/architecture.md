@@ -31,6 +31,104 @@ Rust/Axum API Server    C#/MagicOnion Server
 - MagicOnion Hubのリクエスト/レスポンスDTO(`JoinResult`等)はDBと無関係な独立したC#クラス
   なので、C#の規約通り`PascalCase`で定義してよい(命名規則の衝突は起きない)
 
+## APIレスポンス設計(通常レスポンス / player_diff)
+
+複数のAPI(サインイン・スカウト確定等)がプレイヤーの所持データ(gems・パチモン等)を変化させる。
+レスポンスのたびに専用の形を都度定義すると、クライアント側の「ローカル永続化データへの反映」
+ロジックがAPIごとにバラバラになるため、レスポンスを次の2種類に分離する。
+
+| 種別 | 中身 | クライアントの扱い | 形式 |
+|---|---|---|---|
+| 通常レスポンス | その画面の表示に必要な一時データ | 表示したら破棄 | APIごとに個別定義(従来通り) |
+| `playerDiff` | クライアントがローカルに永続化するデータへの差分 | 保持中のデータへ差分適用(Upsert) | リソース種別ごとに共通形式。複数APIのレスポンスに同じ形で埋め込む |
+
+### `playerId`/`nickname`について
+
+`player_id`/`nickname`は「今の値」しか意味を持たず`upserted`/`removed`という差分表現に
+馴染まないため、`playerDiff`には含めない。共通の型(`PlayerProfileDto`のようなもの)も
+用意しない — 必要とするAPI(現状は`POST /sign-in`のみ。`nickname`を変更する手段が今のところ
+無いため他APIが返す理由も無い)が、そのAPI自身のレスポンスに`playerId`/`nickname`をただの
+フィールドとして直接持たせる。
+
+### `playerDiff`の形状
+
+`playerDiff`はプレイヤーが所持するリソースの集合(コレクション)の差分だけを持つ。gemsのような
+数値の所持数も、専用のスカラーフィールドにはせず「`items`(所持アイテム)というリソースの
+1行」として扱う。「無ければ空配列」で全リソース種別を統一的に表現でき、nullableが不要になる。
+
+```jsonc
+{
+  // ...そのAPI固有の通常レスポンス...
+  "playerDiff": {
+    "items": {
+      "upserted": [ /* PlayerItemDto[]、{ itemId, quantity } */ ],
+      "removed": [ /* item_id[] */ ]
+    },
+    "pachimon": {
+      "upserted": [ /* PlayerPachimonDto[]、outgame.mdのPlayerPachimonDtoと同じ型を再利用 */ ],
+      "removed": [ /* player_pachimon_id[] */ ]
+    },
+    "pachimonMoveMap": {
+      "upserted": [ /* PlayerPachimonMoveDto[]、player_pachimon_id込みで1件=1割当 */ ],
+      "removed": [ /* player_pachimon_move_id[] */ ]
+    },
+    "partySlots": {
+      "upserted": [ /* PartySlotDto[] */ ],
+      "removed": [ /* party_slot_id[] */ ]
+    }
+  }
+}
+```
+
+- リソース種別(`items`/`pachimon`/`pachimonMoveMap`/`partySlots`)ごとに`upserted`(追加または
+  更新された行)/`removed`(削除された行のID)を持つ、共通の差分形式に揃える。`playerDiff`を
+  返すAPIは常にこの4種別すべてを含める(変化が無いリソースは`upserted`/`removed`とも空配列)。
+  新しいリソース種別(今後の育成素材等)を追加する場合もこの形を踏襲する
+- `items`(`PlayerItemDto`: `itemId`/`quantity`)は`player_items`(`outgame.md`参照)にそのまま
+  対応する。`gems`は`item_id: 1`の`quantity`として表現する(マスタ`items`、architecture.md
+  「マスターデータ設計」参照)。`quantity`は絶対値(差分ではなく所持数そのもの)で、
+  加減算はサーバーが権威を持つ。今後、育成で消費する素材アイテム等を追加する場合もこの
+  リソース種別に行を増やすだけでよい
+- `pachimon`(`PlayerPachimonDto`: `playerPachimonId`/`pachimonId`)と`pachimonMoveMap`
+  (`PlayerPachimonMoveDto`: `playerPachimonMoveId`/`playerPachimonId`/`slot`/`moveId`)は
+  `player_pachimon`/`player_pachimon_moves`という別テーブルにそのまま対応させ、独立した
+  リソース種別として分離する(旧設計では`PlayerPachimonDto`に`moves`を内包していたが廃止)。
+  技の付け替え(`POST /edit/pachimon_moves`)は`pachimonMoveMap`の1件だけを`upserted`に
+  載せればよく、変化していない`pachimon`本体まで送り直す必要が無くなる
+- 現状パチモン・アイテムを手放す手段(売却・消費等)が無いため`removed`は常に空配列になる
+  見込みだが、将来の拡張に備えて型だけ用意しておく
+
+### 対象エンドポイント
+
+デバイス認証・サインアップ・サインインは目的の異なる別APIとして分離する
+(トークン発行/初期データセットアップ/所持データ一括取得)。
+
+- `POST /devices/authenticate`: 変更なし。`accessToken`/`expiresIn`のみを返すトークン発行専用
+  エンドポイントのままにする(`playerDiff`は載せない)
+- `POST /signup`(サインアップ): `player`作成・スターター編成付与・初期`items`(gems 300)付与
+  のみを行い、`200`(ボディ無し)を返す。所持データは直後に呼ぶ`POST /sign-in`でまとめて
+  取得する想定のため、このレスポンスには何も載せない
+- `POST /sign-in`(新設): `POST /devices/authenticate`の直後に毎回呼ぶ。`playerId`/`nickname`と
+  `playerDiff`(`upserted`に現在の全件、`removed`は常に空。実質フルスナップショット)を返す。
+  旧`GET /players/me`・`GET /players/me/pachimon`はこれに統合され廃止する
+- `POST /scout/rolls`(紹介を受ける): gemsを消費するのはここ。消費後のgems残量を
+  `playerDiff.items.upserted`に載せる(`pachimon`/`pachimonMoveMap`/`partySlots`は空配列)
+- `POST /scout/rolls/{rollId}/select`(候補から選ぶ): gemsはここでは変化しない
+  (`items`は空配列)。新規入手したパチモン1体を`playerDiff.pachimon.upserted`、
+  その初期技を`pachimonMoveMap.upserted`に載せる
+- `POST /edit/party`(旧`PUT /players/me/party`)・`POST /edit/pachimon_moves`
+  (旧`PUT /players/me/pachimon/{id}/moves/{slot}`): `playerId`/`nickname`/`items`は
+  変化しないため、対応する`upserted`/`removed`は空配列のまま`playerDiff`のみを返す
+- いずれも専用レスポンスDTO(`SetPartyResponse`/`UpdateMoveResponse`)は廃止する
+
+詳細な各APIのリクエスト/レスポンスは[outgame.md](outgame.md)を参照。
+
+### クライアント側の反映
+
+- Pachimon/Gemsのローカル永続化を新規実装する(Supplementの`ISaveDataRepository`/
+  `IFileStorageService`、client-architecture.md「クライアント利用ライブラリ」参照)
+- `playerDiff`を受け取った箇所は共通の適用ロジックを通す(APIごとに反映処理を書かない)
+
 ## クライアント利用ライブラリ
 
 画面遷移・DI・コア進行ロジックのMock/Real切り替えといったクライアント側の骨格設計は
@@ -124,6 +222,18 @@ pachimon_id    FK -> pachimon(必ず埋まっている。nullable無し)
 `player_party_slots`)として付与する(全プレイヤー共通の単一固定編成、選択制ではない)。
 詳細は[outgame.md](outgame.md)の「4. プレイヤー作成」「starter_party_slots(スターター編成
 マスタ)」参照。
+
+### items(マスタ)
+
+```
+item_id        PK
+name           -- 表示名
+```
+
+現状は`item_id: 1`(ジェム、`gems`)のみを投入する。育成要素(将来、育成素材等を消費する形を
+想定)を実装する際に行を追加する。所持数は`player_items`(所持アイテム、[outgame.md](outgame.md)
+参照)で管理し、`players`テーブルに`gems`のような専用カラムは持たない(旧設計からの変更点。
+下記「APIレスポンス設計」参照)。
 
 ### type_chart(タイプ相性マスタ)
 

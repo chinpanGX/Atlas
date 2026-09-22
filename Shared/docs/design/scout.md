@@ -78,10 +78,13 @@ gemsを消費し、新しい候補10体をロールする。
 処理の流れ:
 
 1. 対象バナーが開催期間内(`start_at <= now <= end_at`)か検証
-2. `players.gems`から`cost_per_roll`を減算(不足していれば`400`)
+2. `player_items`(`item_id: 1`、gems)の`quantity`から`cost_per_roll`を減算(不足していれば`400`)
 3. 候補10体を独立に抽選(下記「抽選ロジック」参照)。パチモン・技はこの時点で確定する
 4. `scout_rolls`に候補10体をまとめて保存(`selected_index`は`NULL`)
-5. 候補一覧を返す
+5. 候補一覧とgems消費後の`playerDiff`を返す
+
+gemsを消費するのはこの`rolls`(紹介を受ける)時点であり、次の`select`(候補から選ぶ)では
+gemsは変化しない。
 
 レスポンス
 
@@ -96,7 +99,12 @@ gemsを消費し、新しい候補10体をロールする。
       "moves": [3, 7, 12, 18]
     }
   ],
-  "gems": 700
+  "playerDiff": {
+    "items": { "upserted": [ { "itemId": 1, "quantity": 700 } ], "removed": [] },
+    "pachimon": { "upserted": [], "removed": [] },
+    "pachimonMoveMap": { "upserted": [], "removed": [] },
+    "partySlots": { "upserted": [], "removed": [] }
+  }
 }
 ```
 
@@ -123,10 +131,28 @@ POST /scout/rolls/{rollId}/select
 4. `scout_rolls.selected_index` / `selected_at`を更新
 5. 選ばなかった9体はどこにも永続化されない
 
-レスポンス
+レスポンス: `playerDiff`([architecture.md](architecture.md)参照)。gemsはこの時点では変化しない
+(前述の通り`rolls`で消費済み)ため`items`は空配列。入手したパチモン1件を`pachimon.upserted`に、
+その初期技を`pachimonMoveMap.upserted`に載せる。`rarity`はレスポンスに含めない
+(`pachimonId`からクライアントのマスターデータを引けば分かるため)。
 
 ```json
-{ "playerPachimonId": "...", "pachimonId": 12, "rarity": "S" }
+{
+  "playerDiff": {
+    "items": { "upserted": [], "removed": [] },
+    "pachimon": {
+      "upserted": [ { "playerPachimonId": "...", "pachimonId": 12 } ],
+      "removed": []
+    },
+    "pachimonMoveMap": {
+      "upserted": [
+        { "playerPachimonMoveId": "...", "playerPachimonId": "...", "slot": 1, "moveId": 3 }
+      ],
+      "removed": []
+    },
+    "partySlots": { "upserted": [], "removed": [] }
+  }
+}
 ```
 
 ## 確率設計

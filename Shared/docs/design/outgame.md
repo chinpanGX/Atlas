@@ -6,8 +6,12 @@
 ## 概要
 
 デバイス認証(ゲスト型アカウント)をベースに、プレイヤー管理・チャット・所持パチモン管理を
-提供する。サインアップ/サインイン(会員登録)は学習用途では対象外とし、`device_id`単位での
-デバイス管理と、それに紐づく`player_id`単位でのゲームデータ管理を行う。
+提供する。会員登録(メールアドレス/パスワード等によるアカウント作成)は学習用途では対象外とし、
+`device_id`単位でのデバイス管理と、それに紐づく`player_id`単位でのゲームデータ管理を行う。
+
+デバイス認証(トークン発行)・サインアップ(初回のみ、初期データセットアップ)・サインイン
+(所持データ一式の取得)は目的の異なる別APIとして分離している。詳細は下記2・4・5番、および
+[architecture.md](architecture.md)「APIレスポンス設計」参照。
 
 以下「要認証」と記載したエンドポイントは`Authorization: Bearer <access_token>`ヘッダーを
 必須とする。
@@ -19,13 +23,12 @@
 | 1 | POST | `/devices` | デバイス新規登録 | 不要 |
 | 2 | POST | `/devices/authenticate` | デバイス認証・アクセストークン取得 | 不要 |
 | 3 | GET | `/auth/verify` | アクセストークン検証 | 要 |
-| 4 | POST | `/players` | プレイヤー作成(device認証後に紐付け) | 要 |
-| 5 | GET | `/players/me` | 自分のプレイヤー情報取得 | 要 |
+| 4 | POST | `/signup` | サインアップ(プレイヤー作成・初期データセットアップ) | 要 |
+| 5 | POST | `/sign-in` | サインイン(所持データ一式を`playerDiff`で取得) | 要 |
 | 6 | POST | `/chat/send` | メッセージ送信 | 要 |
 | 7 | GET | `/chat/poll` | メッセージ受信/取得 | 要 |
-| 8 | GET | `/players/me/pachimon` | 所持パチモン一覧 | 要 |
-| 9 | PUT | `/players/me/party` | バトル用パーティ編成(6体まで) | 要 |
-| 10 | PUT | `/players/me/pachimon/{player_pachimon_id}/moves/{slot}` | 技の付け替え | 要 |
+| 8 | POST | `/edit/party` | バトル用パーティ編成(6体まで) | 要 |
+| 9 | POST | `/edit/pachimon_moves` | 技の付け替え | 要 |
 
 ### 1. デバイス新規登録
 
@@ -46,7 +49,7 @@ POST /devices
 ```
 
 > `player_id`はこのエンドポイントでは発行しない。デバイス登録は「端末を識別する」処理と
-> 「ゲームデータの主体(プレイヤー)を作る」処理を分離しており、プレイヤー作成は`/players`で
+> 「ゲームデータの主体(プレイヤー)を作る」処理を分離しており、プレイヤー作成は`/signup`で
 > 別途行う(下記4番参照)。
 
 ### 2. デバイス認証
@@ -83,10 +86,10 @@ GET /auth/verify
 
 有効であれば`200`、無効(期限切れ・存在しない)であれば`401`を返す。
 
-### 4. プレイヤー作成
+### 4. サインアップ(プレイヤー作成)
 
 ```
-POST /players
+POST /signup
 ```
 
 デバイス認証後、初回起動時などに呼び出し、ゲームデータの主体となる`player`を作成して
@@ -98,31 +101,65 @@ POST /players
 { "nickname": "プレイヤー名" }
 ```
 
-レスポンス
-
-```json
-{ "playerId": "my-player-id", "nickname": "プレイヤー名", "gems": 300 }
-```
-
-`gems`の初期値(`300`)と、対戦報酬によるgems付与の設計は[battle.md](battle.md)の
-「報酬設計(gems)」を参照。
+レスポンス: `200`(ボディ無し)
 
 `player`作成と同一トランザクションで、`starter_party_slots`マスタ(下記「スターター編成」
 参照)の内容をそのまま複製して初期パーティ(`player_pachimon`・`player_party_slots`)を
 自動付与する。プレイヤーは作成直後から対戦可能な状態になる(選択制ではなく、全プレイヤー
-共通の単一固定編成)。
+共通の単一固定編成)。同じトランザクションで`player_items`(下記「DB設計」参照)に
+`item_id: 1`(gems)・`quantity: 300`の行も作成する。gemsの初期値(`300`)と、対戦報酬による
+gems付与の設計は[battle.md](battle.md)の「報酬設計(gems)」を参照。
 
-### 5. 自分のプレイヤー情報取得
+作成したプレイヤーのデータはこのレスポンスでは返さない。クライアントは`POST /signup`
+成功後に必ず`POST /sign-in`を呼び、所持データ一式をまとめて取得する(下記5番参照)。
+
+### 5. サインイン
 
 ```
-GET /players/me
+POST /sign-in
 ```
+
+`POST /devices/authenticate`(デバイス認証)の直後に毎回呼び出す。プレイヤーが必要とする
+所持データ一式を`playerId`/`nickname`と`playerDiff`([architecture.md](architecture.md)参照)
+にまとめて返す。旧`GET /players/me`・`GET /players/me/pachimon`はこれに統合されたため廃止した。
+
+リクエストボディ無し(`Authorization: Bearer <access_token>`のみ)
 
 レスポンス
 
 ```json
-{ "playerId": "my-player-id", "nickname": "プレイヤー名", "gems": 100 }
+{
+  "playerId": "my-player-id",
+  "nickname": "プレイヤー名",
+  "playerDiff": {
+    "items": {
+      "upserted": [ { "itemId": 1, "quantity": 300 } ],
+      "removed": []
+    },
+    "pachimon": {
+      "upserted": [ { "playerPachimonId": "...", "pachimonId": 12 } ],
+      "removed": []
+    },
+    "pachimonMoveMap": {
+      "upserted": [
+        { "playerPachimonMoveId": "...", "playerPachimonId": "...", "slot": 1, "moveId": 3 }
+      ],
+      "removed": []
+    },
+    "partySlots": {
+      "upserted": [ { "partySlotId": "...", "slot": 1, "playerPachimonId": "..." } ],
+      "removed": []
+    }
+  }
+}
 ```
+
+サインインは常に所持データの全件を返す(差分ではなくフルスナップショットとして機能する)
+ため、`playerDiff`各リソースの`removed`は常に空配列になる。
+
+プレイヤー未作成の場合は`404`を返す(旧`GET /players/me`の挙動を踏襲)。クライアントは
+この`404`を検知した場合のみ`POST /signup`(サインアップ)を呼んでから、改めて
+`POST /sign-in`を呼び直す。
 
 ### 6. チャット送信
 
@@ -162,34 +199,10 @@ GET /chat/poll
 }
 ```
 
-### 8. 所持パチモン一覧
+### 8. パーティ編成
 
 ```
-GET /players/me/pachimon
-```
-
-レスポンス
-
-```json
-{
-  "pachimon": [
-    {
-      "playerPachimonId": "...",
-      "pachimonId": 12,
-      "moves": [ { "slot": 1, "moveId": 3 } ]
-    }
-  ],
-  "partySlots": [ { "partySlotId": "...", "slot": 1, "playerPachimonId": "..." } ]
-}
-```
-
-`partySlots`は現在のパーティ編成状況(下記9番参照)。パーティに入っていないslotは配列に
-含まれない(未編成を`null`で表現しない。「DB設計」の`player_party_slots`参照)。
-
-### 9. パーティ編成
-
-```
-PUT /players/me/party
+POST /edit/party
 ```
 
 リクエスト
@@ -198,14 +211,26 @@ PUT /players/me/party
 { "partySlots": [ { "slot": 1, "playerPachimonId": "..." } ] }
 ```
 
-レスポンス
+リクエストに含まれないslotの既存編成は解除される(全置き換え)。
+
+レスポンス: `playerDiff`([architecture.md](architecture.md)参照)のみ(プロフィールは変化しない
+ため`profile`は含めない)。`partySlots.upserted`に今回設定した分、`partySlots.removed`に
+今回の呼び出しで解除された(リクエストから外れた)`partySlotId`を載せる。`pachimon`/
+`pachimonMoveMap`は変化しないため`upserted`/`removed`とも空配列。
 
 ```json
-{ "partySlots": [ { "partySlotId": "...", "slot": 1, "playerPachimonId": "..." } ] }
+{
+  "playerDiff": {
+    "items": { "upserted": [], "removed": [] },
+    "pachimon": { "upserted": [], "removed": [] },
+    "pachimonMoveMap": { "upserted": [], "removed": [] },
+    "partySlots": {
+      "upserted": [ { "partySlotId": "...", "slot": 1, "playerPachimonId": "..." } ],
+      "removed": [ "..." ]
+    }
+  }
+}
 ```
-
-`PUT`のため、リクエストに含まれないslotの既存編成は解除される(全置き換え)。
-レスポンスの`partySlotId`は割当自体に発行されるULID(下記「DB設計」の`player_party_slots`参照)。
 
 **バリデーション**
 
@@ -214,19 +239,41 @@ PUT /players/me/party
 3. 同一パチモンの重複は許可(本家の「同種族1体まで」制約は入れない)
 4. 指定した`player_pachimon_id`が呼び出したプレイヤー自身の所持個体であることをサーバー側で検証
 
-### 10. 技の付け替え
+### 9. 技の付け替え
 
 ```
-PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
+POST /edit/pachimon_moves
 ```
 
 グループ内の候補技(`move_group_moves`)から選択する。マスタ側の変更は不要で、
-`player_pachimon_moves`の対象slotをUPDATEするだけで実現できる。
+`player_pachimon_moves`の対象slotをUPDATEするだけで実現できる。対象の`playerPachimonId`・
+`slot`はURLパスではなくリクエストボディに含める(POST化に合わせて、識別子をパスパラメータに
+分散させず1つのボディにまとめる方針)。
 
 リクエスト
 
 ```json
-{ "moveId": 7 }
+{ "playerPachimonId": "...", "slot": 1, "moveId": 7 }
+```
+
+レスポンス: `playerDiff`のみ(プロフィールは変化しないため`profile`は含めない)。付け替え後の
+割当1件を`pachimonMoveMap.upserted`に載せる。`pachimon`本体は変化していないため送り直さない。
+`partySlots`も変化しないため空配列。
+
+```json
+{
+  "playerDiff": {
+    "items": { "upserted": [], "removed": [] },
+    "pachimon": { "upserted": [], "removed": [] },
+    "pachimonMoveMap": {
+      "upserted": [
+        { "playerPachimonMoveId": "...", "playerPachimonId": "...", "slot": 1, "moveId": 7 }
+      ],
+      "removed": []
+    },
+    "partySlots": { "upserted": [], "removed": [] }
+  }
+}
 ```
 
 ## DB設計
@@ -260,8 +307,25 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 | `player_id` | CHAR(26) | PRIMARY KEY | ULID |
 | `device_id` | CHAR(26) | NOT NULL, UNIQUE, FOREIGN KEY → `devices.device_id` | 紐づくデバイス |
 | `nickname` | VARCHAR(50) | NOT NULL | プレイヤー名 |
-| `gems` | INT | NOT NULL, DEFAULT 300 | スカウト用課金石。初期付与・対戦報酬の設計は[battle.md](battle.md)参照 |
 | `created_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) | 作成日時 |
+
+gems等の所持数は本テーブルに持たず、`player_items`(下記)で管理する。
+
+### player_items(所持アイテム)
+
+| カラム名 | 型 | 制約 | 説明 |
+|---|---|---|---|
+| `player_id` | CHAR(26) | PRIMARY KEY(複合), FOREIGN KEY → `players.player_id` | |
+| `item_id` | INT | PRIMARY KEY(複合), FOREIGN KEY → `items.item_id` | `items`マスタ(architecture.md「マスターデータ設計」参照)。`item_id: 1`がgems |
+| `quantity` | INT | NOT NULL | 所持数(絶対値) |
+| `updated_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) | |
+
+`player_pachimon`のような割当エンティティ(ULID主キー)ではなく、`(player_id, item_id)`複合PKの
+単純な所持数テーブルにした。アイテムは「何個持っているか」だけが意味を持ち、パーティ編成や
+技の付け替えのように個々の割当を独立したエンティティとして参照する必要が無いため。
+`POST /signup`で`item_id: 1`(gems)・`quantity: 300`の行を作成し、以後は
+`INSERT ... ON DUPLICATE KEY UPDATE`で`quantity`を増減する(スカウトのgems消費は
+[scout.md](scout.md)、対戦報酬のgems付与は[battle.md](battle.md)参照)。
 
 ### messages
 
@@ -302,7 +366,7 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 `player_pachimon.party_slot`のようなnullableな属性ではなく専用テーブルにした理由:
 未編成を「行が存在しない」ことで表現でき、API応答で`nullable`を使わずに済む
 (`api-codegen`が現状`nullable`未対応のため。`Shared/docs/progress.md`参照)。パーティ編成
-(`PUT /players/me/party`)は既存行を全削除してから指定されたslot分だけ新しいULIDで
+(`POST /edit/party`)は既存行を全削除してから指定されたslot分だけ新しいULIDで
 再作成する(全置き換え)。
 
 ### starter_party_slots(スターター編成マスタ)
@@ -314,7 +378,7 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 
 `master-data-pipeline`が生成するマスタテーブル(`Shared/master-data/schema/tables/`
 参照)。全プレイヤー共通の単一固定編成(選択制ではない)で、`pachimon_id`は必ず埋まっている
-(nullable無し)。`POST /players`(プレイヤー作成)時にこの内容をそのまま複製して
+(nullable無し)。`POST /signup`(プレイヤー作成)時にこの内容をそのまま複製して
 `player_pachimon`(初期技込み)・`player_party_slots`を生成する
 (`src/service/player_service.rs::grant_starter_party`参照)。他のマスタ同様、更新の反映には
 `seed_master_data`実行とサーバー再起動が必要(無停止反映は非対応)。

@@ -453,8 +453,9 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
 
 ### 初期付与
 
-プレイヤー作成時(`POST /players`、[outgame.md](outgame.md)参照)に、初期gemsとして
-`300`を付与する(`players.gems`の`DEFAULT`値)。スカウトの紹介コスト例(`150`/回)の
+プレイヤー作成時(`POST /signup`、[outgame.md](outgame.md)参照)に、初期gemsとして
+`300`を付与する(`player_items`に`item_id: 1`・`quantity: 300`の行を作成、
+[outgame.md](outgame.md)「player_items」参照)。スカウトの紹介コスト例(`150`/回)の
 2回分に相当し、初回起動時点で最低限スカウトを試せるようにする。
 
 ### 対戦勝利報酬
@@ -470,8 +471,8 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
   必須のため、決着が付かない対戦は考慮しない)
 - 報酬額はマスタデータ化せず、Rust側の定数(`BATTLE_WIN_REWARD_GEMS`)として持つ
   (`scout_banners.rate_table`のように運用中に調整する想定がないため)
-- `players.gems`への加算は、`battle_matches`のステータス更新・`battle_turns`のINSERTと
-  同一トランザクションで行う
+- `player_items`(`item_id: 1`、gems)の`quantity`への加算は、`battle_matches`のステータス更新・
+  `battle_turns`のINSERTと同一トランザクションで行う
 - 「いつ・いくら付与したか」を記録する専用の履歴テーブルは設けない。
   `battle_matches.winner_id`と固定額から常に再計算できるため、監査目的の別テーブルは
   過剰と判断
