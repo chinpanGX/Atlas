@@ -199,6 +199,111 @@ paths:
           description: プレイヤー未作成
       security:
       - bearer_auth: []
+  /players/me/pachimon:
+    get:
+      tags:
+      - player
+      summary: 認証済みプレイヤーの所持パチモン一覧・パーティ編成状況を取得するAPIハンドラ。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に
+        `AppError::NotFound`を返す。
+      operationId: list_owned_pachimon_handler
+      responses:
+        '200':
+          description: 所持パチモン一覧・パーティ編成状況
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListOwnedPachimonResponse'
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
+  /players/me/pachimon/{playerPachimonId}/moves/{slot}:
+    put:
+      tags:
+      - player
+      summary: |-
+        所持パチモンの技を付け替えるAPIハンドラ。グループ内の候補技(`move_group_moves`)から
+        選択する(`Shared/docs/design/outgame.md`「10. 技の付け替え」参照)。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`
+        (指定した`playerPachimonId`が自分の所持個体でない場合も同様)、`slot`が範囲外または
+        `moveId`が候補技でない場合に`AppError::BadRequest`を返す。
+      operationId: update_pachimon_move_handler
+      parameters:
+      - name: playerPachimonId
+        in: path
+        description: 所持パチモンID
+        required: true
+        schema:
+          type: string
+      - name: slot
+        in: path
+        description: 技スロット(1-4)
+        required: true
+        schema:
+          type: integer
+          format: int32
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMoveRequest'
+        required: true
+      responses:
+        '200':
+          description: 付け替え成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateMoveResponse'
+        '400':
+          description: slotが範囲外、またはmoveIdが候補技でない
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成、または指定したplayerPachimonIdが自分の所持個体でない
+      security:
+      - bearer_auth: []
+  /players/me/party:
+    put:
+      tags:
+      - player
+      summary: |-
+        バトル用パーティ(1-6体)を編成するAPIハンドラ。`PUT`のため、既存の編成は全置き換えされる
+        (`Shared/docs/design/outgame.md`「9. パーティ編成」のバリデーション参照)。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`
+        (指定した`playerPachimonId`が自分の所持個体でない場合も同様)、人数・slot・
+        `playerPachimonId`の重複などのバリデーション違反の場合に`AppError::BadRequest`を返す。
+      operationId: set_party_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPartyRequest'
+        required: true
+      responses:
+        '200':
+          description: パーティ編成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetPartyResponse'
+        '400':
+          description: 人数・slot・playerPachimonIdの重複などのバリデーション違反
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成、または指定したplayerPachimonIdが自分の所持個体でない
+      security:
+      - bearer_auth: []
   /scout/banners:
     get:
       tags:
@@ -448,6 +553,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BannerDto'
+    ListOwnedPachimonResponse:
+      type: object
+      description: 所持パチモン一覧APIのレスポンスボディ。
+      required:
+      - pachimon
+      - partySlots
+      properties:
+        pachimon:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerPachimonDto'
+        partySlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartySlotDto'
     MessageDto:
       type: object
       description: チャットメッセージ1件分のレスポンスDTO。
@@ -466,6 +586,68 @@ components:
           type: string
         playerId:
           type: string
+    PartySlotDto:
+      type: object
+      description: |-
+        パーティ編成1割当分のレスポンスDTO。`partySlotId`は割当自体のULID
+        (`Shared/docs/design/outgame.md`参照)。パーティに入っていないslotはこの配列に
+        含まれない(行自体が存在しないため、`nullable`を使わずに「未編成」を表現できる)。
+      required:
+      - partySlotId
+      - slot
+      - playerPachimonId
+      properties:
+        partySlotId:
+          type: string
+        playerPachimonId:
+          type: string
+        slot:
+          type: integer
+          format: int32
+    PartySlotRequest:
+      type: object
+      description: パーティ編成APIのリクエストボディ1slot分。
+      required:
+      - slot
+      - playerPachimonId
+      properties:
+        playerPachimonId:
+          type: string
+        slot:
+          type: integer
+          format: int32
+    PlayerPachimonDto:
+      type: object
+      description: |-
+        所持パチモン1体分のレスポンスDTO。パーティ編成状況(`partySlots`)は`player_party_slots`
+        (`PartySlotDto`)側で別途持つため含まない。
+      required:
+      - playerPachimonId
+      - pachimonId
+      - moves
+      properties:
+        moves:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerPachimonMoveDto'
+        pachimonId:
+          type: integer
+          format: int64
+        playerPachimonId:
+          type: string
+    PlayerPachimonMoveDto:
+      type: object
+      description: 所持パチモン1体分の、覚えている技のレスポンスDTO。
+      required:
+      - slot
+      - moveId
+      properties:
+        moveId:
+          type: integer
+          format: int64
+        slot:
+          type: integer
+          format: int32
     PlayerResponse:
       type: object
       description: プレイヤー情報のレスポンスボディ。
@@ -559,6 +741,51 @@ components:
           format: date-time
         messageId:
           type: string
+    SetPartyRequest:
+      type: object
+      description: パーティ編成APIのリクエストボディ。
+      required:
+      - partySlots
+      properties:
+        partySlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartySlotRequest'
+    SetPartyResponse:
+      type: object
+      description: パーティ編成APIのレスポンスボディ。
+      required:
+      - partySlots
+      properties:
+        partySlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartySlotDto'
+    UpdateMoveRequest:
+      type: object
+      description: 技の付け替えAPIのリクエストボディ。
+      required:
+      - moveId
+      properties:
+        moveId:
+          type: integer
+          format: int64
+    UpdateMoveResponse:
+      type: object
+      description: 技の付け替えAPIのレスポンスボディ。
+      required:
+      - playerPachimonId
+      - slot
+      - moveId
+      properties:
+        moveId:
+          type: integer
+          format: int64
+        playerPachimonId:
+          type: string
+        slot:
+          type: integer
+          format: int32
   securitySchemes:
     bearer_auth:
       type: http

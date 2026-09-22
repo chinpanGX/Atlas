@@ -88,13 +88,26 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | GET | /scout/banners |
 | POST | /scout/rolls |
 | POST | /scout/rolls/{rollId}/select |
+| GET | /players/me/pachimon |
+| PUT | /players/me/party |
+| PUT | /players/me/pachimon/{playerPachimonId}/moves/{slot} |
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
-- テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計36件)
-- マイグレーション16本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
+- テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計52件)
+- マイグレーション17本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
   move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
   players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
-  scout_banners・scout_rolls/move_group_master→move_group_movesへのリネーム)
+  scout_banners・scout_rolls/move_group_master→move_group_movesへのリネーム/
+  player_party_slotsテーブル作成・player_pachimon.party_slot列削除)
+- パーティ編成・技の付け替え(`GET/PUT /players/me/pachimon*`, `PUT /players/me/party`)を実装
+  (outgame.md #8-10)。パーティ編成は当初`player_pachimon.party_slot`(nullable INT)属性として
+  設計したが、①`api-codegen`が現状OpenAPIの`nullable`(`type: [T, 'null']`)に未対応で
+  `TypeMapper`が例外停止すること、②割当自体をULIDで一意に参照できる方が他テーブルとの一貫性が
+  高いこと、の2点から`player_party_slots`という独立テーブル(`party_slot_id`をPKに持つ)に設計変更した。
+  未編成のslotは行が存在しないことで表現し、`nullable`を一切使わずに済む設計にしている。
+  `PUT /players/me/party`は既存行を全削除してから指定分だけ新しいULIDで再作成する(全置き換え)。
+  技の付け替えは`player_pachimon_moves`に対する`INSERT ... ON DUPLICATE KEY UPDATE`
+  (既存slotの上書き・未使用slotへの新規セット両対応)
 - `pachimon`マスタはDBに保存し、起動時にメモリキャッシュへ読み込む設計(`src/master/cache.rs`)。
   `move_group_moves`も同様にキャッシュ対象(`moves`/`move_groups`はスカウトのロジック上
   参照不要なためDB投入のみでキャッシュ対象外)。更新時は`cargo run --bin seed_master_data`で
@@ -114,7 +127,6 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 |---|---|
 | マッチング | `/battle/queue*` |
 | 内部API | `/internal/battle/result` |
-| パーティ編成・技の付け替え | `/players/me/pachimon`, `/players/me/party`, `PUT /players/me/pachimon/{id}/moves/{slot}`(outgame.md #8-10、スカウトでの初期取得とは別) |
 
 ## 4. クライアント / バトルサーバー / API連携
 
@@ -250,7 +262,10 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
   (Domainレイヤーではないため`Atlas.Infrastructure.Api`名前空間に配置)。詳細は
   `api-codegen/README.md`参照
 - 残タスク: 生成したC#コードをUnityプロジェクト側で実際にコンパイル確認すること
-  `nullable`・列挙型・クエリパラメータはapi-codegen未対応(現状のAPIには存在しないため後回し)
+  列挙型・クエリパラメータはapi-codegen未対応(現状のAPIには存在しないため後回し)。
+  `nullable`は実際に`PUT /players/me/party`実装時に遭遇し、`TypeMapper`が例外停止することを確認済み
+  (ツール自体は未対応のまま)。今回はAPI設計側で回避した(`player_party_slots`テーブル化。
+  詳細は上記「3. Server API実装状況」参照)ため、ツール拡張は先送りにしている
 
 ## 5. 残タスク一覧(統合)
 
@@ -258,7 +273,7 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 |---|---|---|
 | 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 | バトルサーバー |
 | ~~2~~ | ~~`moves`/`move_groups`/`move_group_master`のDBテーブル作成・`cache.rs`/`seed_master_data.rs`対応~~ → 完了(マイグレーション追加・`cache.rs`で`move_group_master`をキャッシュ・`seed_master_data`で3テーブルとも投入。詳細は上記「3. Server API実装状況」参照) | server/master-data |
-| ~~3~~ | ~~`player_pachimon`(所持データ)のモデル・テーブル・API実装~~ → 完了(スカウトでの入手時に作成。パーティ編成・技の付け替えAPI自体は引き続き未実装、上記「未実装」参照) | server |
+| ~~3~~ | ~~`player_pachimon`(所持データ)のモデル・テーブル・API実装~~ → 完了(スカウトでの入手時に作成。パーティ編成・技の付け替えAPI自体は#13で完了) | server |
 | ~~4~~ | ~~スカウトAPI(`/scout/*`)実装~~ → 完了(`GET /scout/banners`, `POST /scout/rolls`, `POST /scout/rolls/{rollId}/select`。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
 | 5 | マッチングAPI(`/battle/queue*`)実装 | server |
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
@@ -268,3 +283,4 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |
+| ~~13~~ | ~~パーティ編成・技の付け替えAPI(`GET/PUT /players/me/pachimon*`, `PUT /players/me/party`)実装~~ → 完了(`player_party_slots`テーブル新設によりnullableを使わない設計に変更。結合テスト11件、詳細は上記「3. Server API実装状況」参照) | server |

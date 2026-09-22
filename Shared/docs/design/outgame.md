@@ -171,12 +171,15 @@ GET /players/me/pachimon
     {
       "playerPachimonId": "...",
       "pachimonId": 12,
-      "partySlot": null,
       "moves": [ { "slot": 1, "moveId": 3 } ]
     }
-  ]
+  ],
+  "partySlots": [ { "partySlotId": "...", "slot": 1, "playerPachimonId": "..." } ]
 }
 ```
+
+`partySlots`は現在のパーティ編成状況(下記9番参照)。パーティに入っていないslotは配列に
+含まれない(未編成を`null`で表現しない。「DB設計」の`player_party_slots`参照)。
 
 ### 9. パーティ編成
 
@@ -189,6 +192,15 @@ PUT /players/me/party
 ```json
 { "partySlots": [ { "slot": 1, "playerPachimonId": "..." } ] }
 ```
+
+レスポンス
+
+```json
+{ "partySlots": [ { "partySlotId": "...", "slot": 1, "playerPachimonId": "..." } ] }
+```
+
+`PUT`のため、リクエストに含まれないslotの既存編成は解除される(全置き換え)。
+レスポンスの`partySlotId`は割当自体に発行されるULID(下記「DB設計」の`player_party_slots`参照)。
 
 **バリデーション**
 
@@ -265,9 +277,26 @@ PUT /players/me/pachimon/{player_pachimon_id}/moves/{slot}
 | `player_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `players.player_id` | |
 | `pachimon_id` | INT | NOT NULL, FOREIGN KEY → `pachimon.pachimon_id` | |
 | `ivs` | JSON | NOT NULL | |
-| `party_slot` | INT | NULL可 | 1-6、NULL=ボックス。`UNIQUE(player_id, party_slot)` |
 | `effort_values` | JSON | NOT NULL | 例: `{"hp":0,"atk":0,"def":0,"spatk":0,"spdef":0,"speed":0}`、デフォルト全0(将来の努力値64ポイント配分用、現状は未使用) |
 | `obtained_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) | |
+
+パーティ編成状況は本テーブルの属性としては持たず、`player_party_slots`(下記)に分離する。
+
+### player_party_slots(パーティ編成)
+
+| カラム名 | 型 | 制約 | 説明 |
+|---|---|---|---|
+| `party_slot_id` | CHAR(26) | PRIMARY KEY | ULID。割当自体を独立したエンティティとして扱う |
+| `player_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `players.player_id` | |
+| `slot` | INT | NOT NULL | 1-6。`UNIQUE(player_id, slot)` |
+| `player_pachimon_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `player_pachimon.player_pachimon_id` | `UNIQUE(player_id, player_pachimon_id)`(同一個体を複数slotに置けない) |
+| `created_at` | DATETIME(3) | NOT NULL, DEFAULT CURRENT_TIMESTAMP(3) | |
+
+`player_pachimon.party_slot`のようなnullableな属性ではなく専用テーブルにした理由:
+未編成を「行が存在しない」ことで表現でき、API応答で`nullable`を使わずに済む
+(`api-codegen`が現状`nullable`未対応のため。`Shared/docs/progress.md`参照)。パーティ編成
+(`PUT /players/me/party`)は既存行を全削除してから指定されたslot分だけ新しいULIDで
+再作成する(全置き換え)。
 
 ### player_pachimon_moves(現在覚えている技)
 

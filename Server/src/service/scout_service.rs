@@ -303,7 +303,6 @@ pub async fn select_candidate(
         player_id: player_id.to_string(),
         pachimon_id,
         ivs,
-        party_slot: None,
         obtained_at: obtained_at.0,
     })
 }

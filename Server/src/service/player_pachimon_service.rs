@@ -1,0 +1,227 @@
+use std::collections::HashSet;
+
+use sqlx::MySqlPool;
+use ulid::Ulid;
+
+use crate::error::AppError;
+use crate::master::MasterData;
+use crate::model::player_pachimon::{OwnedPachimon, PlayerPachimonMove};
+use crate::model::player_party_slot::PlayerPartySlot;
+
+/// `PUT /players/me/party`リクエストの1slot分の入力。
+pub struct PartySlotInput {
+    pub slot: i32,
+    pub player_pachimon_id: String,
+}
+
+/// 認証済みプレイヤーの所持パチモン一覧を、各個体の覚えている技と合わせて取得する。
+/// パーティ編成状況は[`list_party`]で別途取得する。
+///
+/// # Errors
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn list_owned(pool: &MySqlPool, player_id: &str) -> Result<Vec<OwnedPachimon>, AppError> {
+    let rows: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT player_pachimon_id, pachimon_id FROM player_pachimon \
+         WHERE player_id = ? ORDER BY obtained_at",
+    )
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    let mut owned = Vec::with_capacity(rows.len());
+    for (player_pachimon_id, pachimon_id) in rows {
+        let move_rows: Vec<(i32, i64)> = sqlx::query_as(
+            "SELECT slot, move_id FROM player_pachimon_moves WHERE player_pachimon_id = ? ORDER BY slot",
+        )
+        .bind(&player_pachimon_id)
+        .fetch_all(pool)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
+        owned.push(OwnedPachimon {
+            player_pachimon_id,
+            pachimon_id,
+            moves: move_rows
+                .into_iter()
+                .map(|(slot, move_id)| PlayerPachimonMove { slot, move_id })
+                .collect(),
+        });
+    }
+
+    Ok(owned)
+}
+
+/// 認証済みプレイヤーの現在のパーティ編成(`player_party_slots`)を取得する。
+/// 割当が無いslotは行が存在しないため、返る件数は0-6件。
+///
+/// # Errors
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn list_party(pool: &MySqlPool, player_id: &str) -> Result<Vec<PlayerPartySlot>, AppError> {
+    let rows: Vec<(String, i32, String)> = sqlx::query_as(
+        "SELECT party_slot_id, slot, player_pachimon_id FROM player_party_slots \
+         WHERE player_id = ? ORDER BY slot",
+    )
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(party_slot_id, slot, player_pachimon_id)| PlayerPartySlot {
+            party_slot_id,
+            player_id: player_id.to_string(),
+            slot,
+            player_pachimon_id,
+        })
+        .collect())
+}
+
+/// バトル用パーティ(1-6体)を編成する。既存の割当(`player_party_slots`)を一旦全削除してから、
+/// 指定された`player_pachimon_id`をそれぞれのslotへ新しいULIDで再割当する(`PUT`による全置き換え)。
+///
+/// # Errors
+/// 人数が1-6体でない、slot/`player_pachimon_id`が重複している場合に`AppError::BadRequest`、
+/// 指定した`player_pachimon_id`が呼び出したプレイヤー自身の所持個体でない場合に
+/// `AppError::NotFound`、DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn set_party(
+    pool: &MySqlPool,
+    player_id: &str,
+    slots: Vec<PartySlotInput>,
+) -> Result<Vec<PlayerPartySlot>, AppError> {
+    if slots.is_empty() || slots.len() > 6 {
+        return Err(AppError::BadRequest(
+            "party size must be between 1 and 6".to_string(),
+        ));
+    }
+
+    let mut seen_slots = HashSet::new();
+    let mut seen_ids = HashSet::new();
+    for s in &slots {
+        if !(1..=6).contains(&s.slot) {
+            return Err(AppError::BadRequest("slot must be between 1 and 6".to_string()));
+        }
+        if !seen_slots.insert(s.slot) {
+            return Err(AppError::BadRequest("duplicate slot".to_string()));
+        }
+        if !seen_ids.insert(s.player_pachimon_id.clone()) {
+            return Err(AppError::BadRequest(
+                "duplicate playerPachimonId".to_string(),
+            ));
+        }
+    }
+
+    let mut tx = pool.begin().await.map_err(|_| AppError::InternalError)?;
+
+    for s in &slots {
+        let owned: Option<(String,)> = sqlx::query_as(
+            "SELECT player_pachimon_id FROM player_pachimon \
+             WHERE player_pachimon_id = ? AND player_id = ?",
+        )
+        .bind(&s.player_pachimon_id)
+        .bind(player_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
+        if owned.is_none() {
+            return Err(AppError::NotFound);
+        }
+    }
+
+    sqlx::query("DELETE FROM player_party_slots WHERE player_id = ?")
+        .bind(player_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
+    let mut result = Vec::with_capacity(slots.len());
+    for s in &slots {
+        let party_slot_id = Ulid::new().to_string();
+
+        sqlx::query(
+            "INSERT INTO player_party_slots (party_slot_id, player_id, slot, player_pachimon_id) \
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(&party_slot_id)
+        .bind(player_id)
+        .bind(s.slot)
+        .bind(&s.player_pachimon_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
+        result.push(PlayerPartySlot {
+            party_slot_id,
+            player_id: player_id.to_string(),
+            slot: s.slot,
+            player_pachimon_id: s.player_pachimon_id.clone(),
+        });
+    }
+
+    tx.commit().await.map_err(|_| AppError::InternalError)?;
+
+    result.sort_by_key(|r| r.slot);
+    Ok(result)
+}
+
+/// 所持パチモンの技を付け替える。グループ内の候補技(`move_group_moves`)以外は指定できない。
+///
+/// # Errors
+/// `slot`が1-4の範囲外の場合、`move_id`が対象パチモンの技グループの候補技でない場合に
+/// `AppError::BadRequest`、指定した`player_pachimon_id`が呼び出したプレイヤー自身の
+/// 所持個体でない場合に`AppError::NotFound`、DBアクセスに失敗した場合に
+/// `AppError::InternalError`を返す。
+pub async fn update_move(
+    pool: &MySqlPool,
+    master: &MasterData,
+    player_id: &str,
+    player_pachimon_id: &str,
+    slot: i32,
+    move_id: i64,
+) -> Result<PlayerPachimonMove, AppError> {
+    if !(1..=4).contains(&slot) {
+        return Err(AppError::BadRequest("slot must be between 1 and 4".to_string()));
+    }
+
+    let row: Option<(i64,)> = sqlx::query_as(
+        "SELECT pachimon_id FROM player_pachimon WHERE player_pachimon_id = ? AND player_id = ?",
+    )
+    .bind(player_pachimon_id)
+    .bind(player_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    let pachimon_id = row.ok_or(AppError::NotFound)?.0;
+
+    let pachimon = master
+        .pachimon
+        .iter()
+        .find(|p| p.pachimon_id == pachimon_id)
+        .ok_or(AppError::InternalError)?;
+
+    let is_candidate_move = master
+        .move_group_moves
+        .iter()
+        .any(|m| m.group_id == pachimon.move_group_id && m.move_id == move_id);
+    if !is_candidate_move {
+        return Err(AppError::BadRequest(
+            "moveId is not a candidate move for this pachimon".to_string(),
+        ));
+    }
+
+    sqlx::query(
+        "INSERT INTO player_pachimon_moves (player_pachimon_id, slot, move_id) VALUES (?, ?, ?) \
+         ON DUPLICATE KEY UPDATE move_id = VALUES(move_id)",
+    )
+    .bind(player_pachimon_id)
+    .bind(slot)
+    .bind(move_id)
+    .execute(pool)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    Ok(PlayerPachimonMove { slot, move_id })
+}
