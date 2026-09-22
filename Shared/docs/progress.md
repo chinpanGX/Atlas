@@ -154,7 +154,8 @@ design/architecture.mdの全体構成(`Unity Client ←REST→ Rust/Axum`, `Unit
 ### Unity Client
 
 Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済みで、利用ライブラリ一式を
-導入しコンパイルが通る状態まで到達した(通信・UI・ゲームロジックの実装自体はまだこれから)。
+導入しコンパイルが通る状態まで到達した。バトルMock・デバイス認証(サインアップ)疎通の実装により、
+通信層(REST APIクライアントの実呼び出し)にも着手している。
 
 - 利用ライブラリ(VContainer/UniTask/MagicOnion.Client/YetAnotherHttpHandler/MessagePack/
   MasterMemory/Supplement/R3/UnityScreenNavigator/ZeroMessenger)を導入。詳細・導入経路は
@@ -173,12 +174,12 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   ローカルパッケージ参照。AssetLoader(Addressables実装)にラベル指定ロード・進捗通知が
   無いことを確認済みで、追加を依頼中(Supplement側での対応待ち)
 - R3(View↔Presenterのリアクティブ購読、battle.md参照)・UnityScreenNavigator(画面遷移、
-  client-architecture.md参照)は導入済み。実際の画面・Presenterでの利用はこれから
+  client-architecture.md参照)は導入済みで、Home/Battle画面のPresenterで実際に利用している
 - `uloop`(Unity CLI Loop、`io.github.hatayama.uloopmcp`)経由でEditor操作・コンパイル確認を
   自動化できる状態
-- 未着手: 通信層の実装(MagicOnion StreamingHubクライアント・REST APIクライアントの実際の呼び出し)、
-  UI、ゲームロジック、`Atlas.BattleCore`との連携(`MockBattleConnection`)。ただし下記の通り
-  設計自体は固まった
+- 未着手: MagicOnion StreamingHubクライアントの実装(バトルサーバー自体が未着手のため)、
+  Scout/Party/Chat各画面のUI・ゲームロジック。REST APIクライアントの実呼び出しと
+  `Atlas.BattleCore`との連携(`MockBattleConnection`)は下記の通り一部着手済み
 
 ### クライアントアーキテクチャ設計(画面遷移・DI・Connection抽象)
 
@@ -224,16 +225,36 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   Play Modeでの実機確認(Bootstrap→Home遷移→TitlePage表示→ボタンクリックでの表示更新)まで完了
 - **ホーム画面本体**: `HomePage`/`HomePresenter`/`HomePageLifetimeScope`
   (`Presentation/Home/`)を実装し、Homeシーンの初期表示を(検証用の)TitlePageから置き換えた。
-  `IPlayerConnection`(`Atlas.Domain`)+`MockPlayerConnection`(`Atlas.Infrastructure`、
-  `GET /players/me`のMock)を実装し、`RootLifetimeScope`にMock固定で登録(Real実装は未着手)。
-  ニックネーム・gems表示、Scout/Party/Battle/Chatへの導線ボタン(遷移先画面が無いため
-  現状はログ出力のみ)をPlay Modeで実機確認済み。`HomePresenter`は非同期の初期データ取得が
-  必要なため`IInitializable`ではなく`IAsyncStartable`を使用(使い分けはclient-architecture.md
-  「DIによる結線とライフサイクル」参照)
+  `IPlayerRepository`(`Atlas.Domain`)+`MockPlayerRepository`(`Atlas.Infrastructure.Mock`、
+  `GET /players/me`のMock)を実装。ニックネーム・gems表示、Scout/Party/Battle/Chatへの導線ボタン
+  (遷移先画面が無いため現状はログ出力のみ)をPlay Modeで実機確認済み。`HomePresenter`は非同期の
+  初期データ取得が必要なため`IInitializable`ではなく`IAsyncStartable`を使用(使い分けは
+  client-architecture.md「DIによる結線とライフサイクル」参照)。`IPlayerRepository`のReal実装は
+  下記「デバイス認証・サインアップ疎通」参照
+- **バトル画面**: `Presentation/Battle/`(`BattlePage`/`BattlePresenter`/`BattleUiState`/
+  `BattleViewDto`/`BattlePageLifetimeScope`)を実装し、`Atlas.BattleCore`(`BattleEngine`)と
+  UIを繋ぐ`MockBattleConnection`(`Atlas.Infrastructure.Mock`)経由で実際にバトルが動く状態まで
+  到達した。選出3体はマスターデータから`TestPartyFactory`が組み立てる(`player_pachimon`未使用の
+  暫定実装、design/battle.md「Stage 1」参照)。`BattlePagePlayModeTests`でPlay Mode実機確認済み
+- **デバイス認証・サインアップ疎通**: design/outgame.md「デバイス認証」「プレイヤー作成」の
+  `POST /devices`→`POST /devices/authenticate`→`GET/POST /players*`という初回起動フローを
+  実装。`IDeviceConnection`/`RealDeviceConnection`(Atlas.Infrastructure、`DeviceApiClient`
+  経由)・`IPlayerRepository`のReal実装`RealPlayerRepository`(`PlayerApiClient`経由)・
+  両方をまとめて呼び出す`IAuthService`/`AuthService`を追加し、`BootstrapEntryPoint`から
+  Homeシーン遷移前に`EnsureSignedUpAsync`を実行する形にした。`device_id`/`secret_key`は
+  `IDeviceCredentialsRepository`/`DeviceCredentialsRepository`が保持し、Supplementの
+  `IFileStorageService`(`RegisterEncryptedFileStorage`、AES暗号化)でローカルファイルへ永続化
+  する(再起動時は保存済みの`secret_key`で`/devices/authenticate`を再実行し、無ければのみ
+  `/devices`から新規登録)。`GET /players/me`が404(プレイヤー未作成)を返した場合のみ
+  `POST /players`でプレイヤーを作成する。アクセストークンは`AccessTokenStore`が保持し、
+  各ApiClientの`Func<string> accessTokenProvider`へ渡す。有効期限の事前チェックや401時の
+  再認証リトライ(outgame.mdの補足で「望ましい」とされる挙動)は未実装で、起動時に一度だけ
+  認証する疎通確認レベルの実装に留めている(残タスク参照)。ニックネーム入力画面が無いため
+  新規プレイヤー作成時は固定文字列「プレイヤー」を使う
 - 実装メモ: `record`/`record struct`はUnity Editorが固定するC#言語バージョン(9.0)では
   使えない(C# 10以降が必要)。`Atlas.Domain`等のシンプルなデータ型は通常の`readonly struct`/
   `class`で書く
-- 未確定として残っているのは、Battle結果をHomeへ引き継ぐ方法と、Scout/Party/Battle/Chat各画面
+- 未確定として残っているのは、Battle結果をHomeへ引き継ぐ方法と、Scout/Party/Chat各画面
   (Homeからの導線先)の個別Presenter/ViewDto設計(画面実装時に決定)
 
 ### Atlas.BattleCore(Shared/BattleCore/)
@@ -279,7 +300,8 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
   `Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Api/`へ配置する
   (Domainレイヤーではないため`Atlas.Infrastructure.Api`名前空間に配置)。詳細は
   `api-codegen/README.md`参照
-- 残タスク: 生成したC#コードをUnityプロジェクト側で実際にコンパイル確認すること
+- 残タスク: ~~生成したC#コードをUnityプロジェクト側で実際にコンパイル確認すること~~ → 完了
+  (`uloop compile`で0エラーを確認)。
   列挙型・クエリパラメータはapi-codegen未対応(現状のAPIには存在しないため後回し)。
   `nullable`は実際に`PUT /players/me/party`実装時に遭遇し、`TypeMapper`が例外停止することを確認済み
   (ツール自体は未対応のまま)。今回はAPI設計側で回避した(`player_party_slots`テーブル化。
@@ -297,7 +319,9 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
-| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、およびBootstrap→Home→TitlePageの最小実装・実機確認まで完了。個別画面(ホーム本体・パーティ編成・スカウト等)の実装、`IXxxConnection`の実装、通信層・ゲームロジックは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
+| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体、バトル画面(Mock)、デバイス認証・サインアップ疎通(Real)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
+| 14 | アクセストークンの事前有効期限チェック・401時の再認証リトライ(design/outgame.md補足で「望ましい」とされる挙動、現状は起動時に一度認証するのみ) | client |
+| 15 | サインアップ疎通(デバイス登録〜プレイヤー作成)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |

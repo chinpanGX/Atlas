@@ -10,9 +10,6 @@ namespace Atlas.Infrastructure.Api
         [JsonPropertyName("index")]
         public int Index { get; set; }
 
-        [JsonPropertyName("ivs")]
-        public IvsDto Ivs { get; set; }
-
         [JsonPropertyName("moves")]
         public System.Collections.Generic.List<long> Moves { get; set; }
 

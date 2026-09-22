@@ -47,10 +47,11 @@ namespace Atlas.Presentation.Battle
             connection.OnMatchStart += HandleMatchStart;
             connection.OnTurnResult += HandleTurnResult;
 
-            view.OnMoveButton1Clicked.Subscribe(_ => SubmitMove(0)).AddTo(disposables);
-            view.OnMoveButton2Clicked.Subscribe(_ => SubmitMove(1)).AddTo(disposables);
-            view.OnMoveButton3Clicked.Subscribe(_ => SubmitMove(2)).AddTo(disposables);
-            view.OnMoveButton4Clicked.Subscribe(_ => SubmitMove(3)).AddTo(disposables);
+            for (var slot = 0; slot < view.OnCommandButtonClicked.Count; slot++)
+            {
+                var capturedSlot = slot;
+                view.OnCommandButtonClicked[slot].Subscribe(_ => SubmitMove(capturedSlot)).AddTo(disposables);
+            }
 
             await connection.JoinAsync("dummy-token", "dummy-match");
             await connection.SubmitSelectionAsync(initialDto.SelfPachimonIds);
@@ -166,21 +167,43 @@ namespace Atlas.Presentation.Battle
             selfMoves = PachimonMoveLookup.GetInitialMoves(masterDataService.Database, pachimonId).ToArray();
         }
 
+        // floor(2*base*level/100) + level + 10 (design/battle.md「実効ステータス計算」、IV/EVは
+        // 常に0)。Presenterはdesign/client-architecture.mdの方針でAtlas.Infrastructureに依存できず
+        // TestPartyFactory.CalculateStatを呼べないため、同じ式をここでも計算する。
+        private const int FixedLevel = 50;
+
+        private static int CalculateMaxHp(int baseHp)
+        {
+            return 2 * baseHp * FixedLevel / 100 + FixedLevel + 10;
+        }
+
         private BattleUiState BuildUiState()
         {
             var selfPachimonId = int.Parse(initialDto.SelfPachimonIds[selfActiveIndex]);
-            var selfName = masterDataService.Database.PachimonDataTable.FindByPachimonId(selfPachimonId).Name;
+            var selfPachimon = masterDataService.Database.PachimonDataTable.FindByPachimonId(selfPachimonId);
+            var selfHpPercent = selfHpPercentBySlot[selfActiveIndex];
+            var selfMaxHp = CalculateMaxHp(selfPachimon.BaseHp);
+
             var opponentName = opponentActivePachimonId is { } id
                 ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).Name
                 : "???";
 
             return new BattleUiState
             {
-                SelfName = selfName,
-                SelfHpPercent = selfHpPercentBySlot[selfActiveIndex],
-                OpponentName = opponentName,
-                OpponentHpPercent = opponentHpPercent,
-                SelfMoveNames = selfMoves.Select(m => m.Name).ToList(),
+                SelfInfo = new SelfInfoDto
+                {
+                    PachimonName = selfPachimon.Name,
+                    CurrentHp = selfMaxHp * selfHpPercent / 100,
+                    MaxHp = selfMaxHp,
+                    CurrentHpGauge = selfHpPercent / 100f,
+                },
+                OpponentInfo = new OpponentInfoDto
+                {
+                    PachimonName = opponentName,
+                    CurrentHpPercent = $"{opponentHpPercent}%",
+                    CurrentHpGauge = opponentHpPercent / 100f,
+                },
+                Commands = selfMoves.Select((m, i) => new CommandDto { SlotNo = i, Name = m.Name }).ToList(),
             };
         }
     }

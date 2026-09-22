@@ -4,7 +4,9 @@ namespace Atlas.Domain
 {
     public interface IPlayerRepository
     {
-        UniTask<PlayerData> GetMeAsync();
+        UniTask<PlayerData> GetAsync();
+
+        UniTask<PlayerData> CreateAsync(string nickname);
     }
 
     public readonly struct PlayerData

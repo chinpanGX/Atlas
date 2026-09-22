@@ -15,7 +15,7 @@ namespace Atlas.Infrastructure
 
         public UniTask<PlayerData> GetMeAsync()
         {
-            return repository.GetMeAsync();
+            return repository.GetAsync();
         }
     }
 }

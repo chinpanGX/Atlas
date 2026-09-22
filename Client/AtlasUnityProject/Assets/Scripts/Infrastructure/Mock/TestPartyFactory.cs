@@ -12,8 +12,8 @@ namespace Atlas.Infrastructure.Mock
     public sealed record PartyMember(int PachimonId, PachimonState State, IReadOnlyList<string> MoveIds);
 
     // マスターデータ(pachimon/moves/move_group_moves)からAtlas.BattleCoreの選出3体を組み立てる。
-    // player_pachimon(プレイヤー所持データ、個体値等)がまだ存在しないため、種族のbase値を
-    // そのまま使い、IV/EVは0として扱う。テスト・Mock対戦用の暫定実装(design/battle.md
+    // player_pachimon(プレイヤー所持データ)がまだ存在しないため、種族のbase値を
+    // そのまま使い、努力値(EV)は0として扱う。テスト・Mock対戦用の暫定実装(design/battle.md
     // 「Stage 1」参照)。
     public static class TestPartyFactory
     {
@@ -57,8 +57,8 @@ namespace Atlas.Infrastructure.Mock
             return members;
         }
 
-        // floor((2*base + IV + floor(EV/4)) * level / 100) + 5 (HPのみ + level + 10)。
-        // player_pachimonが未実装のためIV/EVは常に0として扱う。
+        // floor((2*base + floor(EV/4)) * level / 100) + 5 (HPのみ + level + 10)。
+        // player_pachimonが未実装のため努力値(EV)は常に0として扱う。
         private static int CalculateStat(int baseStat, bool isHp)
         {
             var value = 2 * baseStat * FixedLevel / 100;
