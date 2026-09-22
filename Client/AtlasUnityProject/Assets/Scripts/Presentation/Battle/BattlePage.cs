@@ -13,11 +13,11 @@ namespace Atlas.Presentation.Battle
 
         public IReadOnlyList<Observable<Unit>> OnCommandButtonClicked => commandView.OnCommandButtonClicked;
 
-        public void Refresh(BattleUiState state)
+        public void Refresh(BattleUIStateDto stateDto)
         {
-            selfInfoView.Refresh(state.SelfInfo);
-            opponentInfoView.Refresh(state.OpponentInfo);
-            commandView.Refresh(state.Commands);
+            selfInfoView.Refresh(stateDto.SelfInfo);
+            opponentInfoView.Refresh(stateDto.OpponentInfo);
+            commandView.Refresh(stateDto.Commands);
         }
     }
 }

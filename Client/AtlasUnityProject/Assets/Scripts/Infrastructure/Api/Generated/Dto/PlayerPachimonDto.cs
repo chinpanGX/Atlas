@@ -7,9 +7,6 @@ namespace Atlas.Infrastructure.Api
 
     public sealed class PlayerPachimonDto
     {
-        [JsonPropertyName("moves")]
-        public System.Collections.Generic.List<PlayerPachimonMoveDto> Moves { get; set; }
-
         [JsonPropertyName("pachimonId")]
         public long PachimonId { get; set; }
 

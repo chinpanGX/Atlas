@@ -145,85 +145,8 @@ paths:
                 $ref: '#/components/schemas/AuthenticateDeviceResponse'
         '401':
           description: device_idまたはsecret_keyが不正
-  /players:
+  /edit/pachimon_moves:
     post:
-      tags:
-      - player
-      summary: プレイヤーを作成し、認証済みデバイスに紐付けるAPIハンドラ。
-      description: |-
-        1つの`device_id`につきプレイヤーは1件のみで、既に作成済みの場合は`409`を返す。
-
-        # Errors
-        未認証の場合に`AppError::Unauthorized`、既にプレイヤーが存在する場合に
-        `AppError::Conflict`を返す。
-      operationId: create_player_handler
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePlayerRequest'
-        required: true
-      responses:
-        '200':
-          description: プレイヤー作成成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlayerResponse'
-        '401':
-          description: 未認証
-        '409':
-          description: このデバイスには既にプレイヤーが存在する
-      security:
-      - bearer_auth: []
-  /players/me:
-    get:
-      tags:
-      - player
-      summary: 認証済みデバイスに紐づく自分のプレイヤー情報を取得するAPIハンドラ。
-      description: |-
-        # Errors
-        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に
-        `AppError::NotFound`を返す。
-      operationId: get_me_handler
-      responses:
-        '200':
-          description: プレイヤー情報
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlayerResponse'
-        '401':
-          description: 未認証
-        '404':
-          description: プレイヤー未作成
-      security:
-      - bearer_auth: []
-  /players/me/pachimon:
-    get:
-      tags:
-      - player
-      summary: 認証済みプレイヤーの所持パチモン一覧・パーティ編成状況を取得するAPIハンドラ。
-      description: |-
-        # Errors
-        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に
-        `AppError::NotFound`を返す。
-      operationId: list_owned_pachimon_handler
-      responses:
-        '200':
-          description: 所持パチモン一覧・パーティ編成状況
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListOwnedPachimonResponse'
-        '401':
-          description: 未認証
-        '404':
-          description: プレイヤー未作成
-      security:
-      - bearer_auth: []
-  /players/me/pachimon/{playerPachimonId}/moves/{slot}:
-    put:
       tags:
       - player
       summary: |-
@@ -234,34 +157,20 @@ paths:
         未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`
         (指定した`playerPachimonId`が自分の所持個体でない場合も同様)、`slot`が範囲外または
         `moveId`が候補技でない場合に`AppError::BadRequest`を返す。
-      operationId: update_pachimon_move_handler
-      parameters:
-      - name: playerPachimonId
-        in: path
-        description: 所持パチモンID
-        required: true
-        schema:
-          type: string
-      - name: slot
-        in: path
-        description: 技スロット(1-4)
-        required: true
-        schema:
-          type: integer
-          format: int32
+      operationId: edit_pachimon_move_handler
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateMoveRequest'
+              $ref: '#/components/schemas/EditPachimonMoveRequest'
         required: true
       responses:
         '200':
-          description: 付け替え成功
+          description: 付け替え成功(pachimonMoveMapのみ更新)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UpdateMoveResponse'
+                $ref: '#/components/schemas/PlayerDiffDto'
         '400':
           description: slotが範囲外、またはmoveIdが候補技でない
         '401':
@@ -270,19 +179,19 @@ paths:
           description: プレイヤー未作成、または指定したplayerPachimonIdが自分の所持個体でない
       security:
       - bearer_auth: []
-  /players/me/party:
-    put:
+  /edit/party:
+    post:
       tags:
       - player
       summary: |-
-        バトル用パーティ(1-6体)を編成するAPIハンドラ。`PUT`のため、既存の編成は全置き換えされる
+        バトル用パーティ(1-6体)を編成するAPIハンドラ。既存の編成は全置き換えされる
         (`Shared/docs/design/outgame.md`「9. パーティ編成」のバリデーション参照)。
       description: |-
         # Errors
         未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`
         (指定した`playerPachimonId`が自分の所持個体でない場合も同様)、人数・slot・
         `playerPachimonId`の重複などのバリデーション違反の場合に`AppError::BadRequest`を返す。
-      operationId: set_party_handler
+      operationId: edit_party_handler
       requestBody:
         content:
           application/json:
@@ -291,11 +200,11 @@ paths:
         required: true
       responses:
         '200':
-          description: パーティ編成成功
+          description: パーティ編成成功(partySlotsのみ更新)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SetPartyResponse'
+                $ref: '#/components/schemas/PlayerDiffDto'
         '400':
           description: 人数・slot・playerPachimonIdの重複などのバリデーション違反
         '401':
@@ -328,11 +237,11 @@ paths:
     post:
       tags:
       - scout
-      summary: 紹介を受け、gemsを消費して候補10体をロールするAPIハンドラ。
+      summary: 紹介を受け、ジェムを消費して候補10体をロールするAPIハンドラ。
       description: |-
         # Errors
         未認証の場合に`AppError::Unauthorized`、バナーが存在しない場合に`AppError::NotFound`、
-        バナーが開催期間外またはgemsが不足している場合に`AppError::BadRequest`を返す。
+        バナーが開催期間外またはジェムが不足している場合に`AppError::BadRequest`を返す。
       operationId: create_roll_handler
       requestBody:
         content:
@@ -348,7 +257,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateRollResponse'
         '400':
-          description: バナー開催期間外またはgems不足
+          description: バナー開催期間外またはジェム不足
         '401':
           description: 未認証
         '404':
@@ -359,7 +268,9 @@ paths:
     post:
       tags:
       - scout
-      summary: 保存済みの候補から1体を選んで恒久的に入手するAPIハンドラ。
+      summary: |-
+        保存済みの候補から1体を選んで恒久的に入手するAPIハンドラ。レスポンスは`playerDiff`
+        (`pachimon`/`pachimonMoveMap`のみ更新、`items`/`partySlots`は空)。
       description: |-
         # Errors
         未認証の場合に`AppError::Unauthorized`、rollが存在しない・自分のものでない場合に
@@ -381,11 +292,11 @@ paths:
         required: true
       responses:
         '200':
-          description: 入手成功
+          description: 入手成功(pachimon/pachimonMoveMapのみ更新)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SelectRollResponse'
+                $ref: '#/components/schemas/PlayerDiffDto'
         '400':
           description: indexが範囲外
         '401':
@@ -394,6 +305,58 @@ paths:
           description: roll未存在
         '409':
           description: 既に選択済み
+      security:
+      - bearer_auth: []
+  /sign-in:
+    post:
+      tags:
+      - player
+      summary: 認証済みデバイスに紐づくプレイヤー情報・所持データ全件を取得するAPIハンドラ。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に
+        `AppError::NotFound`を返す。
+      operationId: sign_in_handler
+      responses:
+        '200':
+          description: プレイヤー情報・所持データ全件
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
+  /signup:
+    post:
+      tags:
+      - player
+      summary: 新規プレイヤーを作成し、認証済みデバイスに紐付けるAPIハンドラ。
+      description: |-
+        1つの`device_id`につきプレイヤーは1件のみで、既に作成済みの場合は`409`を返す。
+        作成と同時にスターターパーティ・初期アイテム(item_id=1のジェム300個)が付与される。
+        レスポンスボディは持たない(以降のデータ取得は`POST /sign-in`で行う)。
+
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、既にプレイヤーが存在する場合に
+        `AppError::Conflict`を返す。
+      operationId: signup_handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlayerRequest'
+        required: true
+      responses:
+        '200':
+          description: プレイヤー作成成功(ボディ無し)
+        '401':
+          description: 未認証
+        '409':
+          description: このデバイスには既にプレイヤーが存在する
       security:
       - bearer_auth: []
 components:
@@ -496,21 +459,56 @@ components:
           type: string
     CreateRollResponse:
       type: object
-      description: 紹介を受けるAPIのレスポンスボディ。
+      description: |-
+        紹介を受けるAPIのレスポンスボディ。ジェム消費結果は`playerDiff.items`側に含まれる
+        (`pachimon`/`pachimonMoveMap`/`partySlots`は未変更のため空)。
       required:
       - rollId
       - candidates
-      - gems
+      - playerDiff
       properties:
         candidates:
           type: array
           items:
             $ref: '#/components/schemas/CandidateDto'
-        gems:
-          type: integer
-          format: int32
+        playerDiff:
+          $ref: '#/components/schemas/PlayerDiffDto'
         rollId:
           type: string
+    EditPachimonMoveRequest:
+      type: object
+      description: 技の付け替えAPIのリクエストボディ。
+      required:
+      - playerPachimonId
+      - slot
+      - moveId
+      properties:
+        moveId:
+          type: integer
+          format: int64
+        playerPachimonId:
+          type: string
+        slot:
+          type: integer
+          format: int32
+    ItemsDiffDto:
+      type: object
+      description: |-
+        `items`リソースの差分。所持数0になった場合でも、現状は行を削除しないため`removed`は
+        使われない(将来アイテムを完全に手放す仕様が入った場合のために型としては持たせておく)。
+      required:
+      - upserted
+      - removed
+      properties:
+        removed:
+          type: array
+          items:
+            type: integer
+            format: int64
+        upserted:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerItemDto'
     ListBannersResponse:
       type: object
       description: スカウトバナー一覧APIのレスポンスボディ。
@@ -521,21 +519,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BannerDto'
-    ListOwnedPachimonResponse:
-      type: object
-      description: 所持パチモン一覧APIのレスポンスボディ。
-      required:
-      - pachimon
-      - partySlots
-      properties:
-        pachimon:
-          type: array
-          items:
-            $ref: '#/components/schemas/PlayerPachimonDto'
-        partySlots:
-          type: array
-          items:
-            $ref: '#/components/schemas/PartySlotDto'
     MessageDto:
       type: object
       description: チャットメッセージ1件分のレスポンスDTO。
@@ -554,11 +537,41 @@ components:
           type: string
         playerId:
           type: string
+    PachimonDiffDto:
+      type: object
+      description: '`pachimon`リソースの差分。'
+      required:
+      - upserted
+      - removed
+      properties:
+        removed:
+          type: array
+          items:
+            type: string
+        upserted:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerPachimonDto'
+    PachimonMoveMapDiffDto:
+      type: object
+      description: '`pachimonMoveMap`(所持パチモンが覚えている技)リソースの差分。'
+      required:
+      - upserted
+      - removed
+      properties:
+        removed:
+          type: array
+          items:
+            type: string
+        upserted:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerPachimonMoveDto'
     PartySlotDto:
       type: object
       description: |-
         パーティ編成1割当分のレスポンスDTO。`partySlotId`は割当自体のULID
-        (`Shared/docs/design/outgame.md`参照)。パーティに入っていないslotはこの配列に
+        (`Shared/docs/design/outgame.md`参照)。パーティに入っていないslotはこのリソースに
         含まれない(行自体が存在しないため、`nullable`を使わずに「未編成」を表現できる)。
       required:
       - partySlotId
@@ -584,20 +597,65 @@ components:
         slot:
           type: integer
           format: int32
+    PartySlotsDiffDto:
+      type: object
+      description: |-
+        `partySlots`リソースの差分。パーティ編成は全置き換えのため、編成し直すたびに
+        以前の`partySlotId`は全て`removed`に、新しい`partySlotId`が`upserted`に入る。
+      required:
+      - upserted
+      - removed
+      properties:
+        removed:
+          type: array
+          items:
+            type: string
+        upserted:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartySlotDto'
+    PlayerDiffDto:
+      type: object
+      description: |-
+        プレイヤーの永続データの差分。`playerDiff`を返す全APIで共通利用する
+        (`Shared/docs/design/outgame.md`参照)。各リソースは影響が無い場合、
+        `upserted`/`removed`が両方空の状態で含まれる。
+      required:
+      - items
+      - pachimon
+      - pachimonMoveMap
+      - partySlots
+      properties:
+        items:
+          $ref: '#/components/schemas/ItemsDiffDto'
+        pachimon:
+          $ref: '#/components/schemas/PachimonDiffDto'
+        pachimonMoveMap:
+          $ref: '#/components/schemas/PachimonMoveMapDiffDto'
+        partySlots:
+          $ref: '#/components/schemas/PartySlotsDiffDto'
+    PlayerItemDto:
+      type: object
+      description: プレイヤー所持アイテム1件分のレスポンスDTO。
+      required:
+      - itemId
+      - quantity
+      properties:
+        itemId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int32
     PlayerPachimonDto:
       type: object
       description: |-
-        所持パチモン1体分のレスポンスDTO。パーティ編成状況(`partySlots`)は`player_party_slots`
-        (`PartySlotDto`)側で別途持つため含まない。
+        所持パチモン1体分のレスポンスDTO。覚えている技は`pachimonMoveMap`(`PlayerDiffDto`)側で
+        別途持つため含まない。パーティ編成状況も同様に`partySlots`側で別途持つ。
       required:
       - playerPachimonId
       - pachimonId
-      - moves
       properties:
-        moves:
-          type: array
-          items:
-            $ref: '#/components/schemas/PlayerPachimonMoveDto'
         pachimonId:
           type: integer
           format: int64
@@ -607,35 +665,24 @@ components:
       type: object
       description: |-
         所持パチモン1体分の、覚えている技のレスポンスDTO。`playerPachimonMoveId`は割当自体のULID
-        (`Shared/docs/design/outgame.md`参照)。
+        (`Shared/docs/design/outgame.md`参照)。`playerPachimonId`は、`pachimon`側とのネストを
+        解消して`PlayerDiffDto`上の独立したリソースとして扱うために持つ。
       required:
       - playerPachimonMoveId
+      - playerPachimonId
       - slot
       - moveId
       properties:
         moveId:
           type: integer
           format: int64
+        playerPachimonId:
+          type: string
         playerPachimonMoveId:
           type: string
         slot:
           type: integer
           format: int32
-    PlayerResponse:
-      type: object
-      description: プレイヤー情報のレスポンスボディ。
-      required:
-      - playerId
-      - nickname
-      - gems
-      properties:
-        gems:
-          type: integer
-          format: int32
-        nickname:
-          type: string
-        playerId:
-          type: string
     PollMessagesResponse:
       type: object
       description: チャット受信APIのレスポンスボディ。
@@ -679,21 +726,6 @@ components:
         index:
           type: integer
           format: int32
-    SelectRollResponse:
-      type: object
-      description: 候補から1体を選んで入手するAPIのレスポンスボディ。
-      required:
-      - playerPachimonId
-      - pachimonId
-      - rarity
-      properties:
-        pachimonId:
-          type: integer
-          format: int64
-        playerPachimonId:
-          type: string
-        rarity:
-          type: string
     SendMessageRequest:
       type: object
       description: チャット送信APIのリクエストボディ。
@@ -724,44 +756,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PartySlotRequest'
-    SetPartyResponse:
+    SignInResponse:
       type: object
-      description: パーティ編成APIのレスポンスボディ。
+      description: サインインAPIのレスポンスボディ。
       required:
-      - partySlots
+      - playerId
+      - nickname
+      - playerDiff
       properties:
-        partySlots:
-          type: array
-          items:
-            $ref: '#/components/schemas/PartySlotDto'
-    UpdateMoveRequest:
-      type: object
-      description: 技の付け替えAPIのリクエストボディ。
-      required:
-      - moveId
-      properties:
-        moveId:
-          type: integer
-          format: int64
-    UpdateMoveResponse:
-      type: object
-      description: 技の付け替えAPIのレスポンスボディ。
-      required:
-      - playerPachimonId
-      - playerPachimonMoveId
-      - slot
-      - moveId
-      properties:
-        moveId:
-          type: integer
-          format: int64
-        playerPachimonId:
+        nickname:
           type: string
-        playerPachimonMoveId:
+        playerDiff:
+          $ref: '#/components/schemas/PlayerDiffDto'
+        playerId:
           type: string
-        slot:
-          type: integer
-          format: int32
   securitySchemes:
     bearer_auth:
       type: http

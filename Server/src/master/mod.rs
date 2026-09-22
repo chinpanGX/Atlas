@@ -3,7 +3,7 @@ pub mod generated;
 
 pub use cache::MasterData;
 pub use generated::{
-    MoveGroupMoves, MoveGroups, Moves, Pachimon, PachimonType, Rarity, StarterPartySlots,
+    Items, MoveGroupMoves, MoveGroups, Moves, Pachimon, PachimonType, Rarity, StarterPartySlots,
 };
 
 /// master-data-pipelineが生成した各種マスタのJSON。
@@ -19,6 +19,7 @@ const MOVE_GROUPS_JSON: &str = include_str!("../../master_data/move_groups.json"
 const MOVES_JSON: &str = include_str!("../../master_data/moves.json");
 const MOVE_GROUP_MOVES_JSON: &str = include_str!("../../master_data/move_group_moves.json");
 const STARTER_PARTY_SLOTS_JSON: &str = include_str!("../../master_data/starter_party_slots.json");
+const ITEMS_JSON: &str = include_str!("../../master_data/items.json");
 
 /// パチモンマスタのJSON文字列をパースする。
 ///
@@ -101,6 +102,22 @@ pub fn seed_move_group_moves_data() -> Vec<MoveGroupMoves> {
 pub fn seed_starter_party_slots_data() -> Vec<StarterPartySlots> {
     parse_starter_party_slots(STARTER_PARTY_SLOTS_JSON)
         .expect("master_data/starter_party_slots.json のパースに失敗しました")
+}
+
+/// アイテムマスタのJSON文字列をパースする。
+///
+/// # Errors
+/// JSONの形式が不正な場合に`serde_json::Error`を返す。
+pub fn parse_items(json: &str) -> Result<Vec<Items>, serde_json::Error> {
+    serde_json::from_str(json)
+}
+
+/// `seed_master_data`コマンドが参照する、埋め込み済みアイテムマスタのシードデータ。
+///
+/// # Panics
+/// 埋め込み済みJSONのパースに失敗した場合(ビルド成果物の不整合)にpanicする。
+pub fn seed_items_data() -> Vec<Items> {
+    parse_items(ITEMS_JSON).expect("master_data/items.json のパースに失敗しました")
 }
 
 #[cfg(test)]
@@ -240,5 +257,24 @@ mod tests {
                 slot.pachimon_id
             );
         }
+    }
+
+    /// master_data/items.jsonが正しくパースでき、既知の件数分ロードできることを確認する。
+    #[test]
+    fn test_parse_items_loads_master_data() {
+        let items = parse_items(ITEMS_JSON).expect("パースに成功するはず");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].item_id, 1);
+        assert_eq!(items[0].name, "ジェム");
+    }
+
+    /// itemsの`item_id`が重複していないことを確認する(マスタデータの整合性検証)。
+    #[test]
+    fn test_items_ids_are_unique() {
+        let items = parse_items(ITEMS_JSON).unwrap();
+        let mut ids: Vec<i64> = items.iter().map(|i| i.item_id).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), items.len());
     }
 }

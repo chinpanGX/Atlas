@@ -41,8 +41,7 @@ pub async fn authenticate(
 
     let secret_key_hash = row.ok_or(AppError::Unauthorized)?.0;
 
-    let parsed_hash =
-        PasswordHash::new(&secret_key_hash).map_err(|_| AppError::InternalError)?;
+    let parsed_hash = PasswordHash::new(&secret_key_hash).map_err(|_| AppError::InternalError)?;
     Argon2::default()
         .verify_password(secret_key.as_bytes(), &parsed_hash)
         .map_err(|_| AppError::Unauthorized)?;

@@ -1,29 +1,27 @@
 // tests/player_api_test.rs
 //
-// POST /players (プレイヤー作成) と GET /players/me (自分のプレイヤー情報取得) のテスト。
-// - test_create_and_get_player: 作成→取得の正常系(nickname/gemsの内容を確認)
-// - test_create_player_grants_starter_party: starter_party_slotsマスタの内容が
-//   player_pachimon/player_party_slotsへ複製されることを確認
-// - test_create_player_duplicate: 同一デバイスでの2件目の作成が409になることを確認
-// - test_create_player_unauthenticated: 未認証での作成が401になることを確認
-// - test_get_me_before_create: プレイヤー未作成状態での取得が404になることを確認
-// - test_get_me_unauthenticated: 未認証での取得が401になることを確認
+// POST /signup (プレイヤー作成) と POST /sign-in (プレイヤー情報・所持データ全件取得) のテスト。
+// - test_signup_and_sign_in: signup(ボディ無し200)→sign-inでnickname/playerDiff(items含む)を確認
+// - test_signup_grants_starter_party: starter_party_slotsマスタの内容がplayerDiff.pachimon/
+//   pachimonMoveMapへ複製されることを確認
+// - test_signup_duplicate: 同一デバイスでの2件目の作成が409になることを確認
+// - test_signup_unauthenticated: 未認証での作成が401になることを確認
+// - test_sign_in_before_signup: プレイヤー未作成状態でのsign-inが404になることを確認
+// - test_sign_in_unauthenticated: 未認証でのsign-inが401になることを確認
 //
-// GET /players/me/pachimon, PUT /players/me/party, PUT /players/me/pachimon/{id}/moves/{slot}
-// (所持パチモン一覧・パーティ編成・技の付け替え)のテスト。
-// - test_list_owned_pachimon: 所持パチモン一覧に初期技が含まれることを確認
-// - test_set_party_success: パーティ編成成功、レスポンスの内容を確認
-// - test_set_party_replaces_previous: 2回目のPUTで前回の編成が解除されることを確認
-// - test_set_party_too_many_slots: 7体指定で400になることを確認
-// - test_set_party_duplicate_slot: 同一slotの重複指定で400になることを確認
-// - test_set_party_duplicate_player_pachimon_id: 同一player_pachimon_idの重複指定で400になることを確認
-// - test_set_party_not_owned: 他人のplayer_pachimon_idを指定すると404になることを確認
-// - test_update_move_success: 候補技への付け替え成功を確認
-// - test_update_move_preserves_id_on_existing_slot: 既存slotへの付け替えでplayer_pachimon_move_id
-//   (割当自体のULID)が変わらないことを確認
-// - test_update_move_invalid_candidate: グループ外の技を指定すると400になることを確認
-// - test_update_move_out_of_range_slot: slotが範囲外(5)だと400になることを確認
-// - test_update_move_not_owned: 他人のplayer_pachimon_idを指定すると404になることを確認
+// POST /edit/party, POST /edit/pachimon_moves (パーティ編成・技の付け替え)のテスト。
+// - test_edit_party_success: パーティ編成成功、playerDiff.partySlotsの内容を確認
+// - test_edit_party_replaces_previous: 2回目のPOSTで前回の編成が解除され、removedに含まれることを確認
+// - test_edit_party_too_many_slots: 7体指定で400になることを確認
+// - test_edit_party_duplicate_slot: 同一slotの重複指定で400になることを確認
+// - test_edit_party_duplicate_player_pachimon_id: 同一player_pachimon_idの重複指定で400になることを確認
+// - test_edit_party_not_owned: 他人のplayer_pachimon_idを指定すると404になることを確認
+// - test_edit_pachimon_move_success: 候補技への付け替え成功を確認
+// - test_edit_pachimon_move_preserves_id_on_existing_slot: 既存slotへの付け替えで
+//   player_pachimon_move_id(割当自体のULID)が変わらないことを確認
+// - test_edit_pachimon_move_invalid_candidate: グループ外の技を指定すると400になることを確認
+// - test_edit_pachimon_move_out_of_range_slot: slotが範囲外(5)だと400になることを確認
+// - test_edit_pachimon_move_not_owned: 他人のplayerPachimonIdを指定すると404になることを確認
 use axum::{
     Router,
     body::Body,
@@ -81,15 +79,11 @@ async fn register_and_authenticate(app: Router, secret_key: &str) -> String {
         .to_string()
 }
 
-async fn create_player(
-    app: Router,
-    access_token: &str,
-    nickname: &str,
-) -> axum::response::Response {
+async fn signup(app: Router, access_token: &str, nickname: &str) -> axum::response::Response {
     app.oneshot(
         Request::builder()
             .method("POST")
-            .uri("/players")
+            .uri("/signup")
             .header("Content-Type", "application/json")
             .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
             .body(Body::from(json!({ "nickname": nickname }).to_string()))
@@ -99,8 +93,8 @@ async fn create_player(
     .unwrap()
 }
 
-async fn get_me(app: Router, access_token: Option<&str>) -> axum::response::Response {
-    let mut builder = Request::builder().method("GET").uri("/players/me");
+async fn sign_in(app: Router, access_token: Option<&str>) -> axum::response::Response {
+    let mut builder = Request::builder().method("POST").uri("/sign-in");
     if let Some(token) = access_token {
         builder = builder.header(header::AUTHORIZATION, format!("Bearer {token}"));
     }
@@ -117,9 +111,9 @@ async fn json_body(response: axum::response::Response) -> Value {
     serde_json::from_slice(&body).unwrap()
 }
 
-/// `GET /players/me`から呼び出し元プレイヤーの`player_id`を取得する。
+/// `POST /sign-in`から呼び出し元プレイヤーの`player_id`を取得する。
 async fn get_player_id(app: Router, access_token: &str) -> String {
-    let response = get_me(app, Some(access_token)).await;
+    let response = sign_in(app, Some(access_token)).await;
     json_body(response).await["playerId"]
         .as_str()
         .unwrap()
@@ -167,6 +161,15 @@ async fn seed_test_master_data(pool: &MySqlPool) {
     .unwrap();
 }
 
+/// アイテムマスタ(item_id=1のジェム)を直接DBへ投入する。`player_items`のFK制約を満たすために、
+/// signup前提のテストでは必ず先に呼ぶ必要がある。
+async fn seed_items_master(pool: &MySqlPool) {
+    sqlx::query("INSERT INTO items (item_id, name) VALUES (1, 'ジェム')")
+        .execute(pool)
+        .await
+        .unwrap();
+}
+
 /// `player_pachimon`/`player_pachimon_moves`(初期技1件、`slot=1`/`move_id=1`)を
 /// 直接DBへ投入し、`player_pachimon_id`を返す。
 async fn seed_owned_pachimon(pool: &MySqlPool, player_id: &str, pachimon_id: i64) -> String {
@@ -199,24 +202,11 @@ async fn seed_owned_pachimon(pool: &MySqlPool, player_id: &str, pachimon_id: i64
     player_pachimon_id
 }
 
-async fn list_owned_pachimon(app: Router, access_token: &str) -> axum::response::Response {
+async fn edit_party(app: Router, access_token: &str, body: Value) -> axum::response::Response {
     app.oneshot(
         Request::builder()
-            .method("GET")
-            .uri("/players/me/pachimon")
-            .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
-            .body(Body::empty())
-            .unwrap(),
-    )
-    .await
-    .unwrap()
-}
-
-async fn set_party(app: Router, access_token: &str, body: Value) -> axum::response::Response {
-    app.oneshot(
-        Request::builder()
-            .method("PUT")
-            .uri("/players/me/party")
+            .method("POST")
+            .uri("/edit/party")
             .header("Content-Type", "application/json")
             .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
             .body(Body::from(body.to_string()))
@@ -226,7 +216,7 @@ async fn set_party(app: Router, access_token: &str, body: Value) -> axum::respon
     .unwrap()
 }
 
-async fn update_move(
+async fn edit_pachimon_move(
     app: Router,
     access_token: &str,
     player_pachimon_id: &str,
@@ -235,51 +225,64 @@ async fn update_move(
 ) -> axum::response::Response {
     app.oneshot(
         Request::builder()
-            .method("PUT")
-            .uri(format!(
-                "/players/me/pachimon/{player_pachimon_id}/moves/{slot}"
-            ))
+            .method("POST")
+            .uri("/edit/pachimon_moves")
             .header("Content-Type", "application/json")
             .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
-            .body(Body::from(json!({ "moveId": move_id }).to_string()))
+            .body(Body::from(
+                json!({
+                    "playerPachimonId": player_pachimon_id,
+                    "slot": slot,
+                    "moveId": move_id,
+                })
+                .to_string(),
+            ))
             .unwrap(),
     )
     .await
     .unwrap()
 }
 
-/// プレイヤー作成が成功し、直後に`GET /players/me`で同じ内容が取得できることを確認する。
+/// signupが成功し(ボディ無し200)、直後に`sign-in`で同じ内容が取得できることを確認する。
+/// 初期アイテム(item_id=1のジェム300個)がplayerDiff.itemsに含まれることも確認する。
 #[sqlx::test]
-async fn test_create_and_get_player(pool: MySqlPool) {
+async fn test_signup_and_sign_in(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;
 
-    let create_response = create_player(app.clone(), &access_token, "テストプレイヤー").await;
-    assert_eq!(create_response.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(create_response.into_body(), usize::MAX)
+    let signup_response = signup(app.clone(), &access_token, "テストプレイヤー").await;
+    assert_eq!(signup_response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(signup_response.into_body(), usize::MAX)
         .await
         .unwrap();
-    let json: Value = serde_json::from_slice(&body).unwrap();
+    assert!(body.is_empty());
+
+    let sign_in_response = sign_in(app.clone(), Some(&access_token)).await;
+    assert_eq!(sign_in_response.status(), StatusCode::OK);
+    let json = json_body(sign_in_response).await;
     assert_eq!(json["nickname"], "テストプレイヤー");
-    assert_eq!(json["gems"], 300);
     assert!(!json["playerId"].as_str().unwrap().is_empty());
 
-    let get_response = get_me(app.clone(), Some(&access_token)).await;
-    assert_eq!(get_response.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(get_response.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    let json: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(json["nickname"], "テストプレイヤー");
-    assert_eq!(json["gems"], 300);
+    let items = json["playerDiff"]["items"]["upserted"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["itemId"], 1);
+    assert_eq!(items[0]["quantity"], 300);
+    assert!(
+        json["playerDiff"]["items"]["removed"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
-/// `starter_party_slots`マスタの内容が、プレイヤー作成時に`player_pachimon`/
-/// `player_party_slots`へ複製されることを確認する。
+/// `starter_party_slots`マスタの内容が、signup時に`playerDiff.pachimon`/
+/// `playerDiff.pachimonMoveMap`/`playerDiff.partySlots`へ複製されることを確認する。
 #[sqlx::test]
-async fn test_create_player_grants_starter_party(pool: MySqlPool) {
+async fn test_signup_grants_starter_party(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     sqlx::query("INSERT INTO starter_party_slots (slot_no, pachimon_id) VALUES (1, 1)")
         .execute(&pool)
@@ -290,21 +293,32 @@ async fn test_create_player_grants_starter_party(pool: MySqlPool) {
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "starter-secret").await;
-    let create_response = create_player(app.clone(), &access_token, "スターター太郎").await;
-    assert_eq!(create_response.status(), StatusCode::OK);
+    let signup_response = signup(app.clone(), &access_token, "スターター太郎").await;
+    assert_eq!(signup_response.status(), StatusCode::OK);
 
-    let response = list_owned_pachimon(app.clone(), &access_token).await;
+    let response = sign_in(app.clone(), Some(&access_token)).await;
     assert_eq!(response.status(), StatusCode::OK);
     let json = json_body(response).await;
 
-    let pachimon = json["pachimon"].as_array().unwrap();
+    let pachimon = json["playerDiff"]["pachimon"]["upserted"]
+        .as_array()
+        .unwrap();
     assert_eq!(pachimon.len(), 1);
     assert_eq!(pachimon[0]["pachimonId"], 1);
-    let moves = pachimon[0]["moves"].as_array().unwrap();
+
+    let moves = json["playerDiff"]["pachimonMoveMap"]["upserted"]
+        .as_array()
+        .unwrap();
     assert_eq!(moves.len(), 1);
     assert_eq!(moves[0]["moveId"], 1); // move_group_id=1のis_initial技(move_id=1)
+    assert_eq!(
+        moves[0]["playerPachimonId"],
+        pachimon[0]["playerPachimonId"]
+    );
 
-    let party_slots = json["partySlots"].as_array().unwrap();
+    let party_slots = json["playerDiff"]["partySlots"]["upserted"]
+        .as_array()
+        .unwrap();
     assert_eq!(party_slots.len(), 1);
     assert_eq!(party_slots[0]["slot"], 1);
     assert_eq!(
@@ -313,24 +327,26 @@ async fn test_create_player_grants_starter_party(pool: MySqlPool) {
     );
 }
 
-/// 同一デバイスで2回目のプレイヤー作成を行うと409(重複)が返ることを確認する。
+/// 同一デバイスで2回目のsignupを行うと409(重複)が返ることを確認する。
 #[sqlx::test]
-async fn test_create_player_duplicate(pool: MySqlPool) {
+async fn test_signup_duplicate(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;
 
-    let first = create_player(app.clone(), &access_token, "プレイヤー1").await;
+    let first = signup(app.clone(), &access_token, "プレイヤー1").await;
     assert_eq!(first.status(), StatusCode::OK);
 
-    let second = create_player(app.clone(), &access_token, "プレイヤー2").await;
+    let second = signup(app.clone(), &access_token, "プレイヤー2").await;
     assert_eq!(second.status(), StatusCode::CONFLICT);
 }
 
-/// `Authorization`ヘッダーが無い状態でプレイヤー作成を行うと401が返ることを確認する。
+/// `Authorization`ヘッダーが無い状態でsignupを行うと401が返ることを確認する。
 #[sqlx::test]
-async fn test_create_player_unauthenticated(pool: MySqlPool) {
+async fn test_signup_unauthenticated(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
@@ -338,7 +354,7 @@ async fn test_create_player_unauthenticated(pool: MySqlPool) {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/players")
+                .uri("/signup")
                 .header("Content-Type", "application/json")
                 .body(Body::from(json!({ "nickname": "無認証" }).to_string()))
                 .unwrap(),
@@ -349,71 +365,44 @@ async fn test_create_player_unauthenticated(pool: MySqlPool) {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-/// デバイス認証は済んでいるがプレイヤー未作成の状態で`GET /players/me`を呼ぶと
-/// 404が返ることを確認する。
+/// デバイス認証は済んでいるがプレイヤー未作成の状態で`sign-in`を呼ぶと404が返ることを確認する。
 #[sqlx::test]
-async fn test_get_me_before_create(pool: MySqlPool) {
+async fn test_sign_in_before_signup(pool: MySqlPool) {
     let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "test-secret").await;
 
-    let response = get_me(app.clone(), Some(&access_token)).await;
+    let response = sign_in(app.clone(), Some(&access_token)).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-/// `Authorization`ヘッダーが無い状態で`GET /players/me`を呼ぶと401が返ることを確認する。
+/// `Authorization`ヘッダーが無い状態で`sign-in`を呼ぶと401が返ることを確認する。
 #[sqlx::test]
-async fn test_get_me_unauthenticated(pool: MySqlPool) {
+async fn test_sign_in_unauthenticated(pool: MySqlPool) {
     let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 
-    let response = get_me(app.clone(), None).await;
+    let response = sign_in(app.clone(), None).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-}
-
-/// 所持パチモン一覧に、直接投入した個体と初期技が含まれることを確認する
-/// (パーティ未編成のため`partySlots`は空)。
-#[sqlx::test]
-async fn test_list_owned_pachimon(pool: MySqlPool) {
-    seed_test_master_data(&pool).await;
-    let state = AppState::from_pool(pool.clone()).await;
-    let app = create_router(state);
-
-    let access_token = register_and_authenticate(app.clone(), "pachimon-secret-1").await;
-    create_player(app.clone(), &access_token, "所持テスト1").await;
-    let player_id = get_player_id(app.clone(), &access_token).await;
-    let player_pachimon_id = seed_owned_pachimon(&pool, &player_id, 1).await;
-
-    let response = list_owned_pachimon(app.clone(), &access_token).await;
-    assert_eq!(response.status(), StatusCode::OK);
-    let json = json_body(response).await;
-    let list = json["pachimon"].as_array().unwrap();
-    assert_eq!(list.len(), 1);
-    assert_eq!(list[0]["playerPachimonId"], player_pachimon_id);
-    assert_eq!(list[0]["pachimonId"], 1);
-    let moves = list[0]["moves"].as_array().unwrap();
-    assert_eq!(moves.len(), 1);
-    assert_eq!(moves[0]["slot"], 1);
-    assert_eq!(moves[0]["moveId"], 1);
-    assert!(json["partySlots"].as_array().unwrap().is_empty());
 }
 
 /// パーティ編成が成功し、DB上の`player_party_slots`に反映されることを確認する。
 /// レスポンスの各slotに割当自体のULID(`partySlotId`)が含まれることも確認する。
 #[sqlx::test]
-async fn test_set_party_success(pool: MySqlPool) {
+async fn test_edit_party_success(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "party-secret-1").await;
-    create_player(app.clone(), &access_token, "パーティテスト1").await;
+    signup(app.clone(), &access_token, "パーティテスト1").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
     let id_a = seed_owned_pachimon(&pool, &player_id, 1).await;
     let id_b = seed_owned_pachimon(&pool, &player_id, 1).await;
 
-    let response = set_party(
+    let response = edit_party(
         app.clone(),
         &access_token,
         json!({ "partySlots": [
@@ -424,13 +413,22 @@ async fn test_set_party_success(pool: MySqlPool) {
     .await;
     assert_eq!(response.status(), StatusCode::OK);
     let json = json_body(response).await;
-    let slots = json["partySlots"].as_array().unwrap();
+    let slots = json["partySlots"]["upserted"].as_array().unwrap();
     assert_eq!(slots.len(), 2);
     assert_eq!(slots[0]["slot"], 1);
     assert_eq!(slots[0]["playerPachimonId"], id_a);
     assert!(!slots[0]["partySlotId"].as_str().unwrap().is_empty());
     assert_eq!(slots[1]["slot"], 2);
     assert_eq!(slots[1]["playerPachimonId"], id_b);
+    assert!(json["partySlots"]["removed"].as_array().unwrap().is_empty());
+    assert!(json["items"]["upserted"].as_array().unwrap().is_empty());
+    assert!(json["pachimon"]["upserted"].as_array().unwrap().is_empty());
+    assert!(
+        json["pachimonMoveMap"]["upserted"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 
     let stored: (i32,) =
         sqlx::query_as("SELECT slot FROM player_party_slots WHERE player_pachimon_id = ?")
@@ -441,35 +439,45 @@ async fn test_set_party_success(pool: MySqlPool) {
     assert_eq!(stored.0, 1);
 }
 
-/// 2回目のパーティ編成で、前回設定されていた割当が解除されることを確認する
-/// (`PUT`による全置き換えの動作確認)。
+/// 2回目のパーティ編成で、前回設定されていた割当が解除され、`removed`に含まれることを確認する
+/// (全置き換えの動作確認)。
 #[sqlx::test]
-async fn test_set_party_replaces_previous(pool: MySqlPool) {
+async fn test_edit_party_replaces_previous(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "party-secret-2").await;
-    create_player(app.clone(), &access_token, "パーティテスト2").await;
+    signup(app.clone(), &access_token, "パーティテスト2").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
     let id_a = seed_owned_pachimon(&pool, &player_id, 1).await;
     let id_b = seed_owned_pachimon(&pool, &player_id, 1).await;
 
-    let first = set_party(
+    let first = edit_party(
         app.clone(),
         &access_token,
         json!({ "partySlots": [{ "slot": 1, "playerPachimonId": id_a }] }),
     )
     .await;
     assert_eq!(first.status(), StatusCode::OK);
+    let first_json = json_body(first).await;
+    let first_party_slot_id = first_json["partySlots"]["upserted"][0]["partySlotId"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
-    let second = set_party(
+    let second = edit_party(
         app.clone(),
         &access_token,
         json!({ "partySlots": [{ "slot": 1, "playerPachimonId": id_b }] }),
     )
     .await;
     assert_eq!(second.status(), StatusCode::OK);
+    let second_json = json_body(second).await;
+    let removed = second_json["partySlots"]["removed"].as_array().unwrap();
+    assert_eq!(removed.len(), 1);
+    assert_eq!(removed[0], first_party_slot_id);
 
     let stored_a: (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM player_party_slots WHERE player_pachimon_id = ?")
@@ -490,13 +498,14 @@ async fn test_set_party_replaces_previous(pool: MySqlPool) {
 
 /// 7体を指定すると400(1-6体の範囲外)が返ることを確認する。
 #[sqlx::test]
-async fn test_set_party_too_many_slots(pool: MySqlPool) {
+async fn test_edit_party_too_many_slots(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "party-secret-3").await;
-    create_player(app.clone(), &access_token, "パーティテスト3").await;
+    signup(app.clone(), &access_token, "パーティテスト3").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
 
     let mut ids = Vec::new();
@@ -508,24 +517,25 @@ async fn test_set_party_too_many_slots(pool: MySqlPool) {
         .map(|id| json!({ "slot": 1, "playerPachimonId": id }))
         .collect();
 
-    let response = set_party(app.clone(), &access_token, json!({ "partySlots": slots })).await;
+    let response = edit_party(app.clone(), &access_token, json!({ "partySlots": slots })).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
 /// 同一slotへの重複指定で400が返ることを確認する。
 #[sqlx::test]
-async fn test_set_party_duplicate_slot(pool: MySqlPool) {
+async fn test_edit_party_duplicate_slot(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "party-secret-4").await;
-    create_player(app.clone(), &access_token, "パーティテスト4").await;
+    signup(app.clone(), &access_token, "パーティテスト4").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
     let id_a = seed_owned_pachimon(&pool, &player_id, 1).await;
     let id_b = seed_owned_pachimon(&pool, &player_id, 1).await;
 
-    let response = set_party(
+    let response = edit_party(
         app.clone(),
         &access_token,
         json!({ "partySlots": [
@@ -539,17 +549,18 @@ async fn test_set_party_duplicate_slot(pool: MySqlPool) {
 
 /// 同一`playerPachimonId`を複数slotに指定すると400が返ることを確認する。
 #[sqlx::test]
-async fn test_set_party_duplicate_player_pachimon_id(pool: MySqlPool) {
+async fn test_edit_party_duplicate_player_pachimon_id(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "party-secret-5").await;
-    create_player(app.clone(), &access_token, "パーティテスト5").await;
+    signup(app.clone(), &access_token, "パーティテスト5").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
     let id_a = seed_owned_pachimon(&pool, &player_id, 1).await;
 
-    let response = set_party(
+    let response = edit_party(
         app.clone(),
         &access_token,
         json!({ "partySlots": [
@@ -563,20 +574,21 @@ async fn test_set_party_duplicate_player_pachimon_id(pool: MySqlPool) {
 
 /// 他プレイヤーの`playerPachimonId`を指定すると404が返ることを確認する。
 #[sqlx::test]
-async fn test_set_party_not_owned(pool: MySqlPool) {
+async fn test_edit_party_not_owned(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let owner_token = register_and_authenticate(app.clone(), "party-secret-6-owner").await;
-    create_player(app.clone(), &owner_token, "オーナー").await;
+    signup(app.clone(), &owner_token, "オーナー").await;
     let owner_id = get_player_id(app.clone(), &owner_token).await;
     let owner_pachimon_id = seed_owned_pachimon(&pool, &owner_id, 1).await;
 
     let other_token = register_and_authenticate(app.clone(), "party-secret-6-other").await;
-    create_player(app.clone(), &other_token, "他人").await;
+    signup(app.clone(), &other_token, "他人").await;
 
-    let response = set_party(
+    let response = edit_party(
         app.clone(),
         &other_token,
         json!({ "partySlots": [{ "slot": 1, "playerPachimonId": owner_pachimon_id }] }),
@@ -587,23 +599,37 @@ async fn test_set_party_not_owned(pool: MySqlPool) {
 
 /// 候補技(グループ内の非初期技)への付け替えが成功し、レスポンス・DB双方に反映されることを確認する。
 #[sqlx::test]
-async fn test_update_move_success(pool: MySqlPool) {
+async fn test_edit_pachimon_move_success(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "move-secret-1").await;
-    create_player(app.clone(), &access_token, "技テスト1").await;
+    signup(app.clone(), &access_token, "技テスト1").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
     let player_pachimon_id = seed_owned_pachimon(&pool, &player_id, 1).await;
 
-    let response = update_move(app.clone(), &access_token, &player_pachimon_id, 2, 2).await;
+    let response = edit_pachimon_move(app.clone(), &access_token, &player_pachimon_id, 2, 2).await;
     assert_eq!(response.status(), StatusCode::OK);
     let json = json_body(response).await;
-    assert_eq!(json["playerPachimonId"], player_pachimon_id);
-    assert_eq!(json["slot"], 2);
-    assert_eq!(json["moveId"], 2);
-    assert!(!json["playerPachimonMoveId"].as_str().unwrap().is_empty());
+    let moves = json["pachimonMoveMap"]["upserted"].as_array().unwrap();
+    assert_eq!(moves.len(), 1);
+    assert_eq!(moves[0]["playerPachimonId"], player_pachimon_id);
+    assert_eq!(moves[0]["slot"], 2);
+    assert_eq!(moves[0]["moveId"], 2);
+    assert!(
+        !moves[0]["playerPachimonMoveId"]
+            .as_str()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        json["pachimonMoveMap"]["removed"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 
     let stored: (i64,) = sqlx::query_as(
         "SELECT move_id FROM player_pachimon_moves WHERE player_pachimon_id = ? AND slot = 2",
@@ -618,13 +644,14 @@ async fn test_update_move_success(pool: MySqlPool) {
 /// 既存slot(初期技が入っている`slot=1`)への付け替えでは、`player_pachimon_move_id`
 /// (割当自体のULID)が変わらず維持されることを確認する。
 #[sqlx::test]
-async fn test_update_move_preserves_id_on_existing_slot(pool: MySqlPool) {
+async fn test_edit_pachimon_move_preserves_id_on_existing_slot(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "move-secret-preserve").await;
-    create_player(app.clone(), &access_token, "技テスト維持").await;
+    signup(app.clone(), &access_token, "技テスト維持").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
     let player_pachimon_id = seed_owned_pachimon(&pool, &player_id, 1).await;
 
@@ -638,10 +665,13 @@ async fn test_update_move_preserves_id_on_existing_slot(pool: MySqlPool) {
     .unwrap();
 
     // slot=1は初期技(move_id=1)がセット済み。同じslotへ別の候補技へ付け替える。
-    let response = update_move(app.clone(), &access_token, &player_pachimon_id, 1, 2).await;
+    let response = edit_pachimon_move(app.clone(), &access_token, &player_pachimon_id, 1, 2).await;
     assert_eq!(response.status(), StatusCode::OK);
     let json = json_body(response).await;
-    assert_eq!(json["playerPachimonMoveId"], before.0);
+    assert_eq!(
+        json["pachimonMoveMap"]["upserted"][0]["playerPachimonMoveId"],
+        before.0
+    );
 
     let after: (String,) = sqlx::query_as(
         "SELECT player_pachimon_move_id FROM player_pachimon_moves \
@@ -656,51 +686,54 @@ async fn test_update_move_preserves_id_on_existing_slot(pool: MySqlPool) {
 
 /// 技グループ外の技を指定すると400が返ることを確認する。
 #[sqlx::test]
-async fn test_update_move_invalid_candidate(pool: MySqlPool) {
+async fn test_edit_pachimon_move_invalid_candidate(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "move-secret-2").await;
-    create_player(app.clone(), &access_token, "技テスト2").await;
+    signup(app.clone(), &access_token, "技テスト2").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
     let player_pachimon_id = seed_owned_pachimon(&pool, &player_id, 1).await;
 
-    let response = update_move(app.clone(), &access_token, &player_pachimon_id, 1, 3).await;
+    let response = edit_pachimon_move(app.clone(), &access_token, &player_pachimon_id, 1, 3).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
 /// slotが範囲外(1-4外)の場合に400が返ることを確認する。
 #[sqlx::test]
-async fn test_update_move_out_of_range_slot(pool: MySqlPool) {
+async fn test_edit_pachimon_move_out_of_range_slot(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let access_token = register_and_authenticate(app.clone(), "move-secret-3").await;
-    create_player(app.clone(), &access_token, "技テスト3").await;
+    signup(app.clone(), &access_token, "技テスト3").await;
     let player_id = get_player_id(app.clone(), &access_token).await;
     let player_pachimon_id = seed_owned_pachimon(&pool, &player_id, 1).await;
 
-    let response = update_move(app.clone(), &access_token, &player_pachimon_id, 5, 1).await;
+    let response = edit_pachimon_move(app.clone(), &access_token, &player_pachimon_id, 5, 1).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
 /// 他プレイヤーの`playerPachimonId`を指定すると404が返ることを確認する。
 #[sqlx::test]
-async fn test_update_move_not_owned(pool: MySqlPool) {
+async fn test_edit_pachimon_move_not_owned(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     seed_test_master_data(&pool).await;
     let state = AppState::from_pool(pool.clone()).await;
     let app = create_router(state);
 
     let owner_token = register_and_authenticate(app.clone(), "move-secret-4-owner").await;
-    create_player(app.clone(), &owner_token, "オーナー").await;
+    signup(app.clone(), &owner_token, "オーナー").await;
     let owner_id = get_player_id(app.clone(), &owner_token).await;
     let owner_pachimon_id = seed_owned_pachimon(&pool, &owner_id, 1).await;
 
     let other_token = register_and_authenticate(app.clone(), "move-secret-4-other").await;
-    create_player(app.clone(), &other_token, "他人").await;
+    signup(app.clone(), &other_token, "他人").await;
 
-    let response = update_move(app.clone(), &other_token, &owner_pachimon_id, 1, 2).await;
+    let response = edit_pachimon_move(app.clone(), &other_token, &owner_pachimon_id, 1, 2).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }

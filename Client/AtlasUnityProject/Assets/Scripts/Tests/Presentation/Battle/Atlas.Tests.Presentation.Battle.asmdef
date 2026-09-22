@@ -1,0 +1,28 @@
+{
+    "name": "Atlas.Tests.Presentation.Battle",
+    "rootNamespace": "Atlas.Tests.Presentation.Battle",
+    "references": [
+        "GUID:2bafac87e7f4b9b418d9448d219b01ab",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f",
+        "GUID:75f41dd74e4d46a2aa9ef09829cf5e84",
+        "GUID:d272da2a7cb9faf498fcf52f24ac0651",
+        "GUID:ac5077aef605427f9a3fc74bc37132e2",
+        "GUID:03e6aa5a9743dd546aae493dc0f59c97",
+        "GUID:41261d631a9f02542ba248f84bf54981",
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
+        "GUID:27619889b8ba8c24980f49ee34dbb44a"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

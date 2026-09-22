@@ -5,9 +5,13 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use crate::api::player::{
+    ItemsDiffDto, PachimonDiffDto, PachimonMoveMapDiffDto, PlayerDiffDto, PlayerItemDto,
+    PlayerPachimonDto, PlayerPachimonMoveDto,
+};
 use crate::error::AppError;
 use crate::extractor::AuthenticatedDevice;
-use crate::service::{player_service, scout_service};
+use crate::service::{player_item_service, player_service, scout_service};
 use crate::state::AppState;
 
 /// スカウトバナー1件分のレスポンスDTO。排出率(`rate_table`)は含めない
@@ -80,27 +84,28 @@ pub struct CandidateDto {
     pub moves: Vec<i64>,
 }
 
-/// 紹介を受けるAPIのレスポンスボディ。
+/// 紹介を受けるAPIのレスポンスボディ。ジェム消費結果は`playerDiff.items`側に含まれる
+/// (`pachimon`/`pachimonMoveMap`/`partySlots`は未変更のため空)。
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateRollResponse {
     pub roll_id: String,
     pub candidates: Vec<CandidateDto>,
-    pub gems: i32,
+    pub player_diff: PlayerDiffDto,
 }
 
-/// 紹介を受け、gemsを消費して候補10体をロールするAPIハンドラ。
+/// 紹介を受け、ジェムを消費して候補10体をロールするAPIハンドラ。
 ///
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`、バナーが存在しない場合に`AppError::NotFound`、
-/// バナーが開催期間外またはgemsが不足している場合に`AppError::BadRequest`を返す。
+/// バナーが開催期間外またはジェムが不足している場合に`AppError::BadRequest`を返す。
 #[utoipa::path(
     post,
     path = "/scout/rolls",
     request_body = CreateRollRequest,
     responses(
         (status = 200, description = "紹介成功", body = CreateRollResponse),
-        (status = 400, description = "バナー開催期間外またはgems不足"),
+        (status = 400, description = "バナー開催期間外またはジェム不足"),
         (status = 401, description = "未認証"),
         (status = 404, description = "バナー未存在"),
     ),
@@ -113,7 +118,7 @@ pub async fn create_roll_handler(
     Json(req): Json<CreateRollRequest>,
 ) -> Result<Json<CreateRollResponse>, AppError> {
     let player = player_service::find_by_device_id(&state.pool, &device.device_id).await?;
-    let (roll, gems) = scout_service::create_roll(
+    let (roll, remaining_gems) = scout_service::create_roll(
         &state.pool,
         &state.master,
         &player.player_id,
@@ -134,7 +139,16 @@ pub async fn create_roll_handler(
                 moves: candidate.moves,
             })
             .collect(),
-        gems,
+        player_diff: PlayerDiffDto {
+            items: ItemsDiffDto {
+                upserted: vec![PlayerItemDto {
+                    item_id: player_item_service::GEM_ITEM_ID,
+                    quantity: remaining_gems.quantity,
+                }],
+                removed: Vec::new(),
+            },
+            ..Default::default()
+        },
     }))
 }
 
@@ -145,16 +159,8 @@ pub struct SelectRollRequest {
     pub index: i32,
 }
 
-/// 候補から1体を選んで入手するAPIのレスポンスボディ。
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct SelectRollResponse {
-    pub player_pachimon_id: String,
-    pub pachimon_id: i64,
-    pub rarity: String,
-}
-
-/// 保存済みの候補から1体を選んで恒久的に入手するAPIハンドラ。
+/// 保存済みの候補から1体を選んで恒久的に入手するAPIハンドラ。レスポンスは`playerDiff`
+/// (`pachimon`/`pachimonMoveMap`のみ更新、`items`/`partySlots`は空)。
 ///
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`、rollが存在しない・自分のものでない場合に
@@ -166,7 +172,7 @@ pub struct SelectRollResponse {
     params(("rollId" = String, Path, description = "紹介ID")),
     request_body = SelectRollRequest,
     responses(
-        (status = 200, description = "入手成功", body = SelectRollResponse),
+        (status = 200, description = "入手成功(pachimon/pachimonMoveMapのみ更新)", body = PlayerDiffDto),
         (status = 400, description = "indexが範囲外"),
         (status = 401, description = "未認証"),
         (status = 404, description = "roll未存在"),
@@ -180,22 +186,32 @@ pub async fn select_roll_handler(
     device: AuthenticatedDevice,
     Path(roll_id): Path<String>,
     Json(req): Json<SelectRollRequest>,
-) -> Result<Json<SelectRollResponse>, AppError> {
+) -> Result<Json<PlayerDiffDto>, AppError> {
     let player = player_service::find_by_device_id(&state.pool, &device.device_id).await?;
-    let player_pachimon =
+    let (player_pachimon, moves) =
         scout_service::select_candidate(&state.pool, &player.player_id, &roll_id, req.index)
             .await?;
 
-    let pachimon = state
-        .master
-        .pachimon
-        .iter()
-        .find(|p| p.pachimon_id == player_pachimon.pachimon_id)
-        .ok_or(AppError::InternalError)?;
-
-    Ok(Json(SelectRollResponse {
-        player_pachimon_id: player_pachimon.player_pachimon_id,
-        pachimon_id: player_pachimon.pachimon_id,
-        rarity: scout_service::rarity_to_label(pachimon.rarity).to_string(),
+    Ok(Json(PlayerDiffDto {
+        pachimon: PachimonDiffDto {
+            upserted: vec![PlayerPachimonDto {
+                player_pachimon_id: player_pachimon.player_pachimon_id,
+                pachimon_id: player_pachimon.pachimon_id,
+            }],
+            removed: Vec::new(),
+        },
+        pachimon_move_map: PachimonMoveMapDiffDto {
+            upserted: moves
+                .into_iter()
+                .map(|m| PlayerPachimonMoveDto {
+                    player_pachimon_move_id: m.player_pachimon_move_id,
+                    player_pachimon_id: m.player_pachimon_id,
+                    slot: m.slot,
+                    move_id: m.move_id,
+                })
+                .collect(),
+            removed: Vec::new(),
+        },
+        ..Default::default()
     }))
 }

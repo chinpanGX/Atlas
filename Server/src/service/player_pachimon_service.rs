@@ -5,7 +5,7 @@ use ulid::Ulid;
 
 use crate::error::AppError;
 use crate::master::MasterData;
-use crate::model::player_pachimon::{OwnedPachimon, PlayerPachimon, PlayerPachimonMove};
+use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove};
 use crate::model::player_party_slot::PlayerPartySlot;
 
 /// `PUT /players/me/party`リクエストの1slot分の入力。
@@ -27,7 +27,7 @@ pub async fn grant(
     player_id: &str,
     pachimon_id: i64,
     moves: &[i64],
-) -> Result<PlayerPachimon, AppError> {
+) -> Result<(PlayerPachimon, Vec<PlayerPachimonMove>), AppError> {
     let player_pachimon_id = Ulid::new().to_string();
     let effort_values =
         serde_json::json!({"hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0});
@@ -44,8 +44,10 @@ pub async fn grant(
     .await
     .map_err(|_| AppError::InternalError)?;
 
+    let mut granted_moves = Vec::with_capacity(moves.len());
     for (slot, move_id) in moves.iter().enumerate() {
         let player_pachimon_move_id = Ulid::new().to_string();
+        let slot = slot as i32 + 1;
         sqlx::query(
             "INSERT INTO player_pachimon_moves \
                 (player_pachimon_move_id, player_pachimon_id, slot, move_id) \
@@ -53,11 +55,18 @@ pub async fn grant(
         )
         .bind(&player_pachimon_move_id)
         .bind(&player_pachimon_id)
-        .bind(slot as i32 + 1)
+        .bind(slot)
         .bind(*move_id)
         .execute(&mut **tx)
         .await
         .map_err(|_| AppError::InternalError)?;
+
+        granted_moves.push(PlayerPachimonMove {
+            player_pachimon_move_id,
+            player_pachimon_id: player_pachimon_id.clone(),
+            slot,
+            move_id: *move_id,
+        });
     }
 
     let obtained_at: (chrono::NaiveDateTime,) =
@@ -67,22 +76,29 @@ pub async fn grant(
             .await
             .map_err(|_| AppError::InternalError)?;
 
-    Ok(PlayerPachimon {
-        player_pachimon_id,
-        player_id: player_id.to_string(),
-        pachimon_id,
-        obtained_at: obtained_at.0,
-    })
+    Ok((
+        PlayerPachimon {
+            player_pachimon_id,
+            player_id: player_id.to_string(),
+            pachimon_id,
+            obtained_at: obtained_at.0,
+        },
+        granted_moves,
+    ))
 }
 
-/// 認証済みプレイヤーの所持パチモン一覧を、各個体の覚えている技と合わせて取得する。
-/// パーティ編成状況は[`list_party`]で別途取得する。
+/// 認証済みプレイヤーの所持パチモン一覧を取得する。覚えている技は[`list_owned_moves`]、
+/// パーティ編成状況は[`list_party`]で別途取得する(`playerDiff`が`pachimon`/
+/// `pachimonMoveMap`を独立したリソースとして扱うため、ここでもネストさせずフラットに返す)。
 ///
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
-pub async fn list_owned(pool: &MySqlPool, player_id: &str) -> Result<Vec<OwnedPachimon>, AppError> {
-    let rows: Vec<(String, i64)> = sqlx::query_as(
-        "SELECT player_pachimon_id, pachimon_id FROM player_pachimon \
+pub async fn list_owned_pachimon(
+    pool: &MySqlPool,
+    player_id: &str,
+) -> Result<Vec<PlayerPachimon>, AppError> {
+    let rows: Vec<(String, i64, chrono::NaiveDateTime)> = sqlx::query_as(
+        "SELECT player_pachimon_id, pachimon_id, obtained_at FROM player_pachimon \
          WHERE player_id = ? ORDER BY obtained_at",
     )
     .bind(player_id)
@@ -90,34 +106,50 @@ pub async fn list_owned(pool: &MySqlPool, player_id: &str) -> Result<Vec<OwnedPa
     .await
     .map_err(|_| AppError::InternalError)?;
 
-    let mut owned = Vec::with_capacity(rows.len());
-    for (player_pachimon_id, pachimon_id) in rows {
-        let move_rows: Vec<(String, i32, i64)> = sqlx::query_as(
-            "SELECT player_pachimon_move_id, slot, move_id FROM player_pachimon_moves \
-             WHERE player_pachimon_id = ? ORDER BY slot",
+    Ok(rows
+        .into_iter()
+        .map(
+            |(player_pachimon_id, pachimon_id, obtained_at)| PlayerPachimon {
+                player_pachimon_id,
+                player_id: player_id.to_string(),
+                pachimon_id,
+                obtained_at,
+            },
         )
-        .bind(&player_pachimon_id)
-        .fetch_all(pool)
-        .await
-        .map_err(|_| AppError::InternalError)?;
+        .collect())
+}
 
-        owned.push(OwnedPachimon {
-            player_pachimon_id,
-            pachimon_id,
-            moves: move_rows
-                .into_iter()
-                .map(
-                    |(player_pachimon_move_id, slot, move_id)| PlayerPachimonMove {
-                        player_pachimon_move_id,
-                        slot,
-                        move_id,
-                    },
-                )
-                .collect(),
-        });
-    }
+/// 認証済みプレイヤーが所持する全個体分の、覚えている技を`player_pachimon_id`込みでまとめて
+/// 取得する(`player_pachimon`とJOINし1クエリで完結させる。個体ごとに問い合わせるN+1を避ける)。
+///
+/// # Errors
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn list_owned_moves(
+    pool: &MySqlPool,
+    player_id: &str,
+) -> Result<Vec<PlayerPachimonMove>, AppError> {
+    let rows: Vec<(String, String, i32, i64)> = sqlx::query_as(
+        "SELECT ppm.player_pachimon_move_id, ppm.player_pachimon_id, ppm.slot, ppm.move_id \
+         FROM player_pachimon_moves ppm \
+         JOIN player_pachimon pp ON pp.player_pachimon_id = ppm.player_pachimon_id \
+         WHERE pp.player_id = ? ORDER BY pp.obtained_at, ppm.slot",
+    )
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|_| AppError::InternalError)?;
 
-    Ok(owned)
+    Ok(rows
+        .into_iter()
+        .map(
+            |(player_pachimon_move_id, player_pachimon_id, slot, move_id)| PlayerPachimonMove {
+                player_pachimon_move_id,
+                player_pachimon_id,
+                slot,
+                move_id,
+            },
+        )
+        .collect())
 }
 
 /// 認証済みプレイヤーの現在のパーティ編成(`player_party_slots`)を取得する。
@@ -152,7 +184,8 @@ pub async fn list_party(
 }
 
 /// バトル用パーティ(1-6体)を編成する。既存の割当(`player_party_slots`)を一旦全削除してから、
-/// 指定された`player_pachimon_id`をそれぞれのslotへ新しいULIDで再割当する(`PUT`による全置き換え)。
+/// 指定された`player_pachimon_id`をそれぞれのslotへ新しいULIDで再割当する(全置き換え)。
+/// 削除前の`party_slot_id`一覧も返す(`POST /edit/party`の`playerDiff.partySlots.removed`用)。
 ///
 /// # Errors
 /// 人数が1-6体でない、slot/`player_pachimon_id`が重複している場合に`AppError::BadRequest`、
@@ -162,7 +195,7 @@ pub async fn set_party(
     pool: &MySqlPool,
     player_id: &str,
     slots: Vec<PartySlotInput>,
-) -> Result<Vec<PlayerPartySlot>, AppError> {
+) -> Result<(Vec<PlayerPartySlot>, Vec<String>), AppError> {
     if slots.is_empty() || slots.len() > 6 {
         return Err(AppError::BadRequest(
             "party size must be between 1 and 6".to_string(),
@@ -205,6 +238,14 @@ pub async fn set_party(
         }
     }
 
+    let removed: Vec<(String,)> =
+        sqlx::query_as("SELECT party_slot_id FROM player_party_slots WHERE player_id = ?")
+            .bind(player_id)
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(|_| AppError::InternalError)?;
+    let removed: Vec<String> = removed.into_iter().map(|(id,)| id).collect();
+
     sqlx::query("DELETE FROM player_party_slots WHERE player_id = ?")
         .bind(player_id)
         .execute(&mut *tx)
@@ -238,7 +279,7 @@ pub async fn set_party(
     tx.commit().await.map_err(|_| AppError::InternalError)?;
 
     result.sort_by_key(|r| r.slot);
-    Ok(result)
+    Ok((result, removed))
 }
 
 /// 所持パチモンの技を付け替える。グループ内の候補技(`move_group_moves`)以外は指定できない。
@@ -319,6 +360,7 @@ pub async fn update_move(
 
     Ok(PlayerPachimonMove {
         player_pachimon_move_id: player_pachimon_move_id.0,
+        player_pachimon_id: player_pachimon_id.to_string(),
         slot,
         move_id,
     })

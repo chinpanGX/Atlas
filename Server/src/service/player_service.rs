@@ -5,7 +5,11 @@ use ulid::Ulid;
 use crate::error::AppError;
 use crate::master::MasterData;
 use crate::model::player::Player;
-use crate::service::player_pachimon_service;
+use crate::service::{player_item_service, player_pachimon_service};
+
+/// signup時にitem_id=1(ジェム)として初期付与する数量
+/// (`Shared/docs/design/outgame.md`「報酬設計(gems)」参照。スカウトの紹介コスト150/回の2回分)。
+const STARTER_GEMS: i32 = 300;
 
 /// 新しいプレイヤーを作成し、デバイスに紐付ける。
 ///
@@ -48,13 +52,20 @@ pub async fn create(
 
     grant_starter_party(&mut tx, master, &player_id).await?;
 
+    player_item_service::grant_initial(
+        &mut tx,
+        &player_id,
+        player_item_service::GEM_ITEM_ID,
+        STARTER_GEMS,
+    )
+    .await?;
+
     tx.commit().await.map_err(|_| AppError::InternalError)?;
 
     Ok(Player {
         player_id,
         device_id: device_id.to_string(),
         nickname: nickname.to_string(),
-        gems: 300,
         created_at: Utc::now().naive_utc(),
     })
 }
@@ -80,7 +91,7 @@ async fn grant_starter_party(
             .map(|row| row.move_id)
             .collect();
 
-        let player_pachimon =
+        let (player_pachimon, _moves) =
             player_pachimon_service::grant(tx, player_id, slot.pachimon_id, &moves).await?;
 
         let party_slot_id = Ulid::new().to_string();
@@ -106,21 +117,20 @@ async fn grant_starter_party(
 /// プレイヤーが未作成の場合に`AppError::NotFound`を返す。
 /// DBアクセスに失敗した場合は`AppError::InternalError`を返す。
 pub async fn find_by_device_id(pool: &MySqlPool, device_id: &str) -> Result<Player, AppError> {
-    let row: Option<(String, String, String, i32, chrono::NaiveDateTime)> = sqlx::query_as(
-        "SELECT player_id, device_id, nickname, gems, created_at FROM players WHERE device_id = ?",
+    let row: Option<(String, String, String, chrono::NaiveDateTime)> = sqlx::query_as(
+        "SELECT player_id, device_id, nickname, created_at FROM players WHERE device_id = ?",
     )
     .bind(device_id)
     .fetch_optional(pool)
     .await
     .map_err(|_| AppError::InternalError)?;
 
-    let (player_id, device_id, nickname, gems, created_at) = row.ok_or(AppError::NotFound)?;
+    let (player_id, device_id, nickname, created_at) = row.ok_or(AppError::NotFound)?;
 
     Ok(Player {
         player_id,
         device_id,
         nickname,
-        gems,
         created_at,
     })
 }

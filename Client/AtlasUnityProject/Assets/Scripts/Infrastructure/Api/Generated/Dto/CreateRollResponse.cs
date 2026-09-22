@@ -10,8 +10,8 @@ namespace Atlas.Infrastructure.Api
         [JsonPropertyName("candidates")]
         public System.Collections.Generic.List<CandidateDto> Candidates { get; set; }
 
-        [JsonPropertyName("gems")]
-        public int Gems { get; set; }
+        [JsonPropertyName("playerDiff")]
+        public PlayerDiffDto PlayerDiff { get; set; }
 
         [JsonPropertyName("rollId")]
         public string RollId { get; set; }

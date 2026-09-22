@@ -1,4 +1,4 @@
-﻿use argon2::password_hash::{SaltString, rand_core::OsRng};
+use argon2::password_hash::{SaltString, rand_core::OsRng};
 use argon2::{Argon2, PasswordHasher};
 use chrono::Utc;
 use sqlx::MySqlPool;
@@ -45,7 +45,7 @@ pub async fn register(pool: &MySqlPool, secret_key: &str) -> Result<Device, AppE
         .map_err(|_| AppError::InternalError)?;
 
     Ok(Device {
-        device_id,  // フィールド名=変数名なら `device_id: device_id` を省略できる
+        device_id, // フィールド名=変数名なら `device_id: device_id` を省略できる
         secret_key_hash,
         created_at: Utc::now().naive_utc(),
     })

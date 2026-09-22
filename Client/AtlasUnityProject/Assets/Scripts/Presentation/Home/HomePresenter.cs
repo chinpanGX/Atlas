@@ -13,24 +13,24 @@ namespace Atlas.Presentation.Home
     public sealed class HomePresenter : IAsyncStartable, IDisposable
     {
         private readonly HomePage view;
-        private readonly IPlayerService playerService;
+        private readonly IPlayerAccountService playerService;
         private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
 
-        public HomePresenter(HomePage view, IPlayerService playerService, IScreenNavigator screenNavigator)
+        public HomePresenter(HomePage view, IPlayerAccountService playerService, IScreenNavigator screenNavigator)
         {
             this.view = view;
             this.playerService = playerService;
             this.screenNavigator = screenNavigator;
         }
 
-        // HomeはPush時のViewDtoを持たず、自分でIPlayerServiceから初期データを取得する。
+        // HomeはPush時のViewDtoを持たず、自分でIPlayerAccountServiceから初期データを取得する。
         // 非同期の初期化が必要なためIInitializableではなくIAsyncStartableを使う
         // (同期で済む場合はTitlePresenterのようにIInitializableでよい)
         public async UniTask StartAsync(CancellationToken cancellation)
         {
-            var player = await playerService.GetMeAsync();
-            view.Refresh(new HomeViewDto { Nickname = player.Nickname, Gems = player.Gems });
+            var player = playerService.Get();
+            view.Refresh(new HomeViewDto { Nickname = player.Nickname });
 
             // Scout/パーティ編成/チャットの各画面は未実装のため、現時点ではログのみ。
             // 各画面を実装するタイミングでIScreenNavigator.PushPageAsyncに置き換える

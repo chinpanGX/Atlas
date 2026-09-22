@@ -177,7 +177,7 @@ namespace Atlas.Presentation.Battle
             return 2 * baseHp * FixedLevel / 100 + FixedLevel + 10;
         }
 
-        private BattleUiState BuildUiState()
+        private BattleUIStateDto BuildUiState()
         {
             var selfPachimonId = int.Parse(initialDto.SelfPachimonIds[selfActiveIndex]);
             var selfPachimon = masterDataService.Database.PachimonDataTable.FindByPachimonId(selfPachimonId);
@@ -188,7 +188,7 @@ namespace Atlas.Presentation.Battle
                 ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).Name
                 : "???";
 
-            return new BattleUiState
+            return new BattleUIStateDto
             {
                 SelfInfo = new SelfInfoDto
                 {

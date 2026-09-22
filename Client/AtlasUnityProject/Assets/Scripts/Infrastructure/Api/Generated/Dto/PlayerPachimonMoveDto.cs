@@ -10,6 +10,9 @@ namespace Atlas.Infrastructure.Api
         [JsonPropertyName("moveId")]
         public long MoveId { get; set; }
 
+        [JsonPropertyName("playerPachimonId")]
+        public string PlayerPachimonId { get; set; }
+
         [JsonPropertyName("playerPachimonMoveId")]
         public string PlayerPachimonMoveId { get; set; }
 

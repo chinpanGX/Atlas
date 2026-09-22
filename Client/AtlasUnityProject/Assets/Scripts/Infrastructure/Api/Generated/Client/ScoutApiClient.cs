@@ -18,6 +18,6 @@ namespace Atlas.Infrastructure.Api
 
         public UniTask<ListBannersResponse> ListBannersAsync() => ApiRequest.SendAsync<ListBannersResponse>(this.baseUrl, "GET", "/scout/banners", null, this.accessTokenProvider());
         public UniTask<CreateRollResponse> CreateRollAsync(CreateRollRequest request) => ApiRequest.SendAsync<CreateRollResponse>(this.baseUrl, "POST", "/scout/rolls", request, this.accessTokenProvider());
-        public UniTask<SelectRollResponse> SelectRollAsync(string rollId, SelectRollRequest request) => ApiRequest.SendAsync<SelectRollResponse>(this.baseUrl, "POST", $"/scout/rolls/{rollId}/select", request, this.accessTokenProvider());
+        public UniTask<PlayerDiffDto> SelectRollAsync(string rollId, SelectRollRequest request) => ApiRequest.SendAsync<PlayerDiffDto>(this.baseUrl, "POST", $"/scout/rolls/{rollId}/select", request, this.accessTokenProvider());
     }
 }

@@ -1,6 +1,6 @@
 use sqlx::MySqlPool;
 
-use super::{MoveGroupMoves, Pachimon, PachimonType, Rarity, StarterPartySlots};
+use super::{Items, MoveGroupMoves, Pachimon, PachimonType, Rarity, StarterPartySlots};
 
 /// 起動時にDBから読み込むマスタデータのメモリキャッシュ。
 ///
@@ -15,6 +15,7 @@ pub struct MasterData {
     pub pachimon: Vec<Pachimon>,
     pub move_group_moves: Vec<MoveGroupMoves>,
     pub starter_party_slots: Vec<StarterPartySlots>,
+    pub items: Vec<Items>,
 }
 
 impl MasterData {
@@ -26,11 +27,13 @@ impl MasterData {
         let pachimon = load_pachimon(pool).await?;
         let move_group_moves = load_move_group_moves(pool).await?;
         let starter_party_slots = load_starter_party_slots(pool).await?;
+        let items = load_items(pool).await?;
 
         Ok(MasterData {
             pachimon,
             move_group_moves,
             starter_party_slots,
+            items,
         })
     }
 }
@@ -139,6 +142,26 @@ async fn load_starter_party_slots(pool: &MySqlPool) -> Result<Vec<StarterPartySl
         .map(|row| StarterPartySlots {
             slot_no: row.slot_no,
             pachimon_id: row.pachimon_id,
+        })
+        .collect())
+}
+
+#[derive(sqlx::FromRow)]
+struct ItemsRow {
+    item_id: i64,
+    name: String,
+}
+
+async fn load_items(pool: &MySqlPool) -> Result<Vec<Items>, sqlx::Error> {
+    let rows: Vec<ItemsRow> = sqlx::query_as("SELECT item_id, name FROM items ORDER BY item_id")
+        .fetch_all(pool)
+        .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| Items {
+            item_id: row.item_id,
+            name: row.name,
         })
         .collect())
 }

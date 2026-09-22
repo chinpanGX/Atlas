@@ -59,6 +59,7 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | `move_group_moves` | 108 | 技グループ所属技の対応表(旧`move_group_master`。「Master」がMasterMemory/MasterDataLoaderと紛らわしいため改名)。代理キー`unique_id`を追加 |
 | `type_chart` | 324 | 18タイプ×18タイプの全組み合わせ(第9世代準拠の標準タイプ相性)。`effectiveness`はENUM(`IMMUNE`/`NOT_VERY_EFFECTIVE`/`NORMAL`/`SUPER_EFFECTIVE`相当) |
 | `starter_party_slots` | 6 | 新規プレイヤーへ自動付与する固定スターター編成(1-6slot)。仮値としてrarity=Cの6体(1031-1036)を採用 |
+| `items` | 1 | `item_id: 1`=ジェム(gems)のみ。`players.gems`列を廃止し所持数は`player_items`(下記「3. Server API実装状況」参照)で管理する |
 
 ### 残タスク
 
@@ -82,26 +83,26 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | POST | /devices |
 | POST | /devices/authenticate |
 | GET | /auth/verify |
-| POST | /players |
-| GET | /players/me |
+| POST | /signup |
+| POST | /sign-in |
 | POST | /chat/send |
 | GET | /chat/poll |
 | GET | /scout/banners |
 | POST | /scout/rolls |
 | POST | /scout/rolls/{rollId}/select |
-| GET | /players/me/pachimon |
-| PUT | /players/me/party |
-| PUT | /players/me/pachimon/{playerPachimonId}/moves/{slot} |
+| POST | /edit/party |
+| POST | /edit/pachimon_moves |
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
-- テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計53件)
-- マイグレーション19本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
+- テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計55件)
+- マイグレーション22本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
   move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
   players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
   scout_banners・scout_rolls/move_group_master→move_group_movesへのリネーム/
   player_party_slotsテーブル作成・player_pachimon.party_slot列削除/
   starter_party_slotsテーブル作成/player_pachimon.ivs列削除/
-  player_pachimon_movesへのULID主キー(player_pachimon_move_id)追加)
+  player_pachimon_movesへのULID主キー(player_pachimon_move_id)追加/
+  itemsテーブル作成・player_itemsテーブル作成・players.gems列削除)
 - パーティ編成・技の付け替え(`GET/PUT /players/me/pachimon*`, `PUT /players/me/party`)を実装
   (outgame.md #8-10)。パーティ編成は当初`player_pachimon.party_slot`(nullable INT)属性として
   設計したが、①`api-codegen`が現状OpenAPIの`nullable`(`type: [T, 'null']`)に未対応で
@@ -138,6 +139,31 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
   `select_candidate`と共通のため、`player_pachimon_service::grant`という共有関数に切り出し、
   スカウト側もそちらを呼ぶようにリファクタした。専用の`reward_service`のような新しい層は作らず、
   既存の`player_pachimon_service`に集約する判断とした
+
+- **`playerDiff`共通レスポンス形式・items/gems一般化・API再編を実装**(architecture.md
+  「所持リソース設計(items / gems)」「APIレスポンス設計」、outgame.md、scout.md参照)。
+  `master-data-schema-add`スキルで`items`マスタ(`item_id: 1`=ジェム)を追加し、
+  `player_items`(`player_id`+`item_id`複合PK、`quantity`)テーブルへ`players.gems`列を移行。
+  `POST /players`→`POST /signup`に改名して`200`(ボディ無し)に変更し、同一トランザクションで
+  `player_items`へ初期ジェム(300)も付与するようにした。`GET /players/me`・
+  `GET /players/me/pachimon`を廃止し、新設の`POST /sign-in`(`playerId`/`nickname`+
+  `playerDiff`で所持データ全件を返す。`removed`は常に空のフルスナップショット)に統合。
+  `PUT /players/me/party`→`POST /edit/party`、
+  `PUT /players/me/pachimon/{id}/moves/{slot}`→`POST /edit/pachimon_moves`
+  (識別子をパスパラメータからボディへ移動)に変更し、レスポンスを専用DTO
+  (`SetPartyResponse`/`UpdateMoveResponse`)から`playerDiff`へ統一。`PlayerPachimonDto`から
+  `moves`を除去し(ネスト解消)、`PlayerPachimonMoveDto`に`playerPachimonId`を追加して
+  `pachimonMoveMap`という独立したリソース種別に分離した。スカウトの`POST /scout/rolls`は
+  レスポンスの`gems`フィールドを`playerDiff.items`(消費後の残量)に、
+  `POST /scout/rolls/{rollId}/select`は`{playerPachimonId,pachimonId,rarity}`を
+  `playerDiff`(`pachimon`+`pachimonMoveMap`のみ更新、`rarity`は削除)に置き換えた。
+  `player_items`の増減は`WHERE quantity >= ?`を使った条件付き`UPDATE`で原子的に不足検出する
+  (旧`players.gems`の実装パターンを踏襲)。Client側は`api-codegen`で生成コードのみ再生成済みで、
+  実際の呼び出し側実装(ローカル永続化含む)は未着手(下記残タスク#16参照)
+- **`grant`/`set_party`の戻り値を拡張**。`player_pachimon_service::grant`は生成した技
+  (`Vec<PlayerPachimonMove>`)も返すようにし(`select_roll`が`pachimonMoveMap.upserted`を
+  組み立てるために必要)、`set_party`は削除前の`party_slot_id`一覧も返すようにした
+  (`playerDiff.partySlots.removed`用)。呼び出し元が使わない場合は`_`で無視する
 
 ### 未実装
 
@@ -333,7 +359,7 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体、バトル画面(Mock)、デバイス認証・サインアップ疎通(Real)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
 | 14 | アクセストークンの事前有効期限チェック・401時の再認証リトライ(design/outgame.md補足で「望ましい」とされる挙動、現状は起動時に一度認証するのみ) | client |
 | 15 | サインアップ疎通(デバイス登録〜プレイヤー作成)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
-| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入(設計のみ完了、実装未着手)。`playerId`/`nickname`は共通型を作らず必要なAPI(`POST /sign-in`)が個別に返す。`gems`は`players.gems`列を廃止し、新設する`items`マスタ(`master-data-pipeline`)+`player_items`所持テーブルへ一般化(`item_id: 1`=gems、将来の育成素材消費を見据えた設計)。デバイス認証・サインアップ・サインインの分離(`POST /devices/authenticate`はトークン発行のみに戻す、`POST /players`→`POST /signup`に改名し`200`ボディ無しに変更、`POST /sign-in`新設)、`GET /players/me`・`GET /players/me/pachimon`の廃止、`PUT /players/me/party`→`POST /edit/party`・`PUT /players/me/pachimon/{id}/moves/{slot}`→`POST /edit/pachimon_moves`(識別子はボディへ)への変更、`POST /scout/rolls`(gems消費、旧レスポンスの`gems`フィールドを`playerDiff.items`化)・`POST /scout/rolls/{rollId}/select`(gemsは変化しないことが判明、`items`は空配列)のレスポンスを`playerDiff`化。詳細はarchitecture.md「APIレスポンス設計」「マスターデータ設計(items)」・outgame.md・scout.md参照。master-data-schema-addスキルでitemsマスタ追加→Server(handler/DTO/OpenAPI、player_itemsマイグレーション)→`api-codegen`再生成→Client(ローカル永続化実装含む)の順で対応予定 | server/client |
+| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側(ローカル永続化・各画面からの実呼び出し)は未着手のため残す | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |

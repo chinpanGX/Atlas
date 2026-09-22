@@ -8,12 +8,13 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Addressables
+namespace Atlas.Application.Address
 {
     
     public partial class AddressDefinition
     {
         public const string masterdatabytes = "masterdata.bytes";
+        public const string BattlePage = "BattlePage";
         public const string Home = "Home";
         public const string HomePage = "HomePage";
         public const string TitlePage = "TitlePage";

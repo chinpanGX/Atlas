@@ -5,13 +5,14 @@
 // このコマンドを実行してDBへ反映したのち、サーバーを再起動して反映する(詳細は
 // Shared/docs/design/architecture.mdの「マスターデータ運用」参照)。
 //
-// move_groups → moves → move_group_moves → pachimon → starter_party_slotsの順で投入する
-// (move_group_moves/pachimon/starter_party_slotsの外部キー制約を満たすため)。
+// move_groups → moves → move_group_moves → pachimon → starter_party_slots → itemsの順で投入する
+// (move_group_moves/pachimon/starter_party_slotsの外部キー制約を満たすため。itemsは他テーブルに
+// 依存しないため末尾でよい)。
 //
 // 実行方法: cargo run --bin seed_master_data
 use sqlx::MySqlPool;
 
-use Server::master::{self, MoveGroupMoves, MoveGroups, Moves, Pachimon, StarterPartySlots};
+use Server::master::{self, Items, MoveGroupMoves, MoveGroups, Moves, Pachimon, StarterPartySlots};
 
 #[tokio::main]
 async fn main() {
@@ -37,13 +38,17 @@ async fn main() {
     let starter_party_slots = master::seed_starter_party_slots_data();
     seed_starter_party_slots(&pool, &starter_party_slots).await;
 
+    let items = master::seed_items_data();
+    seed_items(&pool, &items).await;
+
     println!(
-        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件, starter_party_slots: {}件)",
+        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件, starter_party_slots: {}件, items: {}件)",
         move_groups.len(),
         moves.len(),
         move_group_moves.len(),
         pachimon.len(),
-        starter_party_slots.len()
+        starter_party_slots.len(),
+        items.len()
     );
 }
 
@@ -167,5 +172,19 @@ async fn seed_starter_party_slots(pool: &MySqlPool, slots: &[StarterPartySlots])
         .execute(pool)
         .await
         .unwrap_or_else(|err| panic!("slot_no={}のシード投入に失敗しました: {err}", s.slot_no));
+    }
+}
+
+async fn seed_items(pool: &MySqlPool, items: &[Items]) {
+    for i in items {
+        sqlx::query(
+            "INSERT INTO items (item_id, name) VALUES (?, ?) \
+             ON DUPLICATE KEY UPDATE name = VALUES(name)",
+        )
+        .bind(i.item_id)
+        .bind(&i.name)
+        .execute(pool)
+        .await
+        .unwrap_or_else(|err| panic!("item_id={}のシード投入に失敗しました: {err}", i.item_id));
     }
 }

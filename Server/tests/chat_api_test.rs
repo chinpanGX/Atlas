@@ -63,12 +63,23 @@ async fn register_and_authenticate(app: Router, secret_key: &str) -> String {
         .to_string()
 }
 
+/// アイテムマスタ(item_id=1のジェム)を直接DBへ投入する。`player_items`のFK制約を満たすために、
+/// signup(初期ジェム付与)より前に呼ぶ必要がある。
+async fn seed_items_master(pool: &MySqlPool) {
+    sqlx::query("INSERT INTO items (item_id, name) VALUES (1, 'ジェム')")
+        .execute(pool)
+        .await
+        .unwrap();
+}
+
+/// signupし、直後の`sign-in`から`playerId`を取得する。
 async fn create_player(app: Router, access_token: &str, nickname: &str) -> Value {
-    let response = app
+    let signup_response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/players")
+                .uri("/signup")
                 .header("Content-Type", "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
                 .body(Body::from(json!({ "nickname": nickname }).to_string()))
@@ -76,8 +87,21 @@ async fn create_player(app: Router, access_token: &str, nickname: &str) -> Value
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    assert_eq!(signup_response.status(), StatusCode::OK);
+
+    let sign_in_response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/sign-in")
+                .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(sign_in_response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(sign_in_response.into_body(), usize::MAX)
         .await
         .unwrap();
     serde_json::from_slice(&body).unwrap()
@@ -112,6 +136,7 @@ async fn poll_messages(app: Router, access_token: Option<&str>) -> axum::respons
 /// 正しく返ることを確認する。
 #[sqlx::test]
 async fn test_send_and_poll_messages(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let state = AppState::from_pool(pool).await;
     let app = create_router(state);
 

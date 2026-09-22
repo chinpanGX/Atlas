@@ -1,12 +1,11 @@
 using System.Threading;
-using Atlas.Addressables;
 using Atlas.Application;
+using Atlas.Application.Address;
 using Atlas.MasterData;
 using Cysharp.Threading.Tasks;
 using MasterMemory;
 using Supplement.Loader.Abstractions;
 using UnityEngine;
-using AddressDefinition = Addressables.AddressDefinition;
 
 namespace Atlas.Infrastructure
 {

@@ -1,0 +1,15 @@
+# アイテムマスタ(Shared/docs/design/outgame.md参照)。
+#
+# item_id=1はジェム(スカウトの紹介コストに使う課金通貨相当)。プレイヤーの所持数は
+# player_items(player_id+item_id複合PK)で管理し、players.gems列は廃止する。
+name: items
+input_csv: items_master
+fields:
+  - name: item_id
+    type: int
+    primary_key: true
+  - name: name
+    type: string
+validate:
+  unique:
+    - item_id

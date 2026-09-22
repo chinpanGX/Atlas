@@ -9,24 +9,11 @@ use ulid::Ulid;
 
 use crate::error::AppError;
 use crate::master::{MasterData, Pachimon, Rarity};
-use crate::model::player_pachimon::PlayerPachimon;
+use crate::model::player_item::PlayerItem;
+use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove};
 use crate::model::scout_banner::ScoutBanner;
 use crate::model::scout_roll::{ScoutCandidate, ScoutRoll};
-use crate::service::player_pachimon_service;
-
-/// `Rarity`をAPI/`rate_table`上の文字列表現に変換する。
-///
-/// 生成済み`Rarity`の`Serialize`/`Deserialize`(`master/generated/rarity.rs`)は数値専用
-/// (master-data-pipelineのDB保存形式に合わせたもの)なので、スカウトのレスポンス・
-/// `scout_banners.rate_table`で使う`"S"/"A"/"B"/"C"`表現とは別にこの変換を持つ。
-pub fn rarity_to_label(rarity: Rarity) -> &'static str {
-    match rarity {
-        Rarity::S => "S",
-        Rarity::A => "A",
-        Rarity::B => "B",
-        Rarity::C => "C",
-    }
-}
+use crate::service::{player_item_service, player_pachimon_service};
 
 fn rarity_from_label(label: &str) -> Option<Rarity> {
     match label {
@@ -103,17 +90,17 @@ async fn find_banner(pool: &MySqlPool, banner_id: &str) -> Result<ScoutBanner, A
     })
 }
 
-/// 候補10体をロールし、gemsを消費して`scout_rolls`へ保存する。
+/// 候補10体をロールし、ジェム(item_id=1)を消費して`scout_rolls`へ保存する。
 ///
 /// # Errors
-/// バナーが存在しない場合`AppError::NotFound`、開催期間外・gems不足の場合
+/// バナーが存在しない場合`AppError::NotFound`、開催期間外・ジェム不足の場合
 /// `AppError::BadRequest`、DBアクセスに失敗した場合`AppError::InternalError`を返す。
 pub async fn create_roll(
     pool: &MySqlPool,
     master: &MasterData,
     player_id: &str,
     banner_id: &str,
-) -> Result<(ScoutRoll, i32), AppError> {
+) -> Result<(ScoutRoll, PlayerItem), AppError> {
     let banner = find_banner(pool, banner_id).await?;
 
     let now = Utc::now().naive_utc();
@@ -125,18 +112,13 @@ pub async fn create_roll(
 
     let mut tx = pool.begin().await.map_err(|_| AppError::InternalError)?;
 
-    let update_result =
-        sqlx::query("UPDATE players SET gems = gems - ? WHERE player_id = ? AND gems >= ?")
-            .bind(banner.cost_per_roll)
-            .bind(player_id)
-            .bind(banner.cost_per_roll)
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| AppError::InternalError)?;
-
-    if update_result.rows_affected() == 0 {
-        return Err(AppError::BadRequest("insufficient gems".to_string()));
-    }
+    let remaining_gems = player_item_service::deduct(
+        &mut tx,
+        player_id,
+        player_item_service::GEM_ITEM_ID,
+        banner.cost_per_roll,
+    )
+    .await?;
 
     let candidates = roll_candidates(master, &banner.rate_table)?;
 
@@ -152,12 +134,6 @@ pub async fn create_roll(
     .await
     .map_err(|_| AppError::InternalError)?;
 
-    let remaining_gems: (i32,) = sqlx::query_as("SELECT gems FROM players WHERE player_id = ?")
-        .bind(player_id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|_| AppError::InternalError)?;
-
     tx.commit().await.map_err(|_| AppError::InternalError)?;
 
     Ok((
@@ -168,7 +144,7 @@ pub async fn create_roll(
             candidates,
             selected_index: None,
         },
-        remaining_gems.0,
+        remaining_gems,
     ))
 }
 
@@ -226,7 +202,7 @@ pub async fn select_candidate(
     player_id: &str,
     roll_id: &str,
     index: i32,
-) -> Result<PlayerPachimon, AppError> {
+) -> Result<(PlayerPachimon, Vec<PlayerPachimonMove>), AppError> {
     let mut tx = pool.begin().await.map_err(|_| AppError::InternalError)?;
 
     let row: Option<(Json<Vec<ScoutCandidate>>,)> = sqlx::query_as(
@@ -260,11 +236,11 @@ pub async fn select_candidate(
     }
 
     let candidate = &candidates[index as usize];
-    let player_pachimon =
+    let (player_pachimon, moves) =
         player_pachimon_service::grant(&mut tx, player_id, candidate.pachimon_id, &candidate.moves)
             .await?;
 
     tx.commit().await.map_err(|_| AppError::InternalError)?;
 
-    Ok(player_pachimon)
+    Ok((player_pachimon, moves))
 }

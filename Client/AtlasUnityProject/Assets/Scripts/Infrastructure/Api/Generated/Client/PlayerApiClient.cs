@@ -16,10 +16,9 @@ namespace Atlas.Infrastructure.Api
             this.accessTokenProvider = accessTokenProvider;
         }
 
-        public UniTask<PlayerResponse> CreatePlayerAsync(CreatePlayerRequest request) => ApiRequest.SendAsync<PlayerResponse>(this.baseUrl, "POST", "/players", request, this.accessTokenProvider());
-        public UniTask<PlayerResponse> GetMeAsync() => ApiRequest.SendAsync<PlayerResponse>(this.baseUrl, "GET", "/players/me", null, this.accessTokenProvider());
-        public UniTask<ListOwnedPachimonResponse> ListOwnedPachimonAsync() => ApiRequest.SendAsync<ListOwnedPachimonResponse>(this.baseUrl, "GET", "/players/me/pachimon", null, this.accessTokenProvider());
-        public UniTask<UpdateMoveResponse> UpdatePachimonMoveAsync(string playerPachimonId, int slot, UpdateMoveRequest request) => ApiRequest.SendAsync<UpdateMoveResponse>(this.baseUrl, "PUT", $"/players/me/pachimon/{playerPachimonId}/moves/{slot}", request, this.accessTokenProvider());
-        public UniTask<SetPartyResponse> SetPartyAsync(SetPartyRequest request) => ApiRequest.SendAsync<SetPartyResponse>(this.baseUrl, "PUT", "/players/me/party", request, this.accessTokenProvider());
+        public UniTask<PlayerDiffDto> EditPachimonMoveAsync(EditPachimonMoveRequest request) => ApiRequest.SendAsync<PlayerDiffDto>(this.baseUrl, "POST", "/edit/pachimon_moves", request, this.accessTokenProvider());
+        public UniTask<PlayerDiffDto> EditPartyAsync(SetPartyRequest request) => ApiRequest.SendAsync<PlayerDiffDto>(this.baseUrl, "POST", "/edit/party", request, this.accessTokenProvider());
+        public UniTask<SignInResponse> SignInAsync() => ApiRequest.SendAsync<SignInResponse>(this.baseUrl, "POST", "/sign-in", null, this.accessTokenProvider());
+        public UniTask SignupAsync(CreatePlayerRequest request) => ApiRequest.SendAsync(this.baseUrl, "POST", "/signup", request, this.accessTokenProvider());
     }
 }

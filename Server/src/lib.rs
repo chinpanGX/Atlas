@@ -1,4 +1,4 @@
-﻿pub mod api;
+pub mod api;
 pub mod error;
 pub mod extractor;
 pub mod master;

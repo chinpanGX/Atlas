@@ -223,7 +223,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 0
+  m_PresetInfoIsWorld: 1
 --- !u!114 &7235907787333923240
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -253,8 +253,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc76f54d13763e2408cb28d95a731222, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Battle.CommandView
-  commandButtons: []
-  commandLabels: []
+  commandButtons:
+  - {fileID: 3477169082369135334}
+  - {fileID: 1642422767288966134}
+  - {fileID: 2887635614205514434}
+  - {fileID: 2925185647016701452}
 --- !u!1 &2379832195709270223
 GameObject:
   m_ObjectHideFlags: 0
@@ -469,7 +472,7 @@ GameObject:
   - component: {fileID: 8532731525301476189}
   - component: {fileID: 3194471259279865973}
   - component: {fileID: 2343409769319205972}
-  - component: {fileID: 143737692141842783}
+  - component: {fileID: 2887635614205514434}
   m_Layer: 0
   m_Name: MoveButton3
   m_TagString: Untagged
@@ -535,7 +538,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &143737692141842783
+--- !u!114 &2887635614205514434
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -544,9 +547,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 5149025213094712936}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: bebfc75bf6f54744f8d8de2966a9acf8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.CommonButton
   m_Navigation:
     m_Mode: 3
     m_WrapAround: 0
@@ -579,6 +582,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+  synchronizeTintColorGraphics:
+  - {fileID: 3787211999343663466}
+  - {fileID: 0}
 --- !u!1 &6191177893654462262
 GameObject:
   m_ObjectHideFlags: 0
@@ -590,7 +596,7 @@ GameObject:
   - component: {fileID: 7655989051876754605}
   - component: {fileID: 2725580076267149518}
   - component: {fileID: 9695188476105875}
-  - component: {fileID: 3451194326963249280}
+  - component: {fileID: 1642422767288966134}
   m_Layer: 0
   m_Name: MoveButton2
   m_TagString: Untagged
@@ -656,7 +662,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &3451194326963249280
+--- !u!114 &1642422767288966134
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -665,9 +671,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 6191177893654462262}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: bebfc75bf6f54744f8d8de2966a9acf8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.CommonButton
   m_Navigation:
     m_Mode: 3
     m_WrapAround: 0
@@ -700,6 +706,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+  synchronizeTintColorGraphics:
+  - {fileID: 2184673897018524082}
+  - {fileID: 0}
 --- !u!1 &6391931641407460919
 GameObject:
   m_ObjectHideFlags: 0
@@ -711,7 +720,7 @@ GameObject:
   - component: {fileID: 7738885689739912489}
   - component: {fileID: 6454309010932152476}
   - component: {fileID: 7664715304743671252}
-  - component: {fileID: 8219402684620276633}
+  - component: {fileID: 2925185647016701452}
   m_Layer: 0
   m_Name: MoveButton4
   m_TagString: Untagged
@@ -777,7 +786,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &8219402684620276633
+--- !u!114 &2925185647016701452
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -786,9 +795,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 6391931641407460919}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: bebfc75bf6f54744f8d8de2966a9acf8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.CommonButton
   m_Navigation:
     m_Mode: 3
     m_WrapAround: 0
@@ -821,6 +830,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+  synchronizeTintColorGraphics:
+  - {fileID: 5804586319757298688}
+  - {fileID: 0}
 --- !u!1 &8514451833546168926
 GameObject:
   m_ObjectHideFlags: 0
@@ -969,7 +981,7 @@ GameObject:
   - component: {fileID: 4403422854928442841}
   - component: {fileID: 7074388585456909794}
   - component: {fileID: 8699314116990087316}
-  - component: {fileID: 6244057397564585387}
+  - component: {fileID: 3477169082369135334}
   m_Layer: 0
   m_Name: MoveButton1
   m_TagString: Untagged
@@ -1035,7 +1047,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &6244057397564585387
+--- !u!114 &3477169082369135334
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1044,9 +1056,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 8623577280590686089}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: bebfc75bf6f54744f8d8de2966a9acf8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.CommonButton
   m_Navigation:
     m_Mode: 3
     m_WrapAround: 0
@@ -1079,6 +1091,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+  synchronizeTintColorGraphics:
+  - {fileID: 3367390662997132458}
+  - {fileID: 0}
 --- !u!1 &8955871759175793746
 GameObject:
   m_ObjectHideFlags: 0

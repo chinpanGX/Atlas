@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: AddressDefinitionGeneratorSettings
   m_EditorClassIdentifier: AddressDefinitionGenerator.Editor::AddressDefinitionGenerator.Editor.Core.AddressDefinitionGeneratorSettings
   _saveFolder: C:/Unity/Atlas/Client/AtlasUnityProject/Assets/Scripts/Application
-  _namespaceName: Addressables
+  _namespaceName: Atlas.Application.Address
   _className: AddressDefinition
   _groupProvider:
     rid: 903756180713897984

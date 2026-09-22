@@ -3,10 +3,11 @@
 // GET /scout/banners, POST /scout/rolls, POST /scout/rolls/{rollId}/select
 // のテスト。
 // - test_list_banners_returns_only_active: 開催中バナーのみ返り、rate_table等は含まれないことを確認
-// - test_create_roll_deducts_gems_and_returns_candidates: gems減算・候補10体生成を確認
-// - test_create_roll_insufficient_gems: gems不足時に400が返ることを確認
+// - test_create_roll_deducts_gems_and_returns_candidates: ジェム(item_id=1)減算・候補10体生成を確認
+// - test_create_roll_insufficient_gems: ジェム不足時に400が返ることを確認
 // - test_create_roll_unknown_banner: 存在しないbanner_idで404が返ることを確認
-// - test_select_candidate_creates_player_pachimon: 選択成功でplayer_pachimon/movesが作られることを確認
+// - test_select_candidate_creates_player_pachimon: 選択成功でplayerDiff.pachimon/
+//   pachimonMoveMapが作られることを確認
 // - test_select_candidate_double_select_conflict: 二重選択が409になることを確認
 // - test_select_candidate_out_of_range_index: 範囲外indexが400になることを確認
 // - test_select_candidate_not_owned: 他人のrollへのselectが404になることを確認
@@ -67,8 +68,7 @@ async fn register_and_authenticate(app: Router, secret_key: &str) -> String {
         .to_string()
 }
 
-/// デバイス登録・認証・プレイヤー作成までを行い、以降のスカウトAPI呼び出しに使う
-/// `access_token`を返す。
+/// デバイス登録・認証・signupまでを行い、以降のスカウトAPI呼び出しに使う`access_token`を返す。
 async fn create_authenticated_player(app: Router, secret_key: &str, nickname: &str) -> String {
     let access_token = register_and_authenticate(app.clone(), secret_key).await;
 
@@ -76,7 +76,7 @@ async fn create_authenticated_player(app: Router, secret_key: &str, nickname: &s
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/players")
+                .uri("/signup")
                 .header("Content-Type", "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
                 .body(Body::from(json!({ "nickname": nickname }).to_string()))
@@ -87,6 +87,15 @@ async fn create_authenticated_player(app: Router, secret_key: &str, nickname: &s
     assert_eq!(response.status(), StatusCode::OK);
 
     access_token
+}
+
+/// アイテムマスタ(item_id=1のジェム)を直接DBへ投入する。`player_items`のFK制約を満たすために、
+/// signup(初期ジェム付与)より前に呼ぶ必要がある。
+async fn seed_items_master(pool: &MySqlPool) {
+    sqlx::query("INSERT INTO items (item_id, name) VALUES (1, 'ジェム')")
+        .execute(pool)
+        .await
+        .unwrap();
 }
 
 /// テスト用のスカウトバナーを直接DBへINSERTする。`rate_table`を`{"C": 1.0}`固定にすることで
@@ -198,6 +207,7 @@ async fn json_body(response: axum::response::Response) -> Value {
 /// 開催中のバナーのみ返り、`rateTable`のような排出率の生値はレスポンスに含まれないことを確認する。
 #[sqlx::test]
 async fn test_list_banners_returns_only_active(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let active_banner_id = seed_banner(&pool, 100, true).await;
     let _inactive_banner_id = seed_banner(&pool, 100, false).await;
 
@@ -228,9 +238,10 @@ async fn test_list_banners_returns_only_active(pool: MySqlPool) {
     assert!(banners[0].get("rateTable").is_none());
 }
 
-/// roll作成でgemsが`cost_per_roll`分減り、候補10体が返ることを確認する。
+/// roll作成でジェム(item_id=1)が`cost_per_roll`分減り、候補10体が返ることを確認する。
 #[sqlx::test]
 async fn test_create_roll_deducts_gems_and_returns_candidates(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let banner_id = seed_banner(&pool, 100, true).await;
     seed_test_master_data(&pool).await;
 
@@ -243,7 +254,17 @@ async fn test_create_roll_deducts_gems_and_returns_candidates(pool: MySqlPool) {
     assert_eq!(response.status(), StatusCode::OK);
 
     let json = json_body(response).await;
-    assert_eq!(json["gems"], 200); // 初期300 - cost_per_roll 100
+    let items = json["playerDiff"]["items"]["upserted"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["itemId"], 1);
+    assert_eq!(items[0]["quantity"], 200); // 初期300 - cost_per_roll 100
+    assert!(
+        json["playerDiff"]["pachimon"]["upserted"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
     let candidates = json["candidates"].as_array().unwrap();
     assert_eq!(candidates.len(), 10);
     for (i, candidate) in candidates.iter().enumerate() {
@@ -254,10 +275,11 @@ async fn test_create_roll_deducts_gems_and_returns_candidates(pool: MySqlPool) {
     }
 }
 
-/// gemsが不足している状態でroll作成を行うと400が返り、gemsが減らないことを確認する。
+/// ジェムが不足している状態でroll作成を行うと400が返り、所持数が減らないことを確認する。
 #[sqlx::test]
 async fn test_create_roll_insufficient_gems(pool: MySqlPool) {
-    let banner_id = seed_banner(&pool, 1000, true).await; // 初期gems(300)を超えるコスト
+    seed_items_master(&pool).await;
+    let banner_id = seed_banner(&pool, 1000, true).await; // 初期ジェム(300)を超えるコスト
 
     let state = AppState::from_pool(pool).await;
     let app = create_router(state);
@@ -271,6 +293,7 @@ async fn test_create_roll_insufficient_gems(pool: MySqlPool) {
 /// 存在しないbanner_idでroll作成を行うと404が返ることを確認する。
 #[sqlx::test]
 async fn test_create_roll_unknown_banner(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let state = AppState::from_pool(pool).await;
     let app = create_router(state);
     let access_token =
@@ -281,9 +304,10 @@ async fn test_create_roll_unknown_banner(pool: MySqlPool) {
 }
 
 /// 候補を選択すると`player_pachimon`/`player_pachimon_moves`が作られ、
-/// レスポンスの内容が選んだ候補と一致することを確認する。
+/// `playerDiff`の内容が選んだ候補と一致することを確認する。
 #[sqlx::test]
 async fn test_select_candidate_creates_player_pachimon(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let banner_id = seed_banner(&pool, 100, true).await;
     seed_test_master_data(&pool).await;
 
@@ -302,13 +326,29 @@ async fn test_select_candidate_creates_player_pachimon(pool: MySqlPool) {
     let select_response = select_roll(app.clone(), &access_token, &roll_id, 3).await;
     assert_eq!(select_response.status(), StatusCode::OK);
     let select_json = json_body(select_response).await;
-    assert_eq!(select_json["pachimonId"], expected_pachimon_id);
-    assert_eq!(select_json["rarity"], "C");
-    let player_pachimon_id = select_json["playerPachimonId"]
+
+    let pachimon = select_json["pachimon"]["upserted"].as_array().unwrap();
+    assert_eq!(pachimon.len(), 1);
+    assert_eq!(pachimon[0]["pachimonId"], expected_pachimon_id);
+    let player_pachimon_id = pachimon[0]["playerPachimonId"]
         .as_str()
         .unwrap()
         .to_string();
     assert!(!player_pachimon_id.is_empty());
+    assert!(
+        select_json["items"]["upserted"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    let moves = select_json["pachimonMoveMap"]["upserted"]
+        .as_array()
+        .unwrap();
+    assert_eq!(moves.len(), expected_move_count);
+    for m in moves {
+        assert_eq!(m["playerPachimonId"], player_pachimon_id);
+    }
 
     let stored_pachimon_id: (i64,) =
         sqlx::query_as("SELECT pachimon_id FROM player_pachimon WHERE player_pachimon_id = ?")
@@ -330,6 +370,7 @@ async fn test_select_candidate_creates_player_pachimon(pool: MySqlPool) {
 /// 同一rollへの2回目のselectが409(既に選択済み)になることを確認する。
 #[sqlx::test]
 async fn test_select_candidate_double_select_conflict(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let banner_id = seed_banner(&pool, 100, true).await;
     seed_test_master_data(&pool).await;
 
@@ -352,6 +393,7 @@ async fn test_select_candidate_double_select_conflict(pool: MySqlPool) {
 /// 範囲外の`index`でselectを行うと400が返ることを確認する。
 #[sqlx::test]
 async fn test_select_candidate_out_of_range_index(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let banner_id = seed_banner(&pool, 100, true).await;
     seed_test_master_data(&pool).await;
 
@@ -372,6 +414,7 @@ async fn test_select_candidate_out_of_range_index(pool: MySqlPool) {
 /// (`Shared/docs/design/scout.md`の「rollIdが呼び出し元プレイヤー自身のものであること」の検証)。
 #[sqlx::test]
 async fn test_select_candidate_not_owned(pool: MySqlPool) {
+    seed_items_master(&pool).await;
     let banner_id = seed_banner(&pool, 100, true).await;
     seed_test_master_data(&pool).await;
 

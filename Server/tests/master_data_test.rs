@@ -15,6 +15,7 @@ async fn test_load_master_data_when_empty(pool: MySqlPool) {
     let master = MasterData::load(&pool).await.unwrap();
     assert!(master.pachimon.is_empty());
     assert!(master.starter_party_slots.is_empty());
+    assert!(master.items.is_empty());
 }
 
 /// `pachimon`テーブルに投入済みの行が、数値からEnumへのデコードも含めて
@@ -75,4 +76,18 @@ async fn test_load_starter_party_slots(pool: MySqlPool) {
     assert_eq!(master.starter_party_slots.len(), 1);
     assert_eq!(master.starter_party_slots[0].slot_no, 1);
     assert_eq!(master.starter_party_slots[0].pachimon_id, 1);
+}
+
+/// `items`テーブルに投入済みの行が正しくロードされることを確認する。
+#[sqlx::test]
+async fn test_load_items(pool: MySqlPool) {
+    sqlx::query("INSERT INTO items (item_id, name) VALUES (1, 'ジェム')")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let master = MasterData::load(&pool).await.unwrap();
+    assert_eq!(master.items.len(), 1);
+    assert_eq!(master.items[0].item_id, 1);
+    assert_eq!(master.items[0].name, "ジェム");
 }
