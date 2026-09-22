@@ -1,3 +1,4 @@
+using Atlas.Navigation;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;

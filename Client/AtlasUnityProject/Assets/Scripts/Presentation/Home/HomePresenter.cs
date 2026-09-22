@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
-using Atlas.Domain;
+using Atlas.Application;
+using Atlas.Navigation;
+using Atlas.Presentation.Battle;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
@@ -11,29 +13,39 @@ namespace Atlas.Presentation.Home
     public sealed class HomePresenter : IAsyncStartable, IDisposable
     {
         private readonly HomePage view;
-        private readonly IPlayerConnection connection;
+        private readonly IPlayerService playerService;
+        private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
 
-        public HomePresenter(HomePage view, IPlayerConnection connection)
+        public HomePresenter(HomePage view, IPlayerService playerService, IScreenNavigator screenNavigator)
         {
             this.view = view;
-            this.connection = connection;
+            this.playerService = playerService;
+            this.screenNavigator = screenNavigator;
         }
 
-        // HomeはPush時のViewDtoを持たず、自分でIPlayerConnectionから初期データを取得する。
+        // HomeはPush時のViewDtoを持たず、自分でIPlayerServiceから初期データを取得する。
         // 非同期の初期化が必要なためIInitializableではなくIAsyncStartableを使う
         // (同期で済む場合はTitlePresenterのようにIInitializableでよい)
         public async UniTask StartAsync(CancellationToken cancellation)
         {
-            var player = await connection.GetMeAsync(cancellation);
+            var player = await playerService.GetMeAsync();
             view.Refresh(new HomeViewDto { Nickname = player.Nickname, Gems = player.Gems });
 
-            // Scout/パーティ編成/バトル/チャットの各画面は未実装のため、現時点ではログのみ。
+            // Scout/パーティ編成/チャットの各画面は未実装のため、現時点ではログのみ。
             // 各画面を実装するタイミングでIScreenNavigator.PushPageAsyncに置き換える
             view.OnScoutButtonClicked.Subscribe(_ => Debug.Log("[Home] Scout button clicked (not implemented yet)")).AddTo(disposables);
             view.OnPartyButtonClicked.Subscribe(_ => Debug.Log("[Home] Party button clicked (not implemented yet)")).AddTo(disposables);
-            view.OnBattleButtonClicked.Subscribe(_ => Debug.Log("[Home] Battle button clicked (not implemented yet)")).AddTo(disposables);
+            view.OnBattleButtonClicked.Subscribe(_ => OnBattleButtonClicked().Forget()).AddTo(disposables);
             view.OnChatButtonClicked.Subscribe(_ => Debug.Log("[Home] Chat button clicked (not implemented yet)")).AddTo(disposables);
+        }
+
+        // player_pachimonが未実装のため、選出3体はマスターデータのPachimonIdを暫定的に固定値で
+        // 渡す(design/battle.md「Stage 1」参照。実装時にパーティ編成結果へ置き換える)。
+        private async UniTaskVoid OnBattleButtonClicked()
+        {
+            await screenNavigator.PushPageAsync<BattlePage, BattleViewDto>(
+                new BattleViewDto { SelfPachimonIds = new[] { "1001", "1002", "1003" } });
         }
 
         public void Dispose()

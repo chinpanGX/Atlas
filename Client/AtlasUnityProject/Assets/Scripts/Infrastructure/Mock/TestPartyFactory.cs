@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Atlas.BattleCore;
+using Atlas.MasterData;
 using MasterMemory;
 
 namespace Atlas.Infrastructure.Mock
@@ -26,10 +27,7 @@ namespace Atlas.Infrastructure.Mock
             foreach (var pachimonId in pachimonIds)
             {
                 var pachimon = database.PachimonDataTable.FindByPachimonId(pachimonId);
-                var moves = database.MoveGroupMovesDataTable.All
-                    .Where(m => m.GroupId == pachimon.MoveGroupId && m.IsInitial)
-                    .Select(m => database.MovesDataTable.FindByMoveId(m.MoveId))
-                    .ToList();
+                var moves = PachimonMoveLookup.GetInitialMoves(database, pachimonId);
 
                 var stats = new ParticipantStats(
                     Level: FixedLevel,

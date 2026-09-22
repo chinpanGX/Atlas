@@ -2,6 +2,7 @@
     "name": "Atlas.Infrastructure.Api",
     "rootNamespace": "Atlas.Infrastructure.Api",
     "references": [
+        "GUID:a65db434446d2f5459f591d11d06fd09",
         "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [],

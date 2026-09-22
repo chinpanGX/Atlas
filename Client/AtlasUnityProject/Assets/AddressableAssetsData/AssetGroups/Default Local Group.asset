@@ -25,6 +25,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7ac5b6126dbdbd6458ea8ba438c6c69d
+    m_Address: BattlePage
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: cc644728cfedf8b45ab0b47b49c2c16d
     m_Address: TitlePage
     m_ReadOnly: 0

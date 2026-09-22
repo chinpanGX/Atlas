@@ -3,7 +3,11 @@
     "rootNamespace": "Atlas.Infrastructure",
     "references": [
         "GUID:a65db434446d2f5459f591d11d06fd09",
-        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+        "GUID:d272da2a7cb9faf498fcf52f24ac0651",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:a9f3d18a0da2813498862209298fb7ff",
+        "GUID:619451fd5e12658408c1bba68b29ad7a",
+        "GUID:1bec242ff5c74e74828acd36317cf20e"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

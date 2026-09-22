@@ -16,12 +16,12 @@ MonoBehaviour:
   m_GUID: cfe665cdb3ec0e84aab4c638ce81e1c3
   m_SerializeEntries:
   - m_GUID: 5f4fa5f387ceca44890185dafe177dbf
-    m_Address: Assets/Addressables/MasterData/masterdata.bytes
+    m_Address: masterdata.bytes
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ee7f695350b599549befe3d6addf9953
-    m_Address: Assets/Addressables/MasterData
+    m_Address: MasterData
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

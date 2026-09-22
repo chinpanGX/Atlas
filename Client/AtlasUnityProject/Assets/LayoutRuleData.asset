@@ -77,7 +77,7 @@ MonoBehaviour:
     - rid: 903756167354516240
       type: {class: AssetPathBasedAddressProvider, ns: SmartAddresser.Editor.Core.Models.LayoutRules.AddressRules, asm: SmartAddresser.Editor}
       data:
-        _source: 2
+        _source: 0
         _replaceWithRegex: 0
         _pattern: 
         _replacement: 
