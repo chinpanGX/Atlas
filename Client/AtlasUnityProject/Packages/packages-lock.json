@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.atlas.battlecore": {
+      "version": "file:../../../Shared/BattleCore",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.chinpangx.supplement": {
       "version": "file:../../../Supplement/Assets/Supplement",
       "depth": 0,

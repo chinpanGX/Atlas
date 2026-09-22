@@ -1,6 +1,6 @@
 namespace Atlas.BattleCore
 {
-    public readonly record struct MoveData(
+    public sealed record MoveData(
         ElementType MoveType,
         MoveCategory Category,
         int BasePower,

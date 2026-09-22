@@ -1,0 +1,28 @@
+{
+    "name": "Atlas.Infrastructure.Mock.Tests",
+    "rootNamespace": "Atlas.Infrastructure.Mock.Tests",
+    "references": [
+        "Atlas.Infrastructure.Mock",
+        "Atlas.Domain",
+        "Atlas.MasterData",
+        "Atlas.BattleCore",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

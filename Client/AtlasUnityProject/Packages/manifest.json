@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.atlas.battlecore": "file:../../../Shared/BattleCore",
     "com.chinpangx.supplement": "file:../../../Supplement/Assets/Supplement",
     "com.chinpangx.supplement.zeromessenger": "file:../../../Supplement/Assets/Supplement.ZeroMessenger",
     "com.cysharp.magiconion.client.unity": "7.11.0",
@@ -69,6 +70,9 @@
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0"
   },
+  "testables": [
+    "com.atlas.battlecore"
+  ],
   "scopedRegistries": [
     {
       "name": "package.openupm.com",

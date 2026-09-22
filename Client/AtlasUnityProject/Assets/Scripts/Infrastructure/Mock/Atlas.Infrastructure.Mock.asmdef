@@ -1,0 +1,19 @@
+{
+    "name": "Atlas.Infrastructure.Mock",
+    "rootNamespace": "Atlas.Infrastructure.Mock",
+    "references": [
+        "GUID:a65db434446d2f5459f591d11d06fd09",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:a9f3d18a0da2813498862209298fb7ff",
+        "Atlas.BattleCore"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -93,5 +93,5 @@ namespace Atlas.BattleCore
         }
     }
 
-    public readonly record struct DamageResult(int Damage, bool Critical, EffectivenessResult Effectiveness);
+    public sealed record DamageResult(int Damage, bool Critical, EffectivenessResult Effectiveness);
 }
