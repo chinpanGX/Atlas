@@ -5,7 +5,7 @@ use tracing::Level;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::api::{auth, battle, chat, device, internal, player, scout};
+use crate::api::{auth, battle, chat, debug, device, internal, player, scout};
 use crate::http_log;
 use crate::openapi::ApiDoc;
 use crate::state::AppState;
@@ -53,6 +53,10 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/scout/rolls/:rollId/select",
             axum::routing::post(scout::select_roll_handler),
+        )
+        .route(
+            "/debug/grant_gems",
+            axum::routing::post(debug::grant_gems_handler),
         )
         .route(
             "/battle/queue",

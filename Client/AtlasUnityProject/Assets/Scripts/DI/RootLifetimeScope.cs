@@ -78,6 +78,13 @@ namespace Atlas.DI
                     resolver.Resolve<AccessTokenRefresher>(),
                     resolver.Resolve<IPlayerDiffApplier>()),
                 Lifetime.Singleton);
+            builder.Register<IDebugConnection>(
+                resolver => new DebugConnection(
+                    ApiBaseUrl,
+                    resolver.Resolve<AccessTokenStore>(),
+                    resolver.Resolve<AccessTokenRefresher>(),
+                    resolver.Resolve<IPlayerDiffApplier>()),
+                Lifetime.Singleton);
 
             ConfigureBattleConnections(builder);
             builder.RegisterEntryPoint<BootstrapEntryPoint>();

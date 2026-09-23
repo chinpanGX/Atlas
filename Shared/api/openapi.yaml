@@ -143,6 +143,30 @@ paths:
           description: プレイヤー未作成
       security:
       - bearer_auth: []
+  /debug/grant_gems:
+    post:
+      tags:
+      - debug
+      summary: |-
+        認証済みプレイヤーにジェムを付与する開発用APIハンドラ。ログインボーナス等の正式な
+        ゲーム内報酬ではなく、動作確認用の一時的なエンドポイント(連打防止・上限は設けていない)。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`を返す。
+      operationId: grant_gems_handler
+      responses:
+        '200':
+          description: 付与成功(itemsのみ更新)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerDiffDto'
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
   /devices:
     post:
       tags:
@@ -878,3 +902,5 @@ tags:
   description: スカウト(ガチャ)
 - name: battle
   description: 対戦マッチング
+- name: debug
+  description: 開発用(動作確認専用、正式なゲーム内機能ではない)

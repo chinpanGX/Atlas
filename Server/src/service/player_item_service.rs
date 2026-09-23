@@ -55,6 +55,37 @@ pub async fn add(
     Ok(())
 }
 
+/// `add`と同様に`amount`分加算した上で、更新後の所持数を返す(`debug::grant_gems_handler`の
+/// ジェム付与から利用。`playerDiff`のレスポンスに反映するため更新後の値が必要)。
+/// 呼び出し元のトランザクション内で実行する。
+///
+/// # Errors
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn add_and_get(
+    tx: &mut Transaction<'_, MySql>,
+    player_id: &str,
+    item_id: i32,
+    amount: i32,
+) -> Result<PlayerItem, AppError> {
+    add(tx, player_id, item_id, amount).await?;
+
+    let row: (String, i32, i32) = sqlx::query_as(
+        "SELECT player_id, item_id, quantity FROM player_items \
+         WHERE player_id = ? AND item_id = ?",
+    )
+    .bind(player_id)
+    .bind(item_id)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    Ok(PlayerItem {
+        player_id: row.0,
+        item_id: row.1,
+        quantity: row.2,
+    })
+}
+
 /// 認証済みプレイヤーの所持アイテム一覧を取得する。所持数0のアイテムは行自体が存在しないため
 /// 返る件数はプレイヤーが実際に所持しているアイテム種別数分のみ。
 ///

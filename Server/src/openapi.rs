@@ -3,7 +3,7 @@ use utoipa::{
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
 };
 
-use crate::api::{auth, battle, chat, device, player, scout};
+use crate::api::{auth, battle, chat, debug, device, player, scout};
 
 /// `Authorization: Bearer <access_token>`によるBearer認証を、
 /// OpenAPI仕様書上のセキュリティスキーム`bearer_auth`として登録する。
@@ -45,6 +45,7 @@ impl Modify for SecurityAddon {
         battle::join_queue_handler,
         battle::leave_queue_handler,
         battle::queue_status_handler,
+        debug::grant_gems_handler,
     ),
     components(schemas(
         device::RegisterDeviceRequest,
@@ -85,6 +86,7 @@ impl Modify for SecurityAddon {
         (name = "chat", description = "チャット"),
         (name = "scout", description = "スカウト(ガチャ)"),
         (name = "battle", description = "対戦マッチング"),
+        (name = "debug", description = "開発用(動作確認専用、正式なゲーム内機能ではない)"),
     ),
 )]
 pub struct ApiDoc;

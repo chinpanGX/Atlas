@@ -20,6 +20,7 @@ namespace Atlas.Presentation.Home
         private readonly HomePage view;
         private readonly IPlayerAccountService playerService;
         private readonly IItemFetchService itemFetchService;
+        private readonly IDebugConnection debugConnection;
         private readonly IScreenNavigator screenNavigator;
         private readonly ISceneNavigator sceneNavigator;
         private readonly BattleEntryStore battleEntryStore;
@@ -27,12 +28,13 @@ namespace Atlas.Presentation.Home
         private readonly CompositeDisposable disposables = new();
 
         public HomePresenter(HomePage view, IPlayerAccountService playerService, IItemFetchService itemFetchService,
-            IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator, BattleEntryStore battleEntryStore,
-            IBattleMatchmaker battleMatchmaker)
+            IDebugConnection debugConnection, IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator,
+            BattleEntryStore battleEntryStore, IBattleMatchmaker battleMatchmaker)
         {
             this.view = view;
             this.playerService = playerService;
             this.itemFetchService = itemFetchService;
+            this.debugConnection = debugConnection;
             this.screenNavigator = screenNavigator;
             this.sceneNavigator = sceneNavigator;
             this.battleEntryStore = battleEntryStore;
@@ -47,6 +49,14 @@ namespace Atlas.Presentation.Home
             var dto = CreateDto();
             view.Refresh(dto);
 
+            // 動作確認用。連打でも1回分ずつ送るよう、実行中の押下は待たせる(捨てない)。
+            view.OnGrantGemsButtonClicked
+                .SubscribeAwait(async (_, _) =>
+                {
+                    await debugConnection.GrantGemsAsync();
+                    view.Refresh(CreateDto());
+                }, AwaitOperation.Sequential)
+                .AddTo(disposables);
             // スカウトでジェムが減るため、スカウト画面から戻ったらHomeの表示を取り直す。
             view.OnScoutButtonClicked
                 .SubscribeAwait(async (_, ct) => await OpenScoutAsync(ct), AwaitOperation.Drop)
