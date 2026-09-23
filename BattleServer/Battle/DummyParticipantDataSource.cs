@@ -2,7 +2,7 @@ using Atlas.BattleCore;
 
 namespace Atlas.BattleServer.Battle
 {
-    // TEMP: master-data-pipelineのModels/Enums(copy-models/copy-realtime-bytes)が配置されるまでの仮実装。
+    // TEMP: IParticipantDataSourceの本実装(MemoryDatabase→BattleCore型への変換、progress.md #19)までの仮実装。
     // player_pachimon_idに関わらず固定ステータス・固定技で組み立て、BattleEngine.ProcessTurnの
     // 呼び出し経路だけを疎通確認する。所持チェック(そのplayerが本当に所持しているか)も行わない。
     public sealed class DummyParticipantDataSource : IParticipantDataSource

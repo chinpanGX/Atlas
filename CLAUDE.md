@@ -29,7 +29,7 @@ C#/MagicOnionサーバー(リアルタイム対戦)はRust側への内部APIで�
 
 ```
 Atlas/
-├── Client/                 # Unityクライアント(これから実装、まだ画面/通信/ゲームロジック未着手)
+├── Client/                 # Unityクライアント(実装状況は Shared/docs/progress.md 参照)
 ├── Server/                 # Rustバックエンド(REST API、実装中) — 詳細は Server/CLAUDE.md 参照
 ├── BattleServer/           # C#/MagicOnionのリアルタイム対戦サーバー(Atlas.BattleCoreをDLLとして参照)
 ├── Shared/                 # クライアント/サーバー間の共有定義(マスターデータスキーマ、設計書)

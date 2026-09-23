@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- master-data-pipelineの`run.sh realtime`が配置する生成物(Models/Enums/MasterDataLoader.cs/
+       AesCrypto.cs/Bytes)を、Client側のAtlas.MasterData.asmdefと同じ単位のDLLとしてビルドする。
+       MasterMemoryのSource GeneratorはMemoryDatabase/MasterMemoryResolverを「RootNamespace」上に
+       生成し、MasterDataLoader.csはそれがAtlas.MasterData名前空間にある前提のため、BattleServer本体
+       (RootNamespace=BattleServer)に直接取り込まず独立したプロジェクトにしている
+       (master-data-pipelineのconfig.yaml csharp_codegen.namespaceと一致させること)。
+       このディレクトリ内のファイルは手で編集しない(Models/Enums/Bytesはコピー時に丸ごと作り直される)。 -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Atlas.MasterData</AssemblyName>
+    <RootNamespace>Atlas.MasterData</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- 生成コードはnullable注釈を持たない(Unity側と同じ条件) -->
+    <Nullable>disable</Nullable>
+    <!-- AesCrypto.cs(生成物)はUnity側と共通の実装のため、.NET 10で旧形式扱いのRfc2898DeriveBytesコンストラクタを使っている -->
+    <NoWarn>$(NoWarn);SYSLIB0060</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- master-data-pipeline(csharp_converter)と同じバージョンに揃える -->
+    <PackageReference Include="MasterMemory" Version="3.0.4" />
+    <PackageReference Include="MessagePack" Version="3.1.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 参照元(BattleServer)の出力先にも MasterData/masterdata.bytes として推移的にコピーされる -->
+    <None Include="Bytes/masterdata.bytes" Link="MasterData/masterdata.bytes" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

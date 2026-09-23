@@ -3,5 +3,6 @@
   <Project Path="BattleContracts/Atlas.BattleContracts.csproj" />
   <Project Path="BattleCore/Atlas.BattleCore.csproj" />
   <Project Path="BattleServer.csproj" />
+  <Project Path="MasterData/Atlas.MasterData.csproj" />
   <Project Path="Tests/BattleServer.Tests.csproj" />
 </Solution>

@@ -298,12 +298,12 @@ defend_type) → effectiveness`という関係(マップ)のみで、`effectiven
   を生成する
 - C#の型(Models/Enums)とローダー(`MasterDataLoader.cs`/`AesCrypto.cs`)はUnityEngineに依存しない
   Pure C#で生成される。**専用の共有パッケージ(UPM等)は作らない**。`master-data-pipeline`自体が
-  同一の生成物をClientとバトルサーバーの両方へ個別にコピーする仕組み(`copy-models` /
-  `copy-loader` / `copy-client-bytes` / `copy-realtime-bytes`)を既に持っているため、
-  `config.yaml`の`copy_destinations`(`realtime_loader_dest_dir`/`realtime_bytes_dest_dir`は
-  `BattleServer/`配下を指すよう設定済み、プロジェクト作成後に有効化する)を書き換えるだけで
-  両方に同じ型・同じ実データが配置される(2箇所にコピーされるだけで、実体は常にスキーマ+CSV
-  から再生成されるため乖離しない)
+  同一の生成物をClientとバトルサーバーの両方へ個別にコピーする(`run.sh client`:
+  `copy-models`/`copy-client-loader`/`copy-client-bytes`、`run.sh realtime`:
+  `copy-realtime-models`/`copy-realtime-loader`/`copy-realtime-bytes`)。配置先は`config.yaml`の
+  `copy_destinations`で指定し、両方に同じ型・同じ実データが配置される(2箇所にコピーされるだけで、
+  実体は常にスキーマ+CSVから再生成されるため乖離しない)。バトルサーバーからClientのディレクトリを
+  直接参照する方式は、サーバー→クライアントの依存になるため採用しない
 - **Models/Enums/Loader/AesCryptoは全て同一アセンブリにまとめる**(Client側は
   `Assets/Scripts/MasterData/`配下、単一の`Atlas.MasterData.asmdef`)。Domain/Infrastructureの
   ようなレイヤー分割はしない。理由はMasterMemory/MessagePackのSource
@@ -320,9 +320,13 @@ defend_type) → effectiveness`という関係(マップ)のみで、`effectiven
   - Client: `Assets/Addressables/MasterData/masterdata.bytes`をAddressables経由でアプリ起動時に読み込む
   - Rust/Axum: 起動時にDBから全マスタを1回読み込み、`Arc<MasterData>`としてメモリに保持する
     (`Server/src/master/cache.rs`)。各リクエストハンドラはこのキャッシュを参照するだけ
-  - バトルサーバー: Clientと同様に`masterdata.bytes`相当のバイナリを`BattleServer/`配下に
-    直接配置し、起動時に読み込んでメモリに保持する。DBへの接続やRust内部APIへの問い合わせは
-    行わない(Rustの「DBキャッシュ」方式より単純な「ファイル配置のみ」で済ませる)
+  - バトルサーバー: 生成物一式を`BattleServer/MasterData/`に配置し、`Atlas.MasterData.csproj`
+    (`RootNamespace=Atlas.MasterData`、Client側asmdefと同じ単位)として独立ビルドする。
+    `MasterData/Bytes/masterdata.bytes`はビルド時に出力先の`MasterData/masterdata.bytes`へコピーされ、
+    起動時に1回読み込んで`MemoryDatabase`をDIのシングルトンとして保持する
+    (`Battle/MasterDatabaseFactory.cs`。パスは`MasterData:Path`で変更可、読み込めなければ起動失敗)。
+    bytesはClient同様gitにコミットする。DBへの接続やRust内部APIへの問い合わせは行わない
+    (Rustの「DBキャッシュ」方式より単純な「ファイル配置のみ」で済ませる)
 - マスタ更新の反映は「`cargo run --bin seed_master_data`でJSON→DBへUPSERT → Rustサーバー再起動」
   (Rust)、「pipelineで生成→配置→再起動」(Client/バトルサーバー)で行う。無停止反映の仕組みは、
   1台構成の現状の規模では過剰と判断し採用しない

@@ -176,14 +176,14 @@ mod tests {
     #[test]
     fn test_parse_moves_loads_master_data() {
         let moves = parse_moves(MOVES_JSON).expect("パースに成功するはず");
-        assert_eq!(moves.len(), 38);
+        assert_eq!(moves.len(), 64);
     }
 
     /// master_data/move_group_moves.jsonが正しくパースできることを確認する。
     #[test]
     fn test_parse_move_group_moves_loads_master_data() {
         let rows = parse_move_group_moves(MOVE_GROUP_MOVES_JSON).expect("パースに成功するはず");
-        assert_eq!(rows.len(), 108);
+        assert_eq!(rows.len(), 180);
     }
 
     /// move_group_movesの`unique_id`が重複していないことを確認する(マスタデータの整合性検証)。
@@ -218,6 +218,26 @@ mod tests {
                 move_ids.contains(&row.move_id),
                 "未知のmove_id: {}",
                 row.move_id
+            );
+        }
+    }
+
+    /// 全技グループの初期技(`is_initial`)がちょうど4つであることを確認する。
+    /// スターター付与・スカウト入手の個体は、この4つを技slot1〜4にそのままセットする。
+    #[test]
+    fn test_every_move_group_has_four_initial_moves() {
+        let groups = parse_move_groups(MOVE_GROUPS_JSON).unwrap();
+        let rows = parse_move_group_moves(MOVE_GROUP_MOVES_JSON).unwrap();
+
+        for group in &groups {
+            let initial_count = rows
+                .iter()
+                .filter(|r| r.group_id == group.move_group_id && r.is_initial)
+                .count();
+            assert_eq!(
+                initial_count, 4,
+                "move_group_id={}の初期技が4つではない",
+                group.move_group_id
             );
         }
     }

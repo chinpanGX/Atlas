@@ -34,38 +34,36 @@ cd master-data-pipeline
 `./run.sh server` の配置先(`config.yaml`の`copy_destinations`)は既に実パスになっている:
 `server_rust_dest_dir: ../Server/src/master/generated`, `server_json_dest_dir: ../Server/master_data`。
 
-## クライアント向けは `./run.sh client` を素のまま使わない(重要)
-
-`./run.sh client` は内部で以下6コマンドを実行する:
-`generate-csharp` → `build-client` → `copy-models` → `copy-loader` → `copy-client-bytes` → `copy-realtime-bytes`
-
-このうち **`copy-loader` と `copy-realtime-bytes` は今のAtlasでは安全に実行できない**。
-`config.yaml` の `realtime_loader_dest_dir` / `realtime_bytes_dest_dir` が
-`../__REALTIME_SERVER_NOT_YET_CREATED__/...`(realtime_serverプロジェクトが未作成なため仮の
-プレースホルダ)のままであり、実行するとAtlasリポジトリのルート直下に
-`__REALTIME_SERVER_NOT_YET_CREATED__/` という意図しないディレクトリが生成される
-(`copy-loader`はclient向けとrealtime向けに同時書き込みする実装で、片方だけスキップするオプションが無い)。
-
-realtime_serverプロジェクトが実在するようになるまでは、個別コマンドで代替する:
+## クライアント(Unity)・BattleServer向け
 
 ```bash
-./run.sh generate-csharp
-./run.sh build-client
-./run.sh copy-models
-./run.sh copy-client-bytes
-# copy-loader と copy-realtime-bytes はスキップ
-#   → MasterDataLoader.cs / AesCrypto.cs はClient側に未配置のまま、という状態を許容する
+./run.sh client     # generate-csharp + build-client + copy-models + copy-client-loader + copy-client-bytes
+./run.sh realtime   # copy-realtime-models + copy-realtime-loader + copy-realtime-bytes(BattleServer向け)
 ```
 
-realtime_serverプロジェクトを新規作成したら、まず `config.yaml` の
-`realtime_loader_dest_dir` / `realtime_bytes_dest_dir` を実パスに書き換えてから
-`./run.sh client` をフルで使ってよい。
+- `client` はClientのみ、`realtime` はBattleServerのみに配置する(互いに書き込まない)。
+- `realtime` は生成を行わずコピーだけなので、**必ず `client`(または `generate-csharp` +
+  `build-client`)の後に実行する**。スキーマ/CSVを変えたら両方を続けて実行し、ClientとBattleServerの
+  生成物(特に `MasterDataLoader.cs` の `ContentHash` と `masterdata.bytes`)を揃える。
+- BattleServerの配置先(`config.yaml` の `realtime_*_dest_dir`):
+  `BattleServer/MasterData/{Models,Enums,Bytes}` と `BattleServer/MasterData/`直下(Loader/AesCrypto)。
+  `MasterData/Atlas.MasterData.csproj` がこれらを独立したDLLとしてビルドする。
+  配置後は `dotnet test BattleServer/Tests/BattleServer.Tests.csproj` で復号・読み込みを確認できる
+  (`MasterDatabaseFactoryTests`)。
 
-## 全体一括(`./run.sh all`)も同じ理由で避ける
+### コピー先ディレクトリは丸ごと作り直される(注意)
 
-`all` は `download`(Google Sheets取得)から `client` まで含むため、上記の
-`copy-loader`/`copy-realtime-bytes` 問題を引き継ぐ。Google Sheetsから取り込みたいだけなら
-`./run.sh download` を単独で叩けばよい。
+Models/Enums/bytesのコピー(`copy_dir_contents`)は、配置先ディレクトリを削除してから書き込む。
+そのため:
+- 配置先に手書きのファイルを置かない(BattleServerの `MasterData/Models` 等も同様)
+- Unity側の `Assets/Addressables/MasterData/masterdata.bytes.meta` も消えるため、`copy-client-bytes`
+  の後は `git checkout -- Client/AtlasUnityProject/Assets/Addressables/MasterData/masterdata.bytes.meta`
+  で復元する(GUIDが変わるとAddressablesの参照が切れる)
+
+## 全体一括(`./run.sh all`)は避ける
+
+`all` は `download`(Google Sheets取得、認証情報が必要)から始まり、`realtime` も含まない。
+Google Sheetsから取り込みたいだけなら `./run.sh download` を単独で叩けばよい。
 
 ## その他の既知の制約(スキーマ設計時に効く)
 

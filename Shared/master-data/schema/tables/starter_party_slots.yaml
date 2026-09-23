@@ -2,8 +2,12 @@
 #
 # 新規プレイヤー作成時に、この内容をそのまま複製してplayer_pachimon(+初期技)を生成し、
 # player_party_slotsへslot_no通りに割り当てる。選択制ではなく、全プレイヤー共通の単一固定編成。
+#
+# targets: [server] — 新規プレイヤー作成はサーバー側でのみ行うため、クライアントでは参照しない。
+# client向けMemoryTable/masterdata.bytesへの出力は行わない。
 name: starter_party_slots
 input_csv: starter_party_slots_master
+targets: [server]
 fields:
   - name: slot_no
     type: int

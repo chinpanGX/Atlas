@@ -38,10 +38,10 @@ Server側API実装状況までの作業内容・進捗・残タスクを整理�
   Unity Editor側の作業として別途必要)
 - [x] サーバー向け生成・配置(`Server/src/master/generated/*.rs`, `Server/master_data/*.json`)
 - [x] `cargo check`によるコンパイル確認
-- [x] `config.yaml`の`realtime_loader_dest_dir`/`realtime_bytes_dest_dir`を、確定した配置先
-  (`BattleServer/`、design/battle.md参照)に更新(プレースホルダ`__REALTIME_SERVER_NOT_YET_CREATED__`から変更)
-- [ ] `BattleServer/`プロジェクト自体がまだ存在しないため、`copy-loader`/`copy-realtime-bytes`は
-  引き続き実行できない(パスは正しいが対象ディレクトリが無い)
+- [x] BattleServer向け配置。pipelineに`copy-realtime-models`(Models/Enums)を追加し、`run.sh realtime`で
+  `BattleServer/MasterData/`へModels/Enums/Loader/AesCrypto/bytesを配置。`MasterData/Atlas.MasterData.csproj`
+  として独立ビルドし、起動時に`MemoryDatabase`を読み込む(`Battle/MasterDatabaseFactory.cs`、
+  architecture.md「マスターデータ運用」参照)。`MasterDatabaseFactoryTests`で復号・読み込みを確認済み
 
 ## 2. マスターデータ内容(パチモン・技)
 
@@ -558,7 +558,7 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
   移動後のcsprojは`LangVersion 9.0`・`ImplicitUsings`無効でUnityと同じ条件でコンパイルする
 - **今回発見したギャップ(BattleServer)**:
   - `ParticipantStats`/`MoveData`/`ITypeChart`はダミー(`DummyParticipantDataSource`: 全員種族値オール80・
-    ノーマル単タイプ・技19/20固定、所持チェックなし)。`Domain.MasterData`(copy-models/copy-realtime-bytes)の
+    ノーマル単タイプ・技19/20固定、所持チェックなし)。`Domain.MasterData`(`run.sh realtime`、配置済み)の
     配置後に本実装へ差し替える。`player_pachimon`の努力値・習得技はMySQLにしかないため、BattleServerが
     それをどう取得するか(Rust経由の内部API等)も未決定
   - ~~`/internal/battle/result`はRust側未実装のため、サービス間シークレットの方式は仮決め~~ → Rust側を
@@ -594,7 +594,7 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 
 | # | 内容 | 領域 |
 |---|---|---|
-| 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 → 一部完了(Hub・トークン検証・切断/再接続・内部API送信まで実装。マスタデータを使うステータス/技変換は`Domain.MasterData`配置待ちでダミー、上記「バトルサーバー」参照) | バトルサーバー |
+| 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 → 一部完了(Hub・トークン検証・切断/再接続・内部API送信まで実装。マスタデータを使うステータス/技変換はダミー(マスタ自体は配置・起動時読み込み済み、#19)、上記「バトルサーバー」参照) | バトルサーバー |
 | ~~2~~ | ~~`moves`/`move_groups`/`move_group_master`のDBテーブル作成・`cache.rs`/`seed_master_data.rs`対応~~ → 完了(マイグレーション追加・`cache.rs`で`move_group_master`をキャッシュ・`seed_master_data`で3テーブルとも投入。詳細は上記「3. Server API実装状況」参照) | server/master-data |
 | ~~3~~ | ~~`player_pachimon`(所持データ)のモデル・テーブル・API実装~~ → 完了(スカウトでの入手時に作成。パーティ編成・技の付け替えAPI自体は#13で完了) | server |
 | ~~4~~ | ~~スカウトAPI(`/scout/*`)実装~~ → 完了(`GET /scout/banners`, `POST /scout/rolls`, `POST /scout/rolls/{rollId}/select`。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
@@ -608,7 +608,7 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 | 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正、`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、`POST /edit/party`のConnectionまで完了(上記「4. Unity Client」参照)。残りはスカウト・`POST /edit/pachimon_moves`のConnection | client |
 | 17 | APIサーバーのコンテナ化(Dockerfileのマルチステージビルド+`SQLX_OFFLINE`、composeのprofileで開発時の`cargo run`と併用)。MagicOnionサーバーの着手時に行う(上記「3. Server API実装状況」の「検討したが採用しなかった案」参照) | server |
 | 18 | 通信エラー時のエラーModal。通信基盤(Infrastructure)でエラーを検知し、`IMessageBroker`(ZeroMessenger)で通知→各シーンのスコープの購読者がErrorModalをPushする構成を想定。`IScreenNavigator`がシーン単位で常駐スコープ(`RootLifetimeScope`)に無いこと、起動時のサインイン失敗はシーンのNavigatorが無い段階で起きること、認証不要の`DeviceConnection`は`AccessTokenRefresher.SendAsync`を通らないことから、設計から見直す。リトライ/タイトルへ戻す等のUXも含めて決める(現状パーティ編成の保存失敗は画面に留まってログ出力のみ) | client |
-| 19 | BattleServerの実データ化(案1): マスターデータの配置(copy-models/copy-realtime-bytes)と、player_pachimonの技・努力値をRust経由で取得する方法の設計・実装。現状は`DummyParticipantDataSource`で全員同じステータス・技19/20になる(Clientはサーバーから届く技を表示するため動作はする) | battle-server/server |
+| 19 | BattleServerの実データ化(案1): ~~マスターデータの配置~~(完了、`MemoryDatabase`をDI登録済み)、`IParticipantDataSource`の本実装(マスタ→BattleCore型への変換)と、player_pachimonの技・努力値をRust経由で取得する方法の設計・実装。現状は`DummyParticipantDataSource`で全員同じステータス・技19/20になる(Clientはサーバーから届く技を表示するため動作はする) | battle-server/server |
 | 20 | IL2CPPビルド対応: UnityにMessagePackのSource Generatorが入っておらず、`Atlas.BattleContracts`のPayloadは動的シリアライズ(Editor/Monoのみ動作)。IL2CPP(モバイル等)向けにはGenerator導入またはResolverの事前生成が必要 | client |
 | 21 | 対戦UIの残り: ~~残りPP表示~~(`MoveCommandView`で実装済み、上記「バトルのコマンドUI刷新」参照)、相手の切断/再接続(`OnOpponentDisconnected`等)の表示、ターン制限時間のカウントダウン表示、BattleServerへの参加失敗時のエラーModal(#18) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |

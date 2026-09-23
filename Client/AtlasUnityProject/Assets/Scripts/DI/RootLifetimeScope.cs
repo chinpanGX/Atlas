@@ -31,7 +31,7 @@ namespace Atlas.DI
 
         // オフで対戦をMock(MockBattleMatchmaker/MockBattleConnection、サーバー不要)、オンでAPIサーバーの
         // マッチング+BattleServer(MagicOnion)への実接続にする。BootstrapシーンのRootLifetimeScopeで切り替える。
-        [SerializeField] private bool useRealBattleServer;
+        [SerializeField] private bool useBattleServer = true;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -80,7 +80,7 @@ namespace Atlas.DI
         // Battle PlayModeテスト(TestRootLifetimeScope)はuseRealBattleServerに関わらず常にMockにする。
         protected virtual void ConfigureBattleConnections(IContainerBuilder builder)
         {
-            if (useRealBattleServer)
+            if (useBattleServer)
             {
                 builder.Register<IBattleMatchmaker>(
                     resolver => new ApiBattleMatchmaker(

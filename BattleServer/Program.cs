@@ -19,6 +19,7 @@ builder.Services.AddMagicOnion();
 // BATTLE_TOKEN_SECRET等は環境変数(またはappsettings/user-secrets)からIConfiguration経由で読む。
 builder.Services.AddOptions<BattleTimingOptions>();
 builder.Services.AddSingleton<BattleTokenValidator>();
+builder.Services.AddSingleton(_ => MasterDatabaseFactory.Load(builder.Configuration));
 builder.Services.AddSingleton<IParticipantDataSource, DummyParticipantDataSource>();
 builder.Services.AddSingleton<BattleCoordinator>();
 builder.Services.AddSingleton<BattleResultReporter>();
@@ -31,6 +32,8 @@ var app = builder.Build();
 
 // 共有シークレット未設定なら接続を受け付ける前に起動を失敗させる(Rust側と同じ方針)。
 app.Services.GetRequiredService<BattleTokenValidator>();
+// マスターデータも同様に、読み込めない(未配置・復号失敗)なら起動を失敗させる。
+app.Services.GetRequiredService<Atlas.MasterData.MemoryDatabase>();
 
 app.MapMagicOnionService();
 

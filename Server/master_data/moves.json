@@ -340,5 +340,239 @@
     "move_id": 38,
     "move_type": 14,
     "name": "シャドウリーパー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 39,
+    "move_type": 2,
+    "name": "バーニングタックル"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 40,
+    "move_type": 2,
+    "name": "ヒートショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 41,
+    "move_type": 3,
+    "name": "ハイドロショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 42,
+    "move_type": 6,
+    "name": "フロストファング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 43,
+    "move_type": 6,
+    "name": "フロストショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 44,
+    "move_type": 7,
+    "name": "パワーナックル"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 45,
+    "move_type": 7,
+    "name": "ファイトショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 46,
+    "move_type": 8,
+    "name": "ベノムファング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 47,
+    "move_type": 8,
+    "name": "ベノムショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 48,
+    "move_type": 9,
+    "name": "アースクエイカー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 49,
+    "move_type": 9,
+    "name": "アースショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 50,
+    "move_type": 10,
+    "name": "スカイダイブ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 51,
+    "move_type": 10,
+    "name": "エアショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 52,
+    "move_type": 11,
+    "name": "サイコエッジ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 53,
+    "move_type": 11,
+    "name": "サイコショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 54,
+    "move_type": 13,
+    "name": "ロックスマッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 55,
+    "move_type": 13,
+    "name": "ロックショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 56,
+    "move_type": 14,
+    "name": "ゴーストファング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 57,
+    "move_type": 14,
+    "name": "ゴーストショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 58,
+    "move_type": 15,
+    "name": "ドラゴンショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 59,
+    "move_type": 16,
+    "name": "ダーククロー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 60,
+    "move_type": 16,
+    "name": "ダークショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 61,
+    "move_type": 17,
+    "name": "スチールエッジ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 62,
+    "move_type": 17,
+    "name": "スチールショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 63,
+    "move_type": 18,
+    "name": "フェアリーエッジ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 64,
+    "move_type": 18,
+    "name": "フェアリーショット"
   }
 ]

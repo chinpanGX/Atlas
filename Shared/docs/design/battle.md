@@ -41,7 +41,7 @@ Atlas.BattleCore(Shared、依存ゼロ)     ◄─呼ぶ─  バトルサーバ�
                                          battle_matches/battle_turnsへ記録
 
 横断的に存在: Domain.MasterData(master-data-pipelineが生成するC#型)。専用の共有パッケージは
-作らず、pipeline自身のcopy-models/copy-loader/copy-*-bytesがClient/バトルサーバー双方へ
+作らず、pipeline自身の`run.sh client`/`run.sh realtime`がClient/バトルサーバー双方へ
 同一の生成物を個別コピーする(architecture.md「マスターデータ運用」参照)。
 Atlas.BattleCoreからは直接参照されない(呼び出し側が変換する)
 ```

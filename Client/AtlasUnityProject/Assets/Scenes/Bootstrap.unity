@@ -152,6 +152,7 @@ MonoBehaviour:
     TypeName: 
   autoRun: 1
   autoInjectGameObjects: []
+  useBattleServer: 1
 --- !u!4 &2140806388
 Transform:
   m_ObjectHideFlags: 0

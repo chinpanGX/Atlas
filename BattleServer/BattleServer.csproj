@@ -7,8 +7,8 @@
     <!-- BATTLE_TOKEN_SECRET/INTERNAL_API_SECRETはdotnet user-secretsで設定する(Development環境で自動的に読み込まれる)。
          手順はリポジトリ直下のDEVELOPMENT.md参照 -->
     <UserSecretsId>atlas-battleserver</UserSecretsId>
-    <!-- Tests/・BattleCore/・BattleContracts/・BattleBot/は別プロジェクトのため取り込まない -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**;BattleCore/**;BattleContracts/**;BattleBot/**</DefaultItemExcludes>
+    <!-- Tests/・BattleCore/・BattleContracts/・BattleBot/・MasterData/は別プロジェクトのため取り込まない -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**;BattleCore/**;BattleContracts/**;BattleBot/**;MasterData/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,14 +22,8 @@
     <ProjectReference Include="BattleCore\Atlas.BattleCore.csproj" />
     <!-- Shared/BattleContracts(Clientと共有する通信契約)も同じ方式でDLLとして参照する。 -->
     <ProjectReference Include="BattleContracts\Atlas.BattleContracts.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- MasterData/{AesCrypto,MasterDataLoader}.csはmaster-data-pipelineの
-         copy-loaderで配置済みだが、MasterMemoryResolver等を生成するModels/Enums
-         (copy-models)がまだ配置されておらずビルドできないため、それらを配置するまで
-         コンパイル対象から除外する(Shared/docs/progress.md参照)。 -->
-    <Compile Remove="MasterData/**/*.cs" />
+    <!-- master-data-pipelineの生成物(`run.sh realtime`で配置)。MasterData/masterdata.bytesも出力先へコピーされる。 -->
+    <ProjectReference Include="MasterData\Atlas.MasterData.csproj" />
   </ItemGroup>
 
 </Project>
