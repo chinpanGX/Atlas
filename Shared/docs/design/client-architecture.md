@@ -63,7 +63,8 @@ Battle(Addressables管理)
 - Home⇔Battleの切り替えは、前のシーンをUnloadしてから次をLoadする想定(両方を同時にロードした
   ままにしない)
 - Page/Modal prefabはAddressablesで管理し、`Assets/Addressables/Views/{機能名}/`配下に配置する
-  (シーン自体のAddressables化とは別の対象)
+  (シーン自体のAddressables化とは別の対象)。Addressables管理のシーン(Home/Battle)は
+  `Assets/Addressables/Scenes/`に置き、Bootstrap(Build Settings登録)は`Assets/Scenes/`に残す
 - `SheetContainer`(タブ的な非スタックUI)は、現時点で必要な画面が無いため導入しない。
   必要になった画面が出てから追加する
 
@@ -640,6 +641,11 @@ HomePresenter
   いずれも対応する画面の実装時に追加する
 - `IXxxRepository`は上記の通り`playerDiff`のリソース種別単位であり、Connectionの単位とは
   一致しない(1つのConnectionが複数リソースの差分を返し得るため)
+- 対戦は、マッチング(REST)とバトル本体(MagicOnion)でライフサイクルが違うため2つに分ける。
+  `IBattleMatchmaker`(`Atlas.Application`、`POST /battle/queue`+`GET /battle/queue/status`の
+  ポーリングをまとめてマッチ成立(`BattleMatch`)まで待つ)はRoot常駐のSingleton。
+  `IBattleConnection`はセッション単位のため直接登録せず、`IBattleConnectionFactory`
+  (`Atlas.Application`)をSingleton登録してBattleシーンのスコープが対戦ごとに生成する
 
 各インターフェースの具体的なメソッド・Payload形状は、対応する画面を実装するタイミングで
 `design/outgame.md`のAPI仕様に合わせて個別に定義する(本ドキュメントではパターンのみ規定し、
@@ -651,12 +657,16 @@ HomePresenter
   `PlayerAccountService`)と、ローカルファイルへの永続化を伴うRepository
   (`DeviceCredentialsRepository`、Supplementの`IFileStorageService`経由)
 - `Atlas.Infrastructure.Api`: `api-codegen`生成物(`Generated/`配下、再生成で上書きされる)に加え、
-  それを呼ぶReal実装(`DeviceConnection`/`PlayerConnection`)、`PlayerDiffApplier`/
+  それを呼ぶReal実装(`DeviceConnection`/`PlayerConnection`/`ApiBattleMatchmaker`)、`PlayerDiffApplier`/
   `XxxDiffApplier`、メモリ保持のRepository実装(`ApiItemRepository`/`ApiPachimonRepository`/
   `ApiPachimonMoveMapRepository`/`ApiPartyRepository`/`ApiPlayerProfileRepository`)、`AccessTokenStore`。手書きのコードは`Generated/`の外に置き、
   生成DTOを`Atlas.Domain`/`Atlas.Application`側の型へ詰め替える
 - `Atlas.Infrastructure.Mock`: `MockXxxConnection`(`MockDeviceConnection`/
-  `MockPlayerConnection`)と`MockBattleConnection`。アウトゲームのMockは固定値を返すだけ
+  `MockPlayerConnection`)と`MockBattleConnection`/`MockBattleConnectionFactory`/
+  `MockBattleMatchmaker`。アウトゲームのMockは固定値を返すだけ
+- `Atlas.Infrastructure.Realtime`: `RealtimeBattleConnection`/`RealtimeBattleConnectionFactory`
+  (MagicOnion+YetAnotherHttpHandler)。BattleServerとの通信契約(`IBattleHub`/Payload)は
+  `Shared/BattleContracts/`(ローカルパッケージ`Atlas.BattleContracts`)をBattleServerと共有する
 
 ### 切り替え方法
 
@@ -665,6 +675,9 @@ HomePresenter
   Mockへの差し替えはこれをoverrideした派生スコープで行う(Battle PlayModeテストの
   `TestRootLifetimeScope`が、ローカルAPIサーバー無しでBootstrap→Home→Battleの起動経路を
   検証するために使用)。`IXxxRepository`/`IXxxService`の登録はMock/Realに関わらず常に同じ
+- 対戦(`IBattleMatchmaker`/`IBattleConnectionFactory`)は`ConfigureBattleConnections`(virtual)に
+  切り出し、Bootstrapシーンの`RootLifetimeScope`のInspector(`Use Real Battle Server`)で切り替える。
+  既定はオフ(Mock、サーバー不要)。`TestRootLifetimeScope`はこの設定に関わらず常にMockにする
 - Connectionが増えて「機能ごとにInspectorからMock/Realをトグルしたい」要求が出た時点で、
   機能ごとの`RepositoryMode { Mock, Real }`を持つScriptableObject(`RepositoryConfig`)を
   導入する案を再検討する(現状は未導入)
@@ -681,10 +694,12 @@ HomePresenter
 | asmdef | 配置する型 | 参照 |
 |---|---|---|
 | `Atlas.Domain` | Entity(`PlayerProfile`/`ItemEntity`/`DeviceCredentials`等)、`IXxxRepository`群 | UniTaskのみ |
-| `Atlas.Application` | `IXxxService`群(Presenterが直接依存する抽象)、`IXxxConnection`群(通信ポート)、それらの戻り値型(`PlayerData`/`SignInResult`/`AuthenticationResult`) | `Atlas.Domain`, `Atlas.MasterData`, UniTask |
+| `Atlas.Application` | `IXxxService`群(Presenterが直接依存する抽象)、`IXxxConnection`群(通信ポート)、`IBattleMatchmaker`/`IBattleConnectionFactory`、それらの戻り値型(`PlayerData`/`SignInResult`/`AuthenticationResult`/`BattleMatch`) | `Atlas.Domain`, `Atlas.MasterData`, UniTask |
 | `Atlas.Infrastructure`(base) | `XxxService`(`IXxxService`の実装)、`DeviceCredentialsRepository`、`MasterDataService` | `Atlas.Domain`, `Atlas.Application`, `Atlas.Infrastructure.Api`, `Atlas.MasterData`, UniTask, Supplement等 |
 | `Atlas.Infrastructure.Api` | `api-codegen`生成物(`Generated/`)、`XxxConnection`(Real実装)、`PlayerDiffApplier`/`XxxDiffApplier`、`ApiXxxRepository`、`AccessTokenStore` | `Atlas.Domain`, `Atlas.Application`, UniTask |
-| `Atlas.Infrastructure.Mock` | `MockXxxConnection`、`MockBattleConnection` | `Atlas.Domain`, `Atlas.Application`, `Atlas.MasterData`, `Atlas.BattleCore`, UniTask |
+| `Atlas.Infrastructure.Mock` | `MockXxxConnection`、`MockBattleConnection`/`MockBattleConnectionFactory`/`MockBattleMatchmaker` | `Atlas.Domain`, `Atlas.Application`, `Atlas.MasterData`, `Atlas.BattleCore`, UniTask |
+| `Atlas.Infrastructure.Realtime` | `RealtimeBattleConnection`/`RealtimeBattleConnectionFactory`(MagicOnionクライアント) | `Atlas.Domain`, `Atlas.Application`, `Atlas.BattleContracts`, `Atlas.BattleCore`, MagicOnion.Client, YetAnotherHttpHandler, UniTask |
+| `Atlas.BattleContracts`(`Shared/BattleContracts/`、ローカルパッケージ) | `IBattleHub`/`IBattleHubReceiver`とPayload型。BattleServerと共有する通信契約 | `Atlas.BattleCore`, MessagePack, MagicOnion.Abstractions |
 | `Atlas.Navigation` | `IScreenNavigator`/`ScreenNavigator`(USNの`PageContainer`/`ModalContainer`をラップする画面遷移基盤)、`PageLifetimeScope<TViewDto>`基底クラス | USN, VContainer, UniTaskのみ |
 | `Atlas.Presentation` | USNの`Page`派生クラス(View)、`XxxPresenter`、`XxxViewDto`、Page同梱の子`LifetimeScope`(`XxxPageLifetimeScope`)。**画面単位**の型のみを持ち、シーン単位のスコープは持たない | `Atlas.Domain`, `Atlas.Application`, `Atlas.Navigation`, USN, VContainer, R3 |
 | `Atlas.DI` | `RootLifetimeScope`/`HomeLifetimeScope`/`BattleLifetimeScope`等、**シーン単位**の`LifetimeScope`全て。Connection(Mock/Real)・Repository・Serviceの実装をDIコンテナへ登録する構成ルート(Composition Root) | `Atlas.Domain`, `Atlas.Application`, `Atlas.Presentation`, `Atlas.Infrastructure`(base/Api/Mock全部), `Atlas.Navigation`, USN, Supplement, VContainer |

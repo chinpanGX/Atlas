@@ -228,7 +228,8 @@ name             -- 管理用ラベル
 unique_id        PK   -- 代理キー。パイプラインが複合PK/複合UNIQUEに非対応のため追加
 group_id         FK -> move_groups
 move_id          FK -> moves
-is_initial       BOOLEAN   -- 初期習得技かどうか(グループ内で最大4件になるよう運用で担保)
+is_initial       BOOLEAN   -- 初期習得技かどうか(各グループちょうど4件。Serverのユニットテスト
+                              `test_every_move_group_has_four_initial_moves`で担保)
 ```
 
 ### moves(技マスタ)
@@ -255,6 +256,8 @@ pachimon_id    FK -> pachimon(必ず埋まっている。nullable無し)
 
 新規プレイヤー作成時にこの内容をそのまま複製し、初期パーティ(`player_pachimon`+
 `player_party_slots`)として付与する(全プレイヤー共通の単一固定編成、選択制ではない)。
+新規プレイヤー作成はサーバー側でのみ行うため`targets: [server]`とし、クライアント向け
+MemoryTable/masterdata.bytesへの出力対象からは除外している。
 詳細は[outgame.md](outgame.md)の「4. プレイヤー作成」「starter_party_slots(スターター編成
 マスタ)」参照。
 

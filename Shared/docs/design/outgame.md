@@ -373,6 +373,7 @@ gems等の所持数は本テーブルに持たず、`player_items`([architecture
 `player_pachimon`(初期技込み)・`player_party_slots`を生成する
 (`src/service/player_service.rs::grant_starter_party`参照)。他のマスタ同様、更新の反映には
 `seed_master_data`実行とサーバー再起動が必要(無停止反映は非対応)。
+サーバー専用マスタ(`targets: [server]`)のため、クライアントのmasterdata.bytesには含まれない。
 
 ### player_pachimon_moves(現在覚えている技)
 
@@ -383,8 +384,9 @@ gems等の所持数は本テーブルに持たず、`player_items`([architecture
 | `slot` | INT | NOT NULL | 1-4。`UNIQUE(player_pachimon_id, slot)` |
 | `move_id` | INT | NOT NULL, FOREIGN KEY → `moves.move_id` | |
 
-スカウトで個体が生成される際、対応する`move_group_moves`の`is_initial = TRUE`の行をそのまま
-複製して初期セットする(詳細は[scout.md](scout.md)参照)。技の付け替えは、このテーブルの
+スカウト・スターター付与で個体が生成される際、対応する`move_group_moves`の`is_initial = TRUE`の行をそのまま
+複製して初期セットする(詳細は[scout.md](scout.md)参照)。初期技は各グループ4つなので、付与直後から
+slot1〜4がすべて埋まる。技の付け替えは、このテーブルの
 対象slotをUPDATEするだけで実現でき、マスタ側の変更は不要。`INSERT ... ON DUPLICATE KEY UPDATE`
 の`UPDATE`句に`player_pachimon_move_id`を含めないことで、既存slotの付け替え時はこのIDが
 変わらず維持される(新規slotへの初回セット時のみ新しいULIDが採番される)。

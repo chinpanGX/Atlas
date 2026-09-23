@@ -55,8 +55,8 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 |---|---|---|
 | `pachimon` | 36 | `pachimon_id`は4桁(1001〜1036)。1001-1018がrarity=S、1019-1024がA、1025-1030がB、1031-1036がC |
 | `move_groups` | 36 | 現状は1パチモン=1グループ(仮データ)。スキーマ上は将来の使い回しに対応 |
-| `moves` | 38 | 各パチモン専用技36 + 全グループ共通の汎用技2(状態技は0件) |
-| `move_group_moves` | 108 | 技グループ所属技の対応表(旧`move_group_master`。「Master」がMasterMemory/MasterDataLoaderと紛らわしいため改名)。代理キー`unique_id`を追加 |
+| `moves` | 64 | 各パチモン専用技36 + 全グループ共通の汎用技2(19/20) + 汎用タイプ技26(39-64、威力75・命中100・PP20。物理=○○エッジ等/特殊=○○ショット)。状態技は0件 |
+| `move_group_moves` | 180 | 技グループ所属技の対応表。各グループは初期技4つ(専用技+ぶつかり(19)+汎用タイプ技2つ)と付け替え候補1つ(エナジーウェーブ(20))(旧`move_group_master`。「Master」がMasterMemory/MasterDataLoaderと紛らわしいため改名)。代理キー`unique_id`を追加 |
 | `type_chart` | 324 | 18タイプ×18タイプの全組み合わせ(第9世代準拠の標準タイプ相性)。`effectiveness`はENUM(`IMMUNE`/`NOT_VERY_EFFECTIVE`/`NORMAL`/`SUPER_EFFECTIVE`相当) |
 | `starter_party_slots` | 6 | 新規プレイヤーへ自動付与する固定スターター編成(1-6slot)。仮値としてrarity=Cの6体(1031-1036)を採用 |
 | `items` | 1 | `item_id: 1`=ジェム(gems)のみ。`players.gems`列を廃止し所持数は`player_items`(下記「3. Server API実装状況」参照)で管理する |
@@ -69,7 +69,12 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
       `normalize-csv`/`resolve-enums`/`validate`/`generate-csharp`/`build-client`/`build-server`
       まで一通り実行して検証済み(`cargo check`も確認)。ENUM→倍率変換・複合タイプの掛け合わせは
       `Atlas.BattleCore`側にハードコードする方針(design/battle.md参照)
-- [ ] 技の内容が最小限(専用技1+共通技2のみ、状態技0件、技の付け替え候補の広がりが薄い)
+- [x] 初期技が2つしかなく技slotが埋まらない問題 → 汎用タイプ技26件(39-64)を追加し、全グループの`is_initial`をちょうど4つにした
+      (スターター・スカウト入手の個体は技slot1〜4が埋まった状態で付与される)。汎用タイプ技2つは、専用技で
+      カバーしていない自分のタイプ(無ければ補完タイプ)+第1タイプごとの補完タイプから選び、カテゴリは
+      攻撃/特攻の高い方に合わせた。Serverのユニットテスト`test_every_move_group_has_four_initial_moves`で担保。
+      既存のプレイヤー(追加前に作成済み)の所持パチモンは初期技2つのまま(マイグレーションはしない)
+- [ ] 技の内容が最小限(状態技0件、技の付け替え候補がエナジーウェーブ(20)の1つだけで広がりが薄い)
 - [ ] `base_power`のNULL代替(0埋め)運用が実データ未検証(状態技が無いため)
 
 ## 3. Server(Rust/Axum)API実装状況
@@ -255,7 +260,8 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
 導入しコンパイルが通る状態まで到達した。バトルMock・デバイス認証〜サインイン(`playerDiff`適用)の実装により、
 通信層(REST APIクライアントの実呼び出し)にも着手している。Home⇔Battleのシーン分離・決着処理・
 ジェム表示・UICamera/横向き対応まで実装し、design/battle.md「Stage 1」の画面まわりは一区切りついた
-(下記「バトル画面」参照)。
+(下記「バトル画面」参照)。その後、パーティ編成画面(`POST /edit/party`)と、マッチング(`/battle/queue*`)→
+BattleServer(MagicOnion)への実接続まで実装した(下記「パーティ編成画面」「BattleServerへの実接続」参照)。
 
 - 利用ライブラリ(VContainer/UniTask/MagicOnion.Client/YetAnotherHttpHandler/MessagePack/
   MasterMemory/Supplement/R3/UnityScreenNavigator/ZeroMessenger)を導入。詳細・導入経路は
@@ -277,9 +283,9 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   client-architecture.md参照)は導入済みで、Home/Battle画面のPresenterで実際に利用している
 - `uloop`(Unity CLI Loop、`io.github.hatayama.uloopmcp`)経由でEditor操作・コンパイル確認を
   自動化できる状態
-- 未着手: MagicOnion StreamingHubクライアントの実装(バトルサーバー自体が未着手のため)、
-  Scout/Party/Chat各画面のUI・ゲームロジック。REST APIクライアントの実呼び出しと
-  `Atlas.BattleCore`との連携(`MockBattleConnection`)は下記の通り一部着手済み
+- 未着手: Scout/Chat各画面のUI・通信(`IScoutConnection`/`IChatConnection`)、技の付け替え
+  (`POST /edit/pachimon_moves`)の画面・Connection、Party画面と
+  MagicOnion StreamingHubクライアント(`RealtimeBattleConnection`)は下記の通り実装済み
 
 ### クライアントアーキテクチャ設計(画面遷移・DI・Connection抽象)
 
@@ -311,7 +317,8 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
 - **Connection抽象の一般化**: `IBattleConnection`(battle.md)のMock/Real切り替えパターンを
   アウトゲームにも適用。既存Rust API境界(Device/Player/Chat/Scout)ごとに`IXxxConnection`
   を定義する方針(1つの巨大インターフェースにはしない)。`IDeviceConnection`/`IPlayerConnection`
-  を実装済み(下記「サインイン・`playerDiff`適用」参照)。Chat/Scout/パーティ編成用は未着手
+  を実装済み(下記「サインイン・`playerDiff`適用」参照)。パーティ編成は`IPlayerConnection.EditPartyAsync`
+  として実装済み。Chat/Scout用と技の付け替え用は未着手
 - **画面をまたぐ通知**: Supplementの`IMessageBroker`(ZeroMessenger実装)をグローバル用途限定で
   導入(トースト通知・gems残高変更等)。同一画面内のView→Presenter通知はR3のObservable
   直接購読のみ。MessagePipeも検討したがSupplementに同種の仕組みが既にあるため不採用。
@@ -428,8 +435,10 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   - `playerDiff`の適用: `PlayerConnection.SignInAsync`がレスポンス受信直後に
     `IPlayerDiffApplier`→`ItemDiffApplier`→`IItemRepository`(`ApiItemRepository`、メモリ保持)へ
     反映する。`playerId`/`nickname`は`SignInService`が`IPlayerProfileRepository`
-    (`ApiPlayerProfileRepository`、メモリ保持)へ保存する。`pachimon`/`pachimonMoveMap`/
-    `partySlots`のApplier・Repositoryは未実装(Scout/Party画面実装時に追加)
+    (`ApiPlayerProfileRepository`、メモリ保持)へ保存する。~~`pachimon`/`pachimonMoveMap`/
+    `partySlots`のApplier・Repositoryは未実装(Scout/Party画面実装時に追加)~~ → パーティ編成画面の
+    実装時に`PachimonDiffApplier`/`PachimonMoveMapDiffApplier`/`PartyDiffApplier`と
+    `ApiPachimonRepository`/`ApiPachimonMoveMapRepository`/`ApiPartyRepository`を追加済み
   - `ISignInService`/`SignInService`: デバイス登録・認証→`POST /sign-in`(404なら
     `POST /signup`→再度`POST /sign-in`)をまとめて実行し、`BootstrapEntryPoint`から呼ぶ。
     `IPlayerAccountService`/`PlayerAccountService`が`HomePresenter`向けにプロフィールを返す
@@ -458,8 +467,9 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   `PachimonMoveMapEntity`を返すだけ)とマスタから`PartyPresenter`が組み立てる。ステータスは
   `PachimonStatCalculator`(Atlas.MasterData、レベル50固定)で実効値を計算し、ゲージは種族値/255。
   タイプの表示名は`PachimonTypeNames`(Presentation/Common)。同じステータス計算式が
-  `BattlePresenter.CalculateMaxHp`と`TestPartyFactory.CalculateStat`にも残っており、
-  `PachimonStatCalculator`への統一は未実施
+  `BattlePresenter.CalculateMaxHp`と`TestPartyFactory.CalculateStat`にも残っていた。
+  `BattlePresenter`は`PachimonStatCalculator`へ統一済み(下記「BattleServerへの実接続」参照)、
+  `TestPartyFactory.CalculateStat`(Mock用)は未統一
 - **パーティ編成の入れ替え・保存**: 1体目をタップで選択し、2体目のタップで両者の「位置」(枠番号または
   編成外)を入れ替える。枠のパチモンと一覧の同じパチモンの組み合わせは「外す」(空欄は詰めない)。
   編成外同士は選択が移るだけ。最後の1体は外せない(クライアントでブロック、サーバーも空の編成は400)。
@@ -493,8 +503,8 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   使えない(C# 10以降が必要)。`Atlas.Domain`等のシンプルなデータ型は通常の`readonly struct`/
   `class`で書く
 - Battle結果からHomeへ戻る画面遷移(結果Modal→`ISceneNavigator`でHomeシーンへ)は実装済み。
-  未確定として残っているのは、Scout/Party/Chat各画面(Homeからの導線先)の個別Presenter/ViewDto設計
-  (画面実装時に決定)
+  未確定として残っているのは、Scout/Chat各画面(Homeからの導線先)の個別Presenter/ViewDto設計
+  (画面実装時に決定。Party画面は実装済み)
 
 ### Atlas.BattleCore(Shared/BattleCore/)
 
@@ -591,16 +601,16 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 | ~~5~~ | ~~マッチングAPI(`/battle/queue*`)実装~~ → 完了(待機列は`AppState`のプロセスメモリ、`battle_token`は`jsonwebtoken`でHS256のJWT発行。結合テスト6件。詳細は上記「3. Server API実装状況」参照) | server |
 | ~~6~~ | ~~内部API(`/internal/battle/result`)実装~~ → 完了(`X-Internal-Secret`/`INTERNAL_API_SECRET`方式、マッチ成立時の`battle_matches`INSERTも対応。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
-| 8 | 技の拡充(状態技、候補技の追加) | master-data |
-| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体(ジェム表示含む)、バトル画面(Mock、Home⇔Battleのシーン分離・決着処理・結果Modal・投了フロー)、UICamera/横向き対応、デバイス認証〜サインイン(`playerDiff.items`適用)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
+| 8 | 技の拡充(状態技、候補技の追加)。初期技を4つにするための汎用タイプ技26件は追加済み(上記「2. マスターデータ内容」参照) | master-data |
+| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体(ジェム表示含む)、バトル画面(Mock、Home⇔Battleのシーン分離・決着処理・結果Modal・投了フロー)、UICamera/横向き対応、デバイス認証〜サインイン(`playerDiff`適用)、パーティ編成画面、マッチング〜BattleServerへの実接続(`RealtimeBattleConnection`)まで完了。Scout/Chat各画面、技の付け替え画面、ニックネーム入力画面は未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
 | ~~14~~ | ~~アクセストークンの事前有効期限チェック・401時の再認証リトライ~~ → 完了(`AccessTokenRefresher`。詳細は上記「4. Unity Client」の「アクセストークンの更新」、およびclient-architecture.md「アクセストークンの更新」参照。コンパイル確認のみで、実機での確認は#15と合わせて行う) | client |
 | 15 | サインイン疎通(デバイス登録〜`POST /signup`〜`POST /sign-in`・`playerDiff`適用)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
-| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正まで完了(上記「4. Unity Client」参照)。残りは`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、スカウト・`POST /edit/party`・`POST /edit/pachimon_moves`のConnection | client |
+| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正、`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、`POST /edit/party`のConnectionまで完了(上記「4. Unity Client」参照)。残りはスカウト・`POST /edit/pachimon_moves`のConnection | client |
 | 17 | APIサーバーのコンテナ化(Dockerfileのマルチステージビルド+`SQLX_OFFLINE`、composeのprofileで開発時の`cargo run`と併用)。MagicOnionサーバーの着手時に行う(上記「3. Server API実装状況」の「検討したが採用しなかった案」参照) | server |
 | 18 | 通信エラー時のエラーModal。通信基盤(Infrastructure)でエラーを検知し、`IMessageBroker`(ZeroMessenger)で通知→各シーンのスコープの購読者がErrorModalをPushする構成を想定。`IScreenNavigator`がシーン単位で常駐スコープ(`RootLifetimeScope`)に無いこと、起動時のサインイン失敗はシーンのNavigatorが無い段階で起きること、認証不要の`DeviceConnection`は`AccessTokenRefresher.SendAsync`を通らないことから、設計から見直す。リトライ/タイトルへ戻す等のUXも含めて決める(現状パーティ編成の保存失敗は画面に留まってログ出力のみ) | client |
 | 19 | BattleServerの実データ化(案1): マスターデータの配置(copy-models/copy-realtime-bytes)と、player_pachimonの技・努力値をRust経由で取得する方法の設計・実装。現状は`DummyParticipantDataSource`で全員同じステータス・技19/20になる(Clientはサーバーから届く技を表示するため動作はする) | battle-server/server |
 | 20 | IL2CPPビルド対応: UnityにMessagePackのSource Generatorが入っておらず、`Atlas.BattleContracts`のPayloadは動的シリアライズ(Editor/Monoのみ動作)。IL2CPP(モバイル等)向けにはGenerator導入またはResolverの事前生成が必要 | client |
-| 21 | 対戦UIの残り: 残りPP表示(`SelfMoves`に値はある)、相手の切断/再接続(`OnOpponentDisconnected`等)の表示、ターン制限時間のカウントダウン表示、BattleServerへの参加失敗時のエラーModal(#18) | client |
+| 21 | 対戦UIの残り: ~~残りPP表示~~(`MoveCommandView`で実装済み、上記「バトルのコマンドUI刷新」参照)、相手の切断/再接続(`OnOpponentDisconnected`等)の表示、ターン制限時間のカウントダウン表示、BattleServerへの参加失敗時のエラーModal(#18) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |

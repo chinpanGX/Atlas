@@ -50,7 +50,7 @@ Rust/Axum API Server    C#/MagicOnion Server
 
 ```
 Atlas/
-├── Client/                 # Unityクライアント(プロジェクト構築・ライブラリ導入まで完了、画面/通信/ゲームロジックの実装は未着手)
+├── Client/                 # Unityクライアント(実装状況は Shared/docs/progress.md 参照)
 ├── Server/                 # Rustバックエンド(REST API、実装中)
 ├── BattleServer/           # C#/MagicOnionのリアルタイム対戦サーバー
 ├── Shared/                 # クライアント/サーバー間の共有定義

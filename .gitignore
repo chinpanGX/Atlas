@@ -14,4 +14,6 @@ BattleServer/BattleContracts/bin/
 BattleServer/BattleContracts/obj/
 BattleServer/BattleBot/bin/
 BattleServer/BattleBot/obj/
+BattleServer/MasterData/bin/
+BattleServer/MasterData/obj/
 BattleServer/.idea/
