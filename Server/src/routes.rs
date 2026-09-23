@@ -1,8 +1,12 @@
 use axum::Router;
+use tower_http::LatencyUnit;
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tracing::Level;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::api::{auth, chat, device, player, scout};
+use crate::http_log;
 use crate::openapi::ApiDoc;
 use crate::state::AppState;
 
@@ -51,5 +55,17 @@ pub fn create_router(state: AppState) -> Router {
             axum::routing::post(scout::select_roll_handler),
         )
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        // 後に追加したlayerほど外側になる。TraceLayerのspan(method/uri)の内側で
+        // ボディ・SQLのログが出るよう、log_bodiesを先に追加する
+        .layer(axum::middleware::from_fn(http_log::log_bodies))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .latency_unit(LatencyUnit::Millis),
+                ),
+        )
         .with_state(state)
 }

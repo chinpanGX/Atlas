@@ -2,6 +2,8 @@
 name = "Server"
 version = "0.1.0"
 edition = "2024"
+# src/bin/配下にも複数binがあるため、`cargo run`単体でAPIサーバー本体を起動できるよう指定
+default-run = "Server"
 
 [dependencies]
 # Webフレームワーク本体(ルーティング・リクエスト/レスポンス処理)
@@ -41,6 +43,15 @@ utoipa-swagger-ui = { version = "8", features = ["axum"] }
 
 # スカウトの排出率抽選・個体値のランダム生成に使用
 rand = "0.8"
+
+# 構造化ログ。リクエスト/レスポンス・sqlxの実行SQLを同じ出力先(ターミナル)に流す
+tracing = "0.1"
+
+# tracingのログをターミナルへ出力する。RUST_LOG(EnvFilter)で出力レベルを切り替える
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# TraceLayer: リクエストごとのspan(method/uri)と、ステータス・処理時間のログ出力
+tower-http = { version = "0.5", features = ["trace"] }
 
 
 [dev-dependencies]

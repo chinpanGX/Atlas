@@ -1,6 +1,7 @@
 pub mod api;
 pub mod error;
 pub mod extractor;
+pub mod http_log;
 pub mod master;
 pub mod model;
 pub mod openapi;

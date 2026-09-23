@@ -183,6 +183,29 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
   `pachimonId`/`moveId`/`itemId`は互換性維持のため`int64`のまま据え置き、内部の`i32`との
   境界で明示変換している(Unity側`api-codegen`の再生成は未実施。API DTO側もint32へ揃えるかは
   今後の検討課題)
+- **開発用の通信ログ(tracing)を導入**。`tracing`/`tracing-subscriber`/`tower-http`(`TraceLayer`)を
+  追加し、`cargo run`したターミナルに method/uri/ステータス/処理時間を出す。`RUST_LOG`でDEBUGを
+  有効にすると、`src/http_log.rs`のミドルウェアがリクエスト/レスポンスのボディ(JSONとエラーの
+  text)を、`sqlx::query`が実行SQLを、同じリクエストのspan内に時系列で出す。`secretKey`/
+  `accessToken`は伏字、`Authorization`ヘッダーは出力しない(使い方は`server-dev-env`スキル)。
+  併せて`Cargo.toml`に`default-run = "Server"`を追加(`src/bin/`に複数binがあり、`cargo run`単体が
+  「どのbinを実行するか決められない」エラーになっていた)
+  - 検討したが採用しなかった案:
+    - **mitmproxyコンテナでの中継**: Docker内からホストのAPIへ届かせるため`SERVER_ADDR`を
+      `0.0.0.0`にする必要があり、同じネットワークの他の端末からもAPIに届くようになる。Unity側の
+      接続先切り替えも必要。SQLやサーバー内部の処理との対応が取れない。MagicOnion(gRPC)には
+      流用しにくい。通信の改ざん・再送が必要になったら、Windows上で`mitmweb --mode
+      reverse:http://127.0.0.1:3000 -p 8080`をその場で起動すれば足りる
+    - **Unity側での`Debug.Log`出力**: サーバー側のログで送受信の中身は確認できるため見送り。
+      必要になったら、`api-codegen`が生成する`ApiRequest`にロガーの差し込み口を設ける形にする
+      (生成物を直接編集しない・汎用ツールに`Debug.Log`を固定で入れないため)
+    - **APIサーバーのコンテナ化**: WindowsのDocker上ではRustのビルドが遅く、sqlxのコンパイル時
+      チェックに`.sqlx`オフラインキャッシュ(`SQLX_OFFLINE`)の運用も必要で、Riderでのデバッグも
+      しにくくなるため今は見送り。MagicOnionサーバーの着手時(サービス間通信が増える)か、
+      デプロイ方式を決めるときに行う(残タスク#17)
+- **今回発見したギャップ(Server、テスト環境)**: `sqlx::test`を使う結合テスト(`auth_api_test`等)が
+  `failed to connect to setup test database: PoolTimedOut`で失敗する。上記の変更前のコードでも同じく
+  失敗するため、今回の変更とは無関係。ローカル環境側の問題と思われ、原因は未調査
 
 ### 未実装
 
@@ -408,6 +431,7 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | 14 | アクセストークンの事前有効期限チェック・401時の再認証リトライ(design/outgame.md補足で「望ましい」とされる挙動、現状は起動時に一度認証するのみ) | client |
 | 15 | サインイン疎通(デバイス登録〜`POST /signup`〜`POST /sign-in`・`playerDiff`適用)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
 | 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用まで完了(上記「4. Unity Client」参照)。残りは`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、スカウト・`POST /edit/party`・`POST /edit/pachimon_moves`のConnection、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正(上記「今回発見したギャップ」参照) | client |
+| 17 | APIサーバーのコンテナ化(Dockerfileのマルチステージビルド+`SQLX_OFFLINE`、composeのprofileで開発時の`cargo run`と併用)。MagicOnionサーバーの着手時に行う(上記「3. Server API実装状況」の「検討したが採用しなかった案」参照) | server |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |
