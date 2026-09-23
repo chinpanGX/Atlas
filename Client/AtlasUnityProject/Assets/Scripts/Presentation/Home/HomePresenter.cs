@@ -3,6 +3,7 @@ using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
 using Atlas.Navigation;
+using Atlas.Presentation.PartyEdit;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
@@ -42,10 +43,13 @@ namespace Atlas.Presentation.Home
             var dto = CreateDto();
             view.Refresh(dto);
 
-            // Scout/パーティ編成/チャットの各画面は未実装のため、現時点ではログのみ。
+            // Scout/チャットの各画面は未実装のため、現時点ではログのみ。
             // 各画面を実装するタイミングでIScreenNavigator.PushPageAsyncに置き換える
             view.OnScoutButtonClicked.Subscribe(_ => Debug.Log("[Home] Scout button clicked (not implemented yet)")).AddTo(disposables);
-            view.OnPartyButtonClicked.Subscribe(_ => Debug.Log("[Home] Party button clicked (not implemented yet)")).AddTo(disposables);
+            // Push完了までの連打で同じPageを重ねて積まないよう、実行中の押下は捨てる。
+            view.OnPartyButtonClicked
+                .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<PartyEditPage>(), AwaitOperation.Drop)
+                .AddTo(disposables);
             // ChangeSceneAsyncの中でHomeシーン(=このPage自身)がUnloadされるため、連打で
             // 2回目の遷移が走らないよう最初の1回だけ受け付ける。
             view.OnBattleButtonClicked.Take(1).Subscribe(_ => OnBattleButtonClicked().Forget()).AddTo(disposables);

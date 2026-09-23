@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Default Local Group
   m_GUID: 0ccf54438e2faac49924537f5aa785fc
   m_SerializeEntries:
+  - m_GUID: 16df62f4e4b311e8eb5e8e560a4eed0f
+    m_Address: PartyEditPage
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 294a648fc83490a4b88a509e950448ca
     m_Address: BattleResultModal
     m_ReadOnly: 0
