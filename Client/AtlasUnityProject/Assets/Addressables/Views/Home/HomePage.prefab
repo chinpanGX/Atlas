@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 6216100570475032591}
   - component: {fileID: 8200459437110236}
   - component: {fileID: 5276040515803453381}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: HomePage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -97,7 +97,7 @@ GameObject:
   - component: {fileID: 9093821225657320995}
   - component: {fileID: 7042028449668534638}
   - component: {fileID: 8291609837957738536}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -234,7 +234,7 @@ GameObject:
   - component: {fileID: 1415927357078337891}
   - component: {fileID: 5354338036012480012}
   - component: {fileID: 7203297697165778539}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: NicknameText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -372,7 +372,7 @@ GameObject:
   - component: {fileID: 8860068054461246798}
   - component: {fileID: 3585028312056592612}
   - component: {fileID: 4160085792638338328}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: BattleButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -493,7 +493,7 @@ GameObject:
   - component: {fileID: 1917002639059649280}
   - component: {fileID: 4699190522858279936}
   - component: {fileID: 6408637777097108743}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ScoutButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -613,7 +613,7 @@ GameObject:
   - component: {fileID: 7077924486182281732}
   - component: {fileID: 3073807050816684769}
   - component: {fileID: 3469690283832720364}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -751,7 +751,7 @@ GameObject:
   - component: {fileID: 6041757849190533650}
   - component: {fileID: 7004104884112296159}
   - component: {fileID: 8453231071521329918}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: ChatButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -871,7 +871,7 @@ GameObject:
   - component: {fileID: 3987306963103638073}
   - component: {fileID: 4449406364789685700}
   - component: {fileID: 6052371348274105792}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1009,7 +1009,7 @@ GameObject:
   - component: {fileID: 7861617995666391424}
   - component: {fileID: 6036307047643741647}
   - component: {fileID: 920209153597711040}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: PartyButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1129,7 +1129,7 @@ GameObject:
   - component: {fileID: 8562352398196164947}
   - component: {fileID: 8202761756251645920}
   - component: {fileID: 1765759752030885809}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: GemsText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1266,7 +1266,7 @@ GameObject:
   - component: {fileID: 365063344807838317}
   - component: {fileID: 5214592457294610950}
   - component: {fileID: 4274254264249619574}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}

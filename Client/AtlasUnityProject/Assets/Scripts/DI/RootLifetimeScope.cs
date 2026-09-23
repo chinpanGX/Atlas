@@ -5,9 +5,9 @@ using Atlas.Domain;
 using Atlas.Infrastructure;
 using Atlas.Infrastructure.Api;
 using Atlas.Infrastructure.Mock;
+using Atlas.Navigation;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
-using Supplement.Loader.Abstractions;
 using Supplement.ZeroMessenger;
 using VContainer;
 using VContainer.Unity;
@@ -29,10 +29,16 @@ namespace Atlas.DI
 
         protected override void Configure(IContainerBuilder builder)
         {
+            // ApiRequestは生成コードの静的ヘルパーでDIを通らないため、ロガーはここで直接差し込む。
+            // リリースビルドでは通信内容をログに残さない。
+            // (Debug.isDebugBuildはEditorと開発ビルドでtrue)
+            ApiRequest.Logger = UnityEngine.Debug.isDebugBuild ? new UnityApiRequestLogger() : null;
             builder.RegisterAddressablesLoader();
             builder.RegisterEncryptedFileStorage();
             builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
             builder.Register<IMasterDataService, MasterDataService>(Lifetime.Singleton);
+            builder.Register<ISceneNavigator, SceneNavigator>(Lifetime.Singleton);
+            builder.Register<BattleEntryStore>(Lifetime.Singleton);
 
             builder.Register<AccessTokenStore>(Lifetime.Singleton);
             builder.Register<IDeviceCredentialsRepository, DeviceCredentialsRepository>(Lifetime.Singleton);
@@ -48,6 +54,7 @@ namespace Atlas.DI
             builder.Register<IPlayerDiffApplier, PlayerDiffApplier>(Lifetime.Singleton);
             ConfigureAuthConnections(builder);
             builder.Register<IPlayerAccountService, PlayerAccountService>(Lifetime.Singleton);
+            builder.Register<IItemFetchService, ItemFetchService>(Lifetime.Singleton);
             builder.Register<ISignInService, SignInService>(Lifetime.Singleton);
 
             // MasterDataServiceのDatabaseはBootstrapEntryPoint.StartAsync内のLoadAsync完了後に
@@ -74,13 +81,13 @@ namespace Atlas.DI
 
     internal sealed class BootstrapEntryPoint : IAsyncStartable
     {
-        private readonly ISceneLoader sceneLoader;
+        private readonly ISceneNavigator sceneNavigator;
         private readonly IMasterDataService masterDataService;
         private readonly ISignInService signInService;
 
-        public BootstrapEntryPoint(ISceneLoader sceneLoader, IMasterDataService masterDataService, ISignInService signInService)
+        public BootstrapEntryPoint(ISceneNavigator sceneNavigator, IMasterDataService masterDataService, ISignInService signInService)
         {
-            this.sceneLoader = sceneLoader;
+            this.sceneNavigator = sceneNavigator;
             this.masterDataService = masterDataService;
             this.signInService = signInService;
         }
@@ -95,7 +102,7 @@ namespace Atlas.DI
             // HomeEntryPointが同期的に開始するPushPageAsync<HomePage>のネストした
             // EnqueueParentと競合し、シーン切り替え完了(ChangeSceneのawait解除)の
             // タイミングでスタックを壊す不具合があったため使わない)。
-            await sceneLoader.ChangeScene(AddressDefinition.Home, true, cancellation);
+            await sceneNavigator.ChangeSceneAsync(AddressDefinition.Home, cancellation);
         }
     }
 }

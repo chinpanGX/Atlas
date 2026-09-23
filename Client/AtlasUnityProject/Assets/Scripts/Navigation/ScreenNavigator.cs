@@ -53,16 +53,18 @@ namespace Atlas.Navigation
 
         public async UniTask PopPageAsync(bool playAnimation = true, int popCount = 1)
         {
-            CompletePendingPageSources(popCount, default(object));
+            var pending = CollectPendingPageSources(popCount);
             var handle = pageContainer.Pop(playAnimation, popCount);
             await handle.Task.AsUniTask();
+            SetResults(pending, default(object));
         }
 
         public async UniTask PopPageAsync<TResult>(TResult result, bool playAnimation = true)
         {
-            CompletePendingPageSources(1, result);
+            var pending = CollectPendingPageSources(1);
             var handle = pageContainer.Pop(playAnimation, 1);
             await handle.Task.AsUniTask();
+            SetResults(pending, result);
         }
 
         public UniTask<TResult> WaitForPopAsync<TResult>(Page target, CancellationToken token)
@@ -99,16 +101,18 @@ namespace Atlas.Navigation
 
         public async UniTask PopModalAsync(bool playAnimation = true, int popCount = 1)
         {
-            CompletePendingModalSources(popCount, default(object));
+            var pending = CollectPendingModalSources(popCount);
             var handle = modalContainer.Pop(playAnimation, popCount);
             await handle.Task.AsUniTask();
+            SetResults(pending, default(object));
         }
 
         public async UniTask PopModalAsync<TResult>(TResult result, bool playAnimation = true)
         {
-            CompletePendingModalSources(1, result);
+            var pending = CollectPendingModalSources(1);
             var handle = modalContainer.Pop(playAnimation, 1);
             await handle.Task.AsUniTask();
+            SetResults(pending, result);
         }
 
         public UniTask<TResult> WaitForPopModalAsync<TResult>(Modal target, CancellationToken token)
@@ -177,29 +181,46 @@ namespace Atlas.Navigation
             return (TResult)result;
         }
 
-        private void CompletePendingPageSources(int popCount, object result)
+        // Pop対象の待機者はPop前(対象がまだコンテナに居る間)に集めておき、結果の通知は
+        // Popの遷移アニメーション完了後に行う(SetResults)。完了前に通知すると、待機側が
+        // 続けて別のPage/ModalをPushした時にUSNが"screen is already in transition"で拒否する。
+        private List<UniTaskCompletionSource<object>> CollectPendingPageSources(int popCount)
         {
+            var pending = new List<UniTaskCompletionSource<object>>();
             var orderedIds = pageContainer.OrderedPagesIds;
             for (var i = orderedIds.Count - 1; i >= 0 && i >= orderedIds.Count - popCount; i--)
             {
                 var page = pageContainer.Pages[orderedIds[i]];
                 if (pageCompletionSources.TryGetValue(page, out var source))
                 {
-                    source.TrySetResult(result);
+                    pending.Add(source);
                 }
             }
+
+            return pending;
         }
 
-        private void CompletePendingModalSources(int popCount, object result)
+        private List<UniTaskCompletionSource<object>> CollectPendingModalSources(int popCount)
         {
+            var pending = new List<UniTaskCompletionSource<object>>();
             var orderedIds = modalContainer.OrderedModalIds;
             for (var i = orderedIds.Count - 1; i >= 0 && i >= orderedIds.Count - popCount; i--)
             {
                 var modal = modalContainer.Modals[orderedIds[i]];
                 if (modalCompletionSources.TryGetValue(modal, out var source))
                 {
-                    source.TrySetResult(result);
+                    pending.Add(source);
                 }
+            }
+
+            return pending;
+        }
+
+        private static void SetResults(List<UniTaskCompletionSource<object>> pending, object result)
+        {
+            foreach (var source in pending)
+            {
+                source.TrySetResult(result);
             }
         }
     }

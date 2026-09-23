@@ -5,6 +5,7 @@ using Atlas.Application;
 using Atlas.Domain;
 using Atlas.MasterData;
 using Atlas.MasterData.Models;
+using Atlas.Navigation;
 using Cysharp.Threading.Tasks;
 using R3;
 using VContainer.Unity;
@@ -14,13 +15,18 @@ namespace Atlas.Presentation.Battle
     // design/battle.md「Stage 1」。技はコマンドUIのボタン(View)から選ぶが、強制交代は
     // UIを持たず自動で生存している先頭の枠に交代する(design/battle.mdの簡易AIと同じ方針を
     // 自分側にも適用したもの。バトル全体を自動進行させる用途で使うための簡略化)。
+    // 決着(OnBattleEnd)後はBattleResultModalを出し、そこからHomeシーンへ戻る。
     public sealed class BattlePresenter : IAsyncStartable, IDisposable
     {
         private readonly BattlePage view;
         private readonly IBattleConnection connection;
         private readonly IMasterDataService masterDataService;
         private readonly BattleViewDto initialDto;
+        private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
+
+        // 決着後(結果Modal表示中)にコマンドや投了ボタンが押されても何もしないようにする。
+        private bool battleEnded;
 
         private string selfPlayerId;
         private string opponentPlayerId;
@@ -34,24 +40,31 @@ namespace Atlas.Presentation.Battle
         private int opponentHpPercent = 100;
 
         public BattlePresenter(
-            BattlePage view, IBattleConnection connection, IMasterDataService masterDataService, BattleViewDto initialDto)
+            BattlePage view, IBattleConnection connection, IMasterDataService masterDataService, BattleViewDto initialDto,
+            IScreenNavigator screenNavigator)
         {
             this.view = view;
             this.connection = connection;
             this.masterDataService = masterDataService;
             this.initialDto = initialDto;
+            this.screenNavigator = screenNavigator;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
             connection.OnMatchStart += HandleMatchStart;
             connection.OnTurnResult += HandleTurnResult;
+            connection.OnBattleEnd += HandleBattleEnd;
 
             for (var slot = 0; slot < view.OnCommandButtonClicked.Count; slot++)
             {
                 var capturedSlot = slot;
                 view.OnCommandButtonClicked[slot].Subscribe(_ => SubmitMove(capturedSlot)).AddTo(disposables);
             }
+
+            view.OnForfeitButtonClicked
+                .SubscribeAwait(async (_, ct) => await ConfirmForfeitAsync(ct), AwaitOperation.Drop)
+                .AddTo(disposables);
 
             await connection.JoinAsync("dummy-token", "dummy-match");
             await connection.SubmitSelectionAsync(initialDto.SelfPachimonIds);
@@ -61,12 +74,13 @@ namespace Atlas.Presentation.Battle
         {
             connection.OnMatchStart -= HandleMatchStart;
             connection.OnTurnResult -= HandleTurnResult;
+            connection.OnBattleEnd -= HandleBattleEnd;
             disposables.Dispose();
         }
 
         private void SubmitMove(int index)
         {
-            if (index >= selfMoves.Length)
+            if (battleEnded || index >= selfMoves.Length)
             {
                 return;
             }
@@ -91,6 +105,42 @@ namespace Atlas.Presentation.Battle
 
             view.Refresh(BuildUiState());
         }
+
+        // 投了確認Modalの結果(投了する=true)を待ち、投了する場合だけIBattleConnectionへ送る。
+        // 投了による決着もOnBattleEnd経由で届くため、結果Modalの表示はHandleBattleEndに任せる。
+        private async UniTask ConfirmForfeitAsync(CancellationToken cancellation)
+        {
+            if (battleEnded)
+            {
+                return;
+            }
+
+            var modal = await screenNavigator.PushModalAsync<ForfeitConfirmModal>();
+            var forfeit = await screenNavigator.WaitForPopModalAsync<bool>(modal, cancellation);
+            if (forfeit && !battleEnded)
+            {
+                await connection.ForfeitAsync();
+            }
+        }
+
+        private void HandleBattleEnd(BattleEndPayload payload)
+        {
+            battleEnded = true;
+            var isWin = payload.WinnerId == selfPlayerId;
+            screenNavigator.PushModalAsync<BattleResultModal, BattleResultViewDto>(new BattleResultViewDto
+            {
+                ResultText = isWin ? "勝利!" : "敗北…",
+                ReasonText = ToReasonText(payload.Reason, isWin),
+            }).Forget();
+        }
+
+        private static string ToReasonText(BattleEndReason reason, bool isWin) => reason switch
+        {
+            BattleEndReason.AllFainted => isWin ? "相手のパチモンをすべて倒した" : "自分のパチモンがすべて倒れた",
+            BattleEndReason.Forfeit => isWin ? "相手が降参した" : "降参した",
+            BattleEndReason.DisconnectTimeout => isWin ? "相手の接続が切れた" : "接続が切れた",
+            _ => string.Empty,
+        };
 
         private void HandleTurnResult(TurnResultPayload payload)
         {

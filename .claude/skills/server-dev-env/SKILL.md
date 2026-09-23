@@ -89,6 +89,8 @@ DEBUG request{method=POST uri=/devices}: Server::http_log: response body status=
   `Authorization`ヘッダーは出力しない。4096文字を超えるボディは切り詰める
 - Swagger UIのHTML/JSなど、`application/json`・`text/plain`以外のレスポンスはボディを出さない
 - `GET /chat/poll`はクライアントが定期的に呼ぶため、DEBUGでは量が多くなる
+- クライアント側から見た送受信は、Unity Consoleの`[API] --> ...`/`[API] <-- ...`で確認できる
+  (Editor・開発ビルドのみ。`Infrastructure/Api/UnityApiRequestLogger.cs`)
 
 ## テスト
 

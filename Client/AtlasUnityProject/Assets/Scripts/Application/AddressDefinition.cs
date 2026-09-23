@@ -14,7 +14,10 @@ namespace Atlas.Application.Address
     public partial class AddressDefinition
     {
         public const string masterdatabytes = "masterdata.bytes";
+        public const string Battle = "Battle";
         public const string BattlePage = "BattlePage";
+        public const string BattleResultModal = "BattleResultModal";
+        public const string ForfeitConfirmModal = "ForfeitConfirmModal";
         public const string Home = "Home";
         public const string HomePage = "HomePage";
         public const string TitlePage = "TitlePage";

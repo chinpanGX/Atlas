@@ -22,7 +22,7 @@ namespace Atlas.Presentation.Home
 
         public void Refresh(HomeViewDto dto)
         {
-            nicknameText.text = dto.Nickname;
+            nicknameText.text = dto.PlayerId;
             gemsText.text = dto.Gems.ToString();
         }
     }

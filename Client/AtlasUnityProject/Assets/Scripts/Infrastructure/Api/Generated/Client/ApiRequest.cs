@@ -12,6 +12,9 @@ namespace Atlas.Infrastructure.Api
     /// <summary>各ApiClientから使う、UnityWebRequestを介した薄いJSON HTTP送受信ヘルパー。</summary>
     public static class ApiRequest
     {
+        /// <summary>送受信ごとに呼ばれるロガー。nullの場合は何も記録しない。</summary>
+        public static IApiRequestLogger? Logger { get; set; }
+
         /// <summary>レスポンスボディをTResponseとしてデシリアライズして返す。</summary>
         public static async UniTask<TResponse> SendAsync<TResponse>(string baseUrl, string method, string path, object? body, string? accessToken)
         {
@@ -32,9 +35,10 @@ namespace Atlas.Infrastructure.Api
             {
                 downloadHandler = new DownloadHandlerBuffer()
             };
+            string? json = null;
             if (body is not null)
             {
-                var json = JsonSerializer.Serialize(body);
+                json = JsonSerializer.Serialize(body);
                 request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
                 request.SetRequestHeader("Content-Type", "application/json");
             }
@@ -44,6 +48,8 @@ namespace Atlas.Infrastructure.Api
                 request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
             }
 
+            Logger?.LogRequest(method, url, json);
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             // UniTaskのSendWebRequest()拡張はHTTPエラー時にrequest.resultを見て返るのではなく、
             // 自前でUnityWebRequestExceptionをthrowする(request.result判定を後段に置いても
             // 到達しない)ため、失敗経路はtry/catchで捕まえる必要がある。
@@ -53,10 +59,12 @@ namespace Atlas.Infrastructure.Api
             }
             catch (UnityWebRequestException e)
             {
+                Logger?.LogResponse(method, url, e.ResponseCode, e.Text, stopwatch.Elapsed.TotalMilliseconds);
                 Debug.LogError($"[ApiRequest] {method} {url} -> {(int)e.ResponseCode} {e.Error}\n{e.Text}");
                 throw new ApiException((int)e.ResponseCode, $"{method} {path}: {e.Error}", e.Text);
             }
 
+            Logger?.LogResponse(method, url, request.responseCode, request.downloadHandler.text, stopwatch.Elapsed.TotalMilliseconds);
             return request;
         }
     }

@@ -196,9 +196,12 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
       接続先切り替えも必要。SQLやサーバー内部の処理との対応が取れない。MagicOnion(gRPC)には
       流用しにくい。通信の改ざん・再送が必要になったら、Windows上で`mitmweb --mode
       reverse:http://127.0.0.1:3000 -p 8080`をその場で起動すれば足りる
-    - **Unity側での`Debug.Log`出力**: サーバー側のログで送受信の中身は確認できるため見送り。
-      必要になったら、`api-codegen`が生成する`ApiRequest`にロガーの差し込み口を設ける形にする
-      (生成物を直接編集しない・汎用ツールに`Debug.Log`を固定で入れないため)
+    - ~~**Unity側での`Debug.Log`出力**~~ → 後から実装した。`api-codegen`が生成する`ApiRequest`に
+      ロガーの差し込み口(`ApiRequest.Logger`/`IApiRequestLogger`)を追加し、Atlas側の
+      `UnityApiRequestLogger`(`Infrastructure/Api/`)が`[API] --> ...`/`[API] <-- ...`の形式で
+      Unity Consoleへ出す。`secretKey`/`accessToken`は伏字、4096文字超は切り詰め。
+      `RootLifetimeScope`で`Debug.isDebugBuild`(Editor・開発ビルド)の時だけ設定する
+      (生成物を直接編集しない・汎用ツールに`Debug.Log`を固定で入れないため、差し込み口方式にした)
     - **APIサーバーのコンテナ化**: WindowsのDocker上ではRustのビルドが遅く、sqlxのコンパイル時
       チェックに`.sqlx`オフラインキャッシュ(`SQLX_OFFLINE`)の運用も必要で、Riderでのデバッグも
       しにくくなるため今は見送り。MagicOnionサーバーの着手時(サービス間通信が増える)か、

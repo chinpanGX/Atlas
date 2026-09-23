@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 5039692119166203618}
   - component: {fileID: 3705482879963481925}
   - component: {fileID: 4366291651964573128}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: StartButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -132,7 +132,7 @@ GameObject:
   - component: {fileID: 6019346487079393229}
   - component: {fileID: 5021794646578159732}
   - component: {fileID: 5129754647409645880}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: MessageText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -269,7 +269,7 @@ GameObject:
   - component: {fileID: 5568512187908702728}
   - component: {fileID: 7957363641253460070}
   - component: {fileID: 1591853101265047102}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: TitlePage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -347,7 +347,7 @@ GameObject:
   - component: {fileID: 8957351471743965600}
   - component: {fileID: 4029917221942924055}
   - component: {fileID: 2583714750003707170}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}

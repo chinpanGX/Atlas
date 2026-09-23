@@ -7,13 +7,9 @@ namespace Atlas.Infrastructure.Api
     {
         private readonly Dictionary<long, ItemEntity> itemEntities = new();
         
-        public int GetQuantity(long itemId)
+        public bool TryGet(long itemId, out ItemEntity itemEntity)
         {
-            if (!itemEntities.TryGetValue(itemId, out var entity))
-            {
-                return 0;
-            }
-            return entity.Quantity;
+            return itemEntities.TryGetValue(itemId, out itemEntity);
         }
         
         public void Upsert(ItemEntity itemEntity)

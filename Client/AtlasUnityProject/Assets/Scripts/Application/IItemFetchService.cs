@@ -1,6 +1,6 @@
 ﻿namespace Atlas.Application
 {
-    public interface IItemService
+    public interface IItemFetchService
     {
         int GetAmount(int itemId);
     }

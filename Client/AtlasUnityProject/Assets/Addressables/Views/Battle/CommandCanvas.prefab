@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 8270134379182332998}
   - component: {fileID: 7972836729730137910}
   - component: {fileID: 3787211999343663466}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -150,7 +150,7 @@ GameObject:
   - component: {fileID: 6814064165895235411}
   - component: {fileID: 7235907787333923240}
   - component: {fileID: -9110321664960933643}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: CommandCanvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -172,10 +172,10 @@ RectTransform:
   - {fileID: 4135383221642680070}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1920, y: 1080}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!223 &7154298704988855043
 Canvas:
@@ -269,7 +269,7 @@ GameObject:
   - component: {fileID: 7801194417346793757}
   - component: {fileID: 633037594996868654}
   - component: {fileID: 3367390662997132458}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -405,7 +405,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4135383221642680070}
   - component: {fileID: 6933060109148664008}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: LayoutRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -473,7 +473,7 @@ GameObject:
   - component: {fileID: 3194471259279865973}
   - component: {fileID: 2343409769319205972}
   - component: {fileID: 2887635614205514434}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: MoveButton3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -597,7 +597,7 @@ GameObject:
   - component: {fileID: 2725580076267149518}
   - component: {fileID: 9695188476105875}
   - component: {fileID: 1642422767288966134}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: MoveButton2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -721,7 +721,7 @@ GameObject:
   - component: {fileID: 6454309010932152476}
   - component: {fileID: 7664715304743671252}
   - component: {fileID: 2925185647016701452}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: MoveButton4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -844,7 +844,7 @@ GameObject:
   - component: {fileID: 5957073128113847387}
   - component: {fileID: 6997404438030945210}
   - component: {fileID: 5804586319757298688}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -982,7 +982,7 @@ GameObject:
   - component: {fileID: 7074388585456909794}
   - component: {fileID: 8699314116990087316}
   - component: {fileID: 3477169082369135334}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: MoveButton1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1105,7 +1105,7 @@ GameObject:
   - component: {fileID: 5088217264426381881}
   - component: {fileID: 7023994387808933713}
   - component: {fileID: 2184673897018524082}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}

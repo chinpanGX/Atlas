@@ -15,6 +15,16 @@ MonoBehaviour:
   m_GroupName: Default Local Group
   m_GUID: 0ccf54438e2faac49924537f5aa785fc
   m_SerializeEntries:
+  - m_GUID: 294a648fc83490a4b88a509e950448ca
+    m_Address: BattleResultModal
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 405ebb4d2ac86e84d9c7023ff031700c
+    m_Address: ForfeitConfirmModal
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 54544c37087bd6f48b88865b8a4fa467
     m_Address: HomePage
     m_ReadOnly: 0
@@ -22,6 +32,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 6733871844706c34883941a9a2f96493
     m_Address: Home
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 68d3070f6f851674cadb3a1a8bc50224
+    m_Address: Battle
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
