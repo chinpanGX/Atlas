@@ -1,13 +1,18 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use sqlx::MySqlPool;
 
 use crate::master::MasterData;
+use crate::service::matchmaking_service::{BattleConfig, MatchmakingQueue};
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: MySqlPool,
     pub master: Arc<MasterData>,
+    /// マッチング待機列(プロセスメモリのみ、DB永続化しない)
+    pub matchmaking: Arc<Mutex<MatchmakingQueue>>,
+    /// BattleServerのURL・`battle_token`の署名シークレット
+    pub battle: Arc<BattleConfig>,
 }
 
 impl AppState {
@@ -23,6 +28,7 @@ impl AppState {
     ///
     /// 起動時にマスタデータをDBから読み込み、`Arc<MasterData>`としてメモリに保持する
     /// (リクエストのたびにマスタテーブルへ問い合わせないため)。
+    /// マッチング関連の設定(`BATTLE_TOKEN_SECRET`等)も環境変数から読み込む。
     pub async fn from_pool(pool: MySqlPool) -> Self {
         let master = MasterData::load(&pool)
             .await
@@ -31,6 +37,8 @@ impl AppState {
         AppState {
             pool,
             master: Arc::new(master),
+            matchmaking: Arc::new(Mutex::new(MatchmakingQueue::default())),
+            battle: Arc::new(BattleConfig::from_env()),
         }
     }
 }

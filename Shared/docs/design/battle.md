@@ -392,12 +392,17 @@ POST /battle/queue
 ```
 
 パーティが1体以上編成されていることが前提(パーティ編成は[outgame.md](outgame.md)参照)。
+未編成なら`400`。成功時は`200`(ボディ無し)で、マッチ成立の有無は`GET /battle/queue/status`で
+確認する。既に待機中・マッチ成立済み(結果未取得)の場合は何もしない(二重参加しても自分自身と
+マッチしない)。
 
 ### 2. マッチング待機列から離脱
 
 ```
 DELETE /battle/queue
 ```
+
+待機列にいない場合も`200`(ボディ無し)。
 
 ### 3. マッチ成立確認
 
@@ -406,8 +411,27 @@ GET /battle/queue/status
 ```
 
 polling方式(1秒程度の遅延はゲーム体験に影響しないため、WSを別途入れるコストに対して
-メリットが薄いと判断)。マッチング待機列自体はDB永続化せず、Rustプロセスのメモリ
-(チャネル等)で管理する(サーバー1台構成のため問題なし)。
+メリットが薄いと判断)。マッチング待機列自体はDB永続化せず、Rustプロセスのメモリで
+管理する(サーバー1台構成のため問題なし)。
+
+**実装方式**: `Mutex<VecDeque<player_id>>`(待機列)+`HashMap<player_id, MatchInfo>`
+(マッチ済み結果の一時保持)を`AppState`に持たせ、`POST /battle/queue`が呼ばれた時点で
+即座に同期的にペアリングする(専用のチャネル・バックグラウンドタスクは使わない)。
+1vs1の単純なマッチングにこの規模の非同期処理は過剰と判断した。
+- `POST /battle/queue`: 待機列に自分(`player_id`)を追加 → 他に待機者が1人以上いれば
+  先頭の1人を取り出しペア成立、両者分の`MatchInfo`(matchId/battleToken/battleServer)を
+  `matched`に保存する
+- `GET /battle/queue/status`: `matched`に自分がいれば下記レスポンスを返し**取得後は
+  そのエントリを削除**する。まだ`waiting`にいるだけなら`{"status": "waiting"}`を返す
+
+レスポンス(未マッチ時)
+
+```json
+{ "status": "waiting", "matchId": "", "battleServer": "", "battleToken": "" }
+```
+
+`api-codegen`がOpenAPIの`nullable`に対応しないため(`Option<T>`を使わない方針、progress.md参照)、
+未マッチ時もフィールド自体は常に存在し、空文字を返す。クライアントは`status`で判定する。
 
 レスポンス(マッチ成立時)
 
@@ -419,6 +443,16 @@ polling方式(1秒程度の遅延はゲーム体験に影響しないため、WS
   "battleToken": "短命JWT(match_id, player_idを含む)"
 }
 ```
+
+**`battleToken`の実装方式**: 標準的なJWT(HS256)。Rust側は`jsonwebtoken`クレートで
+発行し、BattleServer側は`Microsoft.IdentityModel.JsonWebTokens`で検証する(自前の
+HMAC署名フォーマットはRust/C#双方で設計・実装コストが高いため不採用)。claimsは
+`match_id`/`player_id`のみ、有効期限は30秒(マッチ成立直後に接続するだけなので短くて
+よい)。共有シークレットは両サーバーとも環境変数(`BATTLE_TOKEN_SECRET`)で配布する。
+有効期限は`exp`クレーム(UNIX秒)で表現する。検証側のclock skew許容(`jsonwebtoken`の
+`Validation`はデフォルト60秒、`Microsoft.IdentityModel`の`ClockSkew`はデフォルト5分)が30秒より
+大きいと実質の有効期限が延びるため、BattleServer側では`ClockSkew`を小さく設定する。
+クライアントへ返す`battleServer`はRust側の環境変数`BATTLE_SERVER_URL`で設定する。
 
 ### 4. 対戦結果記録(内部API)
 
@@ -495,6 +529,31 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
 - `JoinResult`/`MoveRequest`/`BattleStartPayload`等のDTOは「IBattleConnection / Payload定義」
   (上記)で定義したものと同じ形を使う。`IBattleConnection`はこのHubの契約に対になるように
   設計してある
+
+### プロジェクト構成
+
+- `dotnet new web`(ASP.NET Core Empty)+`MagicOnion.Server`のNuGetパッケージ追加、という
+  公式Getting Started/[ChatAppサンプル](https://github.com/Cysharp/MagicOnion/tree/main/samples/ChatApp)
+  と同じ最小構成で立ち上げる(専用テンプレートは無い)。`Program.cs`はKestrelをHTTP/2のみに
+  設定して`AddMagicOnion()`/`MapMagicOnionService()`を呼ぶ数行で済む
+- Docker化は行わない(Rust APIサーバーと同じ判断。Windows上でのビルド速度・デバッグの
+  しやすさを優先。デプロイ方式を決める段階で改めて検討する。Rust側の同判断は
+  [Shared/docs/progress.md](../progress.md)残タスク#17参照)
+
+### 再接続時の盤面復元
+
+- 切断検知は`StreamingHubBase.OnDisconnected()`のoverrideで行う。切断時に対戦相手へ
+  `OnOpponentDisconnected`をブロードキャストし、`CancellationTokenSource`+
+  `Task.Delay(猶予秒数)`で猶予タイマーを開始する
+- 猶予時間内に再接続(=同じ`battleToken`/`matchId`で`JoinAsync`を再実行)があれば
+  タイマーをキャンセルし、`OnOpponentReconnected`をブロードキャストする。このとき
+  専用の再同期メソッドは設けず、`BattleState`の現在値から組み立てた`BattleStartPayload`を
+  再接続した接続者にだけ`OnMatchStart`として再送することで盤面を復元する
+  (`BattlePresenter`は`OnMatchStart`受信時に`SelfParty`/`OpponentParty`を初期化する
+  実装のため、そのまま復元処理として機能する。`IBattleHub`/`IBattleConnection`の契約
+  変更は不要)
+- 猶予時間内に再接続できなければタイマー発火でforfeit処理(`OnBattleEnd`+
+  `/internal/battle/result`)を行う
 
 ```csharp
 public interface IBattleHub : IStreamingHub<IBattleHub, IBattleHubReceiver>
@@ -625,7 +684,7 @@ HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
 
 ### ターンタイムアウト
 
-- 各ターンに制限時間を設ける(具体的な秒数はUI実装時に決定)
+- 各ターンに制限時間を設ける。**30秒**で確定(仮値、定数を変えるだけで後から調整可能)
 - 制限時間内に行動(技 or 交代)が送信されなかった場合、そのプレイヤーは当該ターンの
   行動権を失う(何もしない扱いでターンスキップ)。デフォルト行動の自動送信は行わない
 - 相手側が制限時間内に行動していれば、相手の行動のみ通常通り処理される
@@ -633,9 +692,10 @@ HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
 ### 切断・再接続
 
 - MagicOnionの接続断を検知した場合、`BattleState`はすぐには破棄せず、猶予時間
-  (例: 60秒、具体値は実装時に決定)は対戦を一時停止して再接続を待つ
+  **60秒**(仮値、定数を変えるだけで後から調整可能)は対戦を一時停止して再接続を待つ
 - 猶予時間内に再接続できた場合、サーバー側が保持する`BattleState`から現在の
-  盤面情報を再送し、対戦を続行する
+  盤面情報を再送し、対戦を続行する。実装方式は「MagicOnion Hub設計(C#側)」の
+  「再接続時の盤面復元」参照
 - 猶予時間内に再接続できなかった場合、切断側の敗北として`battle_end`で終了する
   (forfeit扱い)
 - 猶予時間中は両プレイヤーとも新たな行動を受け付けない(片方が復帰待ちの間、

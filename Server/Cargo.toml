@@ -53,6 +53,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # TraceLayer: リクエストごとのspan(method/uri)と、ステータス・処理時間のログ出力
 tower-http = { version = "0.5", features = ["trace"] }
 
+# マッチ成立時にBattleServerへ渡すbattle_token(短命JWT、HS256)の発行に使用
+jsonwebtoken = "9"
+
 
 [dev-dependencies]
 # 結合テストでRouterに直接リクエストを送るため(oneshotメソッドを提供)

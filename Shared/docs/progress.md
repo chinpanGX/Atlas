@@ -92,9 +92,12 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | POST | /scout/rolls/{rollId}/select |
 | POST | /edit/party |
 | POST | /edit/pachimon_moves |
+| POST | /battle/queue |
+| DELETE | /battle/queue |
+| GET | /battle/queue/status |
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
-- テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計55件)
+- テスト: `tests/{auth,battle,chat,device,player,master_data,scout}_api_test.rs`(計61件)
 - マイグレーション23本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
   move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
   players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
@@ -206,6 +209,14 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
       チェックに`.sqlx`オフラインキャッシュ(`SQLX_OFFLINE`)の運用も必要で、Riderでのデバッグも
       しにくくなるため今は見送り。MagicOnionサーバーの着手時(サービス間通信が増える)か、
       デプロイ方式を決めるときに行う(残タスク#17)
+- マッチングAPI(`POST/DELETE /battle/queue`, `GET /battle/queue/status`)を実装(design/battle.md
+  「API仕様(マッチング、Rust側)」)。待機列は`AppState.matchmaking`(`Mutex<MatchmakingQueue>`)で
+  プロセスメモリのみに保持し、`POST`時に同期的にペアリングする。`battle_token`は`jsonwebtoken`で
+  発行するHS256のJWT(claims: `match_id`/`player_id`/`exp`、30秒)。共有シークレットは
+  `.env`の`BATTLE_TOKEN_SECRET`(必須、未設定だと起動時panic)、返却するBattleServerのURLは
+  `BATTLE_SERVER_URL`(省略時`http://127.0.0.1:5000`)。`GET /battle/queue/status`のレスポンスは
+  `api-codegen`がnullable非対応のため`Option`を使わず、待機中は`matchId`等を空文字で返す。
+  Unity向けDTOの再生成(`api-codegen`)はClient側のマッチング実装着手時に行う
 - **今回発見したギャップ(Server、テスト環境)**: `sqlx::test`を使う結合テスト(`auth_api_test`等)が
   `failed to connect to setup test database: PoolTimedOut`で失敗する。上記の変更前のコードでも同じく
   失敗するため、今回の変更とは無関係。ローカル環境側の問題と思われ、原因は未調査
@@ -214,7 +225,6 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 
 | セクション | 内容 |
 |---|---|
-| マッチング | `/battle/queue*` |
 | 内部API | `/internal/battle/result` |
 
 ## 4. クライアント / バトルサーバー / API連携
@@ -386,6 +396,12 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   `SignInService`の初回認証も`AccessTokenRefresher.RefreshAsync`経由に統一し、
   `PlayerConnection`の各APIは`SendAsync`で包んだ。今後追加するChat/Scout等のConnectionも
   同じように`SendAsync`で包む必要がある
+- **パーティ編成画面(ひな形)**: `PartyEditPage`(Presentation/PartyEdit、Addressablesアドレス
+  `PartyEditPage`)を追加し、Homeのパーティボタンから`PushPageAsync<PartyEditPage>`で開くようにした。
+  スロット6枠(3列x2段、`slot`は1始まり)・保存・戻るボタンを持つ。現時点では初期表示が空の編成で、
+  スロット選択・保存はログ出力のみ(戻るはPop)。残りは、所持パチモン・現在の編成
+  (`IPachimonRepository`/`IPartyRepository`)を読み出すService、パチモン選択UI、`POST /edit/party`の
+  Connection(`AccessTokenRefresher.SendAsync`で包む)
 - **UIPackages**: 共通UI部品`CommonButton`を`Presentation/Common`から独立アセンブリ
   `UIPackages.Runtime`(+Inspector拡張の`UIPackages.Editor`)へ移動
 - **今回発見したギャップ(Client、サインイン・`playerDiff`適用)**:
@@ -470,7 +486,7 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | ~~2~~ | ~~`moves`/`move_groups`/`move_group_master`のDBテーブル作成・`cache.rs`/`seed_master_data.rs`対応~~ → 完了(マイグレーション追加・`cache.rs`で`move_group_master`をキャッシュ・`seed_master_data`で3テーブルとも投入。詳細は上記「3. Server API実装状況」参照) | server/master-data |
 | ~~3~~ | ~~`player_pachimon`(所持データ)のモデル・テーブル・API実装~~ → 完了(スカウトでの入手時に作成。パーティ編成・技の付け替えAPI自体は#13で完了) | server |
 | ~~4~~ | ~~スカウトAPI(`/scout/*`)実装~~ → 完了(`GET /scout/banners`, `POST /scout/rolls`, `POST /scout/rolls/{rollId}/select`。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
-| 5 | マッチングAPI(`/battle/queue*`)実装 | server |
+| ~~5~~ | ~~マッチングAPI(`/battle/queue*`)実装~~ → 完了(待機列は`AppState`のプロセスメモリ、`battle_token`は`jsonwebtoken`でHS256のJWT発行。結合テスト6件。詳細は上記「3. Server API実装状況」参照) | server |
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |

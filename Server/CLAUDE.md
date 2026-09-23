@@ -8,6 +8,7 @@ Rust/Axum製のREST APIサーバー。全体像は [ルートのCLAUDE.md](../CL
 
 MySQL Dockerコンテナの起動・マイグレーション・リセットなどは `server-dev-env` スキルを使う
 (`make setup` / `make up` / `make db-reset` 等)。DB接続情報は`.env`の`DATABASE_URL`(`dotenvy`)。
+`.env`には`battle_token`署名用の`BATTLE_TOKEN_SECRET`も必須(未設定だと起動・テストがpanicする)。
 `sqlx`はコンパイル時クエリチェックを行うため、**MySQLコンテナが起動していないと`cargo build`/
 `cargo check`自体が失敗する**。
 
@@ -49,11 +50,11 @@ extractor  要認証エンドポイント共通の認証チェック(axumのFrom
 - `AuthenticatedDevice`(`extractor.rs`)が`Authorization: Bearer <token>`を検証し、`device_id`を
   ハンドラ引数として渡す。要認証エンドポイントは引数にこれを追加するだけでよい
 - エラーは`AppError`(`error.rs`)に集約し、`IntoResponse`でHTTPステータスに変換
-- `AppState`(`state.rs`)が`MySqlPool`と`Arc<MasterData>`を保持し、`with_state`で全ハンドラに共有
+- `AppState`(`state.rs`)が`MySqlPool`・`Arc<MasterData>`・マッチング待機列(プロセスメモリ)を保持し、`with_state`で全ハンドラに共有
 - OpenAPI仕様は`openapi.rs`の`ApiDoc`(utoipa)から生成され、`/swagger-ui`で確認可能。
   `cargo run --bin export_openapi`で`api.yaml`として出力する(Unity向けコード生成`api-codegen`の入力)
 
-現在実装済みの機能領域: `auth` / `chat` / `device` / `player` / `scout`
+現在実装済みの機能領域: `auth` / `battle`(マッチング) / `chat` / `device` / `player` / `scout`
 (`src/api/*.rs` / `src/service/*.rs` に対応)。
 
 ## マスターデータ
@@ -73,7 +74,7 @@ extractor  要認証エンドポイント共通の認証チェック(axumのFrom
 
 ## テスト構成
 
-- `tests/{auth,chat,device,player,scout}_api_test.rs`: `tower::ServiceExt::oneshot`によるAPIレベル結合テスト
+- `tests/{auth,battle,chat,device,player,scout}_api_test.rs`: `tower::ServiceExt::oneshot`によるAPIレベル結合テスト
 - `tests/master_data_test.rs`や一部のservice層テストは`sqlx::test`を使い実DBを必要とする
 - DB不要な単体テストは`src/`内の`#[cfg(test)] mod tests`にある
 
