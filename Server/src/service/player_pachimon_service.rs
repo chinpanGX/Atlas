@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
 use sqlx::{MySql, MySqlPool, Transaction};
 use ulid::Ulid;
 
@@ -7,6 +8,26 @@ use crate::error::AppError;
 use crate::master::MasterData;
 use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove};
 use crate::model::player_party_slot::PlayerPartySlot;
+
+/// `player_pachimon.effort_values`(JSON)の中身。キーは`grant`が書き込む形と同じ。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EffortValues {
+    pub hp: i32,
+    pub atk: i32,
+    pub def: i32,
+    pub spatk: i32,
+    pub spdef: i32,
+    pub speed: i32,
+}
+
+/// 対戦で1体を組み立てるための所持データ(`POST /internal/battle/loadouts`用)。
+/// `moves`はslot順。
+pub struct BattleLoadout {
+    pub player_pachimon_id: String,
+    pub pachimon_id: i32,
+    pub effort_values: EffortValues,
+    pub moves: Vec<PlayerPachimonMove>,
+}
 
 /// `PUT /players/me/party`リクエストの1slot分の入力。
 pub struct PartySlotInput {
@@ -150,6 +171,50 @@ pub async fn list_owned_moves(
             },
         )
         .collect())
+}
+
+/// `player_id`が所持する個体のうち、`player_pachimon_ids`で指定したものを対戦用に取得する
+/// (BattleServerが選出を受け取ったときに呼ぶ)。返り値は`player_pachimon_ids`と同じ順番。
+///
+/// # Errors
+/// 指定した個体に`player_id`の所持でないもの(存在しないIDを含む)がある場合に
+/// `AppError::NotFound`、DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn find_battle_loadouts(
+    pool: &MySqlPool,
+    player_id: &str,
+    player_pachimon_ids: &[String],
+) -> Result<Vec<BattleLoadout>, AppError> {
+    let owned: Vec<(String, i32, sqlx::types::Json<EffortValues>)> = sqlx::query_as(
+        "SELECT player_pachimon_id, pachimon_id, effort_values FROM player_pachimon \
+         WHERE player_id = ?",
+    )
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    // list_owned_movesはslot順に並んでいるため、個体ごとに振り分けてもslot順が保たれる。
+    let owned_moves = list_owned_moves(pool, player_id).await?;
+
+    player_pachimon_ids
+        .iter()
+        .map(|id| {
+            let (player_pachimon_id, pachimon_id, effort_values) = owned
+                .iter()
+                .find(|(owned_id, _, _)| owned_id == id)
+                .ok_or(AppError::NotFound)?;
+            Ok(BattleLoadout {
+                player_pachimon_id: player_pachimon_id.clone(),
+                pachimon_id: *pachimon_id,
+                effort_values: effort_values.0,
+                moves: owned_moves
+                    .iter()
+                    .filter(|m| &m.player_pachimon_id == id)
+                    .cloned()
+                    .collect(),
+            })
+        })
+        .collect()
 }
 
 /// 認証済みプレイヤーの現在のパーティ編成(`player_party_slots`)を取得する。

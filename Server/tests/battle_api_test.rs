@@ -27,6 +27,11 @@
 // 結果報告が届かない対戦の後始末(battle_service::abort_stale_matches)のテスト。
 // - test_abort_stale_matches: 一定時間を過ぎたin_progressだけがabortedになることを確認
 // - test_report_result_after_stale_abort: 打ち切り後に届いた結果報告は受け付け、finishedへ上書きしてgemsを付与することを確認
+//
+// POST /internal/battle/loadouts (BattleServerが選出個体の所持データを取得する)のテスト。
+// - test_battle_loadouts_success: 指定した順番で、パチモンID・努力値・技(slot順)が返ることを確認
+// - test_battle_loadouts_not_owned: 他プレイヤーの個体・存在しないIDを含むと404になることを確認
+// - test_battle_loadouts_wrong_secret: X-Internal-Secretの不一致・欠落で401になることを確認
 use axum::{
     Router,
     body::Body,
@@ -786,7 +791,10 @@ async fn test_abort_stale_matches(pool: MySqlPool) {
 
     age_match(&pool, &m.match_id, 2).await;
 
-    let aborted = abort_stale_matches(&pool, STALE_MATCH_TIMEOUT).await.ok().unwrap();
+    let aborted = abort_stale_matches(&pool, STALE_MATCH_TIMEOUT)
+        .await
+        .ok()
+        .unwrap();
     assert_eq!(aborted, 1);
     assert_eq!(
         match_status_and_winner(&pool, &m.match_id).await,
@@ -796,7 +804,10 @@ async fn test_abort_stale_matches(pool: MySqlPool) {
 
     // 打ち切り済みの対戦は再度対象にならない
     assert_eq!(
-        abort_stale_matches(&pool, STALE_MATCH_TIMEOUT).await.ok().unwrap(),
+        abort_stale_matches(&pool, STALE_MATCH_TIMEOUT)
+            .await
+            .ok()
+            .unwrap(),
         0
     );
 }
@@ -808,7 +819,10 @@ async fn test_report_result_after_stale_abort(pool: MySqlPool) {
     let gems_b_before = gems_of(&pool, &m.player_b).await;
 
     age_match(&pool, &m.match_id, 2).await;
-    abort_stale_matches(&pool, STALE_MATCH_TIMEOUT).await.ok().unwrap();
+    abort_stale_matches(&pool, STALE_MATCH_TIMEOUT)
+        .await
+        .ok()
+        .unwrap();
     assert_eq!(match_status(&pool, &m.match_id).await, "aborted");
 
     // 1時間を超える対戦の結果が、打ち切り後に届いた
@@ -829,4 +843,134 @@ async fn test_report_result_after_stale_abort(pool: MySqlPool) {
         gems_of(&pool, &m.player_b).await,
         gems_b_before + BATTLE_WIN_REWARD_GEMS
     );
+}
+
+async fn battle_loadouts(
+    app: Router,
+    secret: Option<&str>,
+    body: Value,
+) -> axum::response::Response {
+    let mut builder = Request::builder()
+        .method("POST")
+        .uri("/internal/battle/loadouts")
+        .header("Content-Type", "application/json");
+    if let Some(secret) = secret {
+        builder = builder.header("X-Internal-Secret", secret);
+    }
+
+    app.oneshot(builder.body(Body::from(body.to_string())).unwrap())
+        .await
+        .unwrap()
+}
+
+async fn owned_pachimon_ids(pool: &MySqlPool, player_id: &str) -> Vec<String> {
+    sqlx::query_scalar("SELECT player_pachimon_id FROM player_pachimon WHERE player_id = ?")
+        .bind(player_id)
+        .fetch_all(pool)
+        .await
+        .unwrap()
+}
+
+#[sqlx::test]
+async fn test_battle_loadouts_success(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let (_, player_id) = create_player(app.clone(), "loadout-secret", "選出太郎").await;
+    let starter_id = owned_pachimon_ids(&pool, &player_id).await.remove(0);
+
+    // 2体目を直接追加し、努力値・技の並びがそのまま返ることを確かめる。
+    let second_id = "01J0000000000000000000LOAD".to_string();
+    sqlx::query(
+        "INSERT INTO player_pachimon (player_pachimon_id, player_id, pachimon_id, effort_values)          VALUES (?, ?, 1, ?)",
+    )
+    .bind(&second_id)
+    .bind(&player_id)
+    .bind(json!({"hp": 4, "atk": 8, "def": 0, "spatk": 0, "spdef": 0, "speed": 52}))
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO moves (move_id, name, move_type, category, base_power, accuracy, max_pp)          VALUES (2, 'でんこうせっか', 1, 1, 40, 100, 30)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    for (move_row_id, slot, move_id) in [
+        ("01J0000000000000000000MOV2", 2, 1),
+        ("01J0000000000000000000MOV1", 1, 2),
+    ] {
+        sqlx::query(
+            "INSERT INTO player_pachimon_moves (player_pachimon_move_id, player_pachimon_id, slot, move_id)              VALUES (?, ?, ?, ?)",
+        )
+        .bind(move_row_id)
+        .bind(&second_id)
+        .bind(slot)
+        .bind(move_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    let response = battle_loadouts(
+        app,
+        Some(&internal_secret()),
+        json!({ "playerId": player_id, "playerPachimonIds": [second_id, starter_id] }),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+
+    assert_eq!(
+        json,
+        json!({
+            "pachimon": [
+                {
+                    "playerPachimonId": second_id,
+                    "pachimonId": 1,
+                    "effortValues": {"hp": 4, "atk": 8, "def": 0, "spatk": 0, "spdef": 0, "speed": 52},
+                    "moveIds": [2, 1],
+                },
+                {
+                    "playerPachimonId": starter_id,
+                    "pachimonId": 1,
+                    "effortValues": {"hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0},
+                    "moveIds": [1],
+                },
+            ]
+        })
+    );
+}
+
+#[sqlx::test]
+async fn test_battle_loadouts_not_owned(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let (_, player_a) = create_player(app.clone(), "loadout-a", "A").await;
+    let (_, player_b) = create_player(app.clone(), "loadout-b", "B").await;
+    let own_id = owned_pachimon_ids(&pool, &player_a).await.remove(0);
+    let other_id = owned_pachimon_ids(&pool, &player_b).await.remove(0);
+
+    for ids in [
+        json!([own_id, other_id]),
+        json!([own_id, "01J0000000000000000000NONE"]),
+    ] {
+        let response = battle_loadouts(
+            app.clone(),
+            Some(&internal_secret()),
+            json!({ "playerId": player_a, "playerPachimonIds": ids }),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+}
+
+#[sqlx::test]
+async fn test_battle_loadouts_wrong_secret(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let (_, player_id) = create_player(app.clone(), "loadout-secret", "選出太郎").await;
+    let ids = owned_pachimon_ids(&pool, &player_id).await;
+    let body = json!({ "playerId": player_id, "playerPachimonIds": ids });
+
+    let response = battle_loadouts(app.clone(), Some("wrong-secret"), body.clone()).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let response = battle_loadouts(app, None, body).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }

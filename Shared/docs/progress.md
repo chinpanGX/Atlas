@@ -380,8 +380,8 @@ BattleServer(MagicOnion)への実接続まで実装した(下記「パーティ�
   (`ApiBattleMatchmaker`: `POST /battle/queue`+`GET /battle/queue/status`を1秒間隔、選出はパーティの枠番号順に
   先頭から最大3体)→Battleシーンで`IBattleConnectionFactory`が`RealtimeBattleConnection`
   (`Atlas.Infrastructure.Realtime`、MagicOnion+YetAnotherHttpHandler)を生成、の流れを実装。api-codegenを再実行し
-  `BattleApiClient`を追加。Mock/実サーバーはBootstrapシーンの`RootLifetimeScope`の`Use Real Battle Server`で切り替え
-  (既定オフ=Mock。PlayModeテストは常にMock)。BattleServerがダミーデータ(下記ギャップ参照)のため、
+  `BattleApiClient`を追加。Mock/実サーバーはBootstrapシーンの`RootLifetimeScope`の`Use Battle Server`で切り替え
+  (既定オン=実サーバー、オフでMock。PlayModeテストは常にMock)。BattleServerがダミーデータ(下記ギャップ参照)のため、
   `BattleStartPayload`に自分側の技(`SelfMoves`: 技ID・残りPP・最大PP)を追加し、Clientはサーバーから届いた技と
   PachimonIdを表示・送信するよう変更(`BattlePresenter`は手元のマスタ/所持データから技を組み立てなくなった)。
   あわせて`BattlePresenter.CalculateMaxHp`を`PachimonStatCalculator`に統一
@@ -556,11 +556,20 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
   パッケージ内にあるとビルド成果物(`bin|obj`)もパッケージ内に出力され、UnityがそのDLLを取り込んで
   CS1704(同名アセンブリの重複)になるため。誤ってコミットされていた`Shared/BattleCore/bin.meta`/`obj.meta`も削除。
   移動後のcsprojは`LangVersion 9.0`・`ImplicitUsings`無効でUnityと同じ条件でコンパイルする
+- **選出個体の実データ化(#19)**: BattleServerが選出を受け取ると、Rustの新しい内部API
+  `POST /internal/battle/loadouts`(design/battle.md「5. 選出個体の所持データ取得(内部API)」)で所持データ
+  (パチモンID・努力値・技)を取得し、所持チェックもRust側で行う(他人の個体・存在しないIDは404→選出を拒否)。
+  種族値・タイプ・技の性能・タイプ相性はマスタ(`MemoryDatabase`)から`LoadoutBuilder`で組み立てる
+  (`ApiParticipantDataSource`)。`IParticipantDataSource`は選出分をまとめて解決する`ResolveAsync`に変更。
+  `INTERNAL_API_SECRET`が未設定だと対戦を始められないため、起動時に失敗させる。`DummyParticipantDataSource`は
+  Hubの進行を検証するテスト専用としてTests/へ移動。テスト: Rust結合テスト3件(`test_battle_loadouts_*`)、
+  BattleServer 9件(`LoadoutBuilderTests`/`ApiParticipantDataSourceTests`、計31件)。ボット2体で実サーバーを通した
+  対戦(本物の初期技`33,19,58,45`で進行→全滅決着→結果記録)を確認済み
 - **今回発見したギャップ(BattleServer)**:
-  - `ParticipantStats`/`MoveData`/`ITypeChart`はダミー(`DummyParticipantDataSource`: 全員種族値オール80・
-    ノーマル単タイプ・技19/20固定、所持チェックなし)。`Domain.MasterData`(`run.sh realtime`、配置済み)の
-    配置後に本実装へ差し替える。`player_pachimon`の努力値・習得技はMySQLにしかないため、BattleServerが
-    それをどう取得するか(Rust経由の内部API等)も未決定
+  - ~~`ParticipantStats`/`MoveData`/`ITypeChart`はダミー(`DummyParticipantDataSource`: 全員種族値オール80・
+    ノーマル単タイプ・技19/20固定、所持チェックなし)~~ → 上記「選出個体の実データ化(#19)」で解消
+  - このPCではBattleServerのuser-secrets(`BATTLE_TOKEN_SECRET`/`INTERNAL_API_SECRET`)が未設定だった
+    (DEVELOPMENT.md「3.」の手順が未実施)。今回の確認は環境変数で渡して起動した
   - ~~`/internal/battle/result`はRust側未実装のため、サービス間シークレットの方式は仮決め~~ → Rust側を
     この方式(`X-Internal-Secret`ヘッダー、共有値`INTERNAL_API_SECRET`、送信先`API_SERVER_URL`省略時
     `http://127.0.0.1:3000`)のまま実装済み。両サーバーで`INTERNAL_API_SECRET`を同じ値にする必要がある。
@@ -590,11 +599,36 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
   (ツール自体は未対応のまま)。今回はAPI設計側で回避した(`player_party_slots`テーブル化。
   詳細は上記「3. Server API実装状況」参照)ため、ツール拡張は先送りにしている
 
+## 次に進める順番(2026-09-24時点)
+
+目標は「Unity ClientからBattleServer上で、プレイヤーの所持データを使って対戦できる」こと。
+Server・BattleServer側はボット同士の対戦で確認済み(上記「選出個体の実データ化(#19)」)なので、Client側の確認から始める。
+
+1. **Multiplayer Play Modeでの動作確認**(Unity Client同士の実サーバー対戦)
+   - 事前準備: BattleServerのuser-secrets設定(DEVELOPMENT.md「3.」)、Server・BattleServerを最新のコードで起動
+   - 初期技4つを反映するため、初期技の変更前に作ったアカウントはセーブデータを消して作り直す
+     (`SaveData`/`SaveData_VP_<id>`)
+   - 確認すること: マッチング→選出→技4つの表示・送信→交代→決着→結果Modal→Home復帰、相手パチモンの名前・タイプ表示
+   - 不具合が見つかれば、その修正を最優先にする
+2. **自分側の切断→再接続**(Client)
+   - `RealtimeBattleConnection`で切断を検知し(`WaitForDisconnect`)、同じ`battleToken`/`matchId`で`JoinAsync`を
+     再実行する(猶予60秒以内に数回)。再送される`OnMatchStart`で盤面を戻し、再接続中は入力を止めて表示する
+   - 現状は一瞬切れただけで`DisconnectTimeout`負けになる
+3. **対戦まわりの失敗時表示**(#18の一部、#21)
+   - エラーModalを作り、BattleServerへの参加失敗・マッチング失敗・行動の送信失敗で表示する(現状はログのみ)
+   - 通信エラー全体の仕組み(#18)は後回しにし、対戦の3か所に絞る
+4. **ターン制限時間と相手の切断中表示**(#21)
+   - `TurnTimeLimitSeconds`で残り秒数を表示、`OnOpponentDisconnected`/`OnOpponentReconnected`で「相手の接続を待っています」を表示
+5. その後(対戦には直接関係しないもの)
+   - #20 IL2CPPビルド対応(実機・モバイルでビルドするとき)
+   - スカウト・チャット・技の付け替え・ニックネーム入力の各画面
+   - master-data-pipelineの`copy-client-bytes`でUnity側の`.meta`が消える問題(現状はスキルの復元手順で対処)
+
 ## 5. 残タスク一覧(統合)
 
 | # | 内容 | 領域 |
 |---|---|---|
-| 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 → 一部完了(Hub・トークン検証・切断/再接続・内部API送信まで実装。マスタデータを使うステータス/技変換はダミー(マスタ自体は配置・起動時読み込み済み、#19)、上記「バトルサーバー」参照) | バトルサーバー |
+| 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 → 一部完了(Hub・トークン検証・切断/再接続・内部API送信まで実装。マスタデータを使うステータス/技変換・所持データ取得まで実装済み(#19)、上記「バトルサーバー」参照) | バトルサーバー |
 | ~~2~~ | ~~`moves`/`move_groups`/`move_group_master`のDBテーブル作成・`cache.rs`/`seed_master_data.rs`対応~~ → 完了(マイグレーション追加・`cache.rs`で`move_group_master`をキャッシュ・`seed_master_data`で3テーブルとも投入。詳細は上記「3. Server API実装状況」参照) | server/master-data |
 | ~~3~~ | ~~`player_pachimon`(所持データ)のモデル・テーブル・API実装~~ → 完了(スカウトでの入手時に作成。パーティ編成・技の付け替えAPI自体は#13で完了) | server |
 | ~~4~~ | ~~スカウトAPI(`/scout/*`)実装~~ → 完了(`GET /scout/banners`, `POST /scout/rolls`, `POST /scout/rolls/{rollId}/select`。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
@@ -608,7 +642,7 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 | 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正、`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、`POST /edit/party`のConnectionまで完了(上記「4. Unity Client」参照)。残りはスカウト・`POST /edit/pachimon_moves`のConnection | client |
 | 17 | APIサーバーのコンテナ化(Dockerfileのマルチステージビルド+`SQLX_OFFLINE`、composeのprofileで開発時の`cargo run`と併用)。MagicOnionサーバーの着手時に行う(上記「3. Server API実装状況」の「検討したが採用しなかった案」参照) | server |
 | 18 | 通信エラー時のエラーModal。通信基盤(Infrastructure)でエラーを検知し、`IMessageBroker`(ZeroMessenger)で通知→各シーンのスコープの購読者がErrorModalをPushする構成を想定。`IScreenNavigator`がシーン単位で常駐スコープ(`RootLifetimeScope`)に無いこと、起動時のサインイン失敗はシーンのNavigatorが無い段階で起きること、認証不要の`DeviceConnection`は`AccessTokenRefresher.SendAsync`を通らないことから、設計から見直す。リトライ/タイトルへ戻す等のUXも含めて決める(現状パーティ編成の保存失敗は画面に留まってログ出力のみ) | client |
-| 19 | BattleServerの実データ化(案1): ~~マスターデータの配置~~(完了、`MemoryDatabase`をDI登録済み)、`IParticipantDataSource`の本実装(マスタ→BattleCore型への変換)と、player_pachimonの技・努力値をRust経由で取得する方法の設計・実装。現状は`DummyParticipantDataSource`で全員同じステータス・技19/20になる(Clientはサーバーから届く技を表示するため動作はする) | battle-server/server |
+| ~~19~~ | ~~BattleServerの実データ化~~ → 完了(マスターデータの配置、`ApiParticipantDataSource`+`LoadoutBuilder`、Rustの内部API`POST /internal/battle/loadouts`。上記「バトルサーバー」の「選出個体の実データ化(#19)」参照)。Unity ClientのMultiplayer Play Modeでの確認は未実施 | battle-server/server |
 | 20 | IL2CPPビルド対応: UnityにMessagePackのSource Generatorが入っておらず、`Atlas.BattleContracts`のPayloadは動的シリアライズ(Editor/Monoのみ動作)。IL2CPP(モバイル等)向けにはGenerator導入またはResolverの事前生成が必要 | client |
 | 21 | 対戦UIの残り: ~~残りPP表示~~(`MoveCommandView`で実装済み、上記「バトルのコマンドUI刷新」参照)、相手の切断/再接続(`OnOpponentDisconnected`等)の表示、ターン制限時間のカウントダウン表示、BattleServerへの参加失敗時のエラーModal(#18) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |

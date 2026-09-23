@@ -676,8 +676,8 @@ HomePresenter
   `TestRootLifetimeScope`が、ローカルAPIサーバー無しでBootstrap→Home→Battleの起動経路を
   検証するために使用)。`IXxxRepository`/`IXxxService`の登録はMock/Realに関わらず常に同じ
 - 対戦(`IBattleMatchmaker`/`IBattleConnectionFactory`)は`ConfigureBattleConnections`(virtual)に
-  切り出し、Bootstrapシーンの`RootLifetimeScope`のInspector(`Use Real Battle Server`)で切り替える。
-  既定はオフ(Mock、サーバー不要)。`TestRootLifetimeScope`はこの設定に関わらず常にMockにする
+  切り出し、Bootstrapシーンの`RootLifetimeScope`のInspector(`Use Battle Server`)で切り替える。
+  既定はオン(実サーバー。オフでMock、サーバー不要)。`TestRootLifetimeScope`はこの設定に関わらず常にMockにする
 - Connectionが増えて「機能ごとにInspectorからMock/Realをトグルしたい」要求が出た時点で、
   機能ごとの`RepositoryMode { Mock, Real }`を持つScriptableObject(`RepositoryConfig`)を
   導入する案を再検討する(現状は未導入)

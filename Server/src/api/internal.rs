@@ -3,12 +3,13 @@
 //! Unity Clientからは呼ばないため、OpenAPI(`ApiDoc`)には載せない
 //! (載せると`api-codegen`がUnity向けの通信クライアントまで生成してしまう)。
 use axum::{Json, extract::State};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::AppError;
 use crate::extractor::InternalService;
 use crate::service::battle_service::{self, BattleResultInput, BattleTurnInput};
+use crate::service::player_pachimon_service::{self, EffortValues};
 use crate::state::AppState;
 
 /// 対戦結果報告APIのリクエストボディ(BattleServer側`BattleResultRequest`と同じ形)。
@@ -67,4 +68,61 @@ pub async fn report_battle_result_handler(
     };
 
     battle_service::record_result(&state.pool, &input).await
+}
+
+/// 対戦用の所持データ取得APIのリクエストボディ(BattleServer側`LoadoutRequest`と同じ形)。
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BattleLoadoutsRequest {
+    pub player_id: String,
+    pub player_pachimon_ids: Vec<String>,
+}
+
+/// 対戦用の所持データ取得APIのレスポンス。`pachimon`はリクエストの`playerPachimonIds`と同じ順番。
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BattleLoadoutsResponse {
+    pub pachimon: Vec<BattleLoadoutResponse>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BattleLoadoutResponse {
+    pub player_pachimon_id: String,
+    pub pachimon_id: i32,
+    pub effort_values: EffortValues,
+    /// 覚えている技のmove_id(slot順)。
+    pub move_ids: Vec<i32>,
+}
+
+/// BattleServerが選出を受け取ったときに、選出個体の対戦用データを返すAPIハンドラ
+/// (`POST /internal/battle/loadouts`)。種族値・技の性能はBattleServerが自分のマスタから引くため、
+/// ここではプレイヤーごとに異なる所持データ(どのパチモンか・努力値・覚えている技)だけを返す。
+///
+/// # Errors
+/// `X-Internal-Secret`が不一致の場合に`AppError::Unauthorized`、`playerId`の所持でない個体が
+/// 含まれる場合に`AppError::NotFound`を返す。
+pub async fn battle_loadouts_handler(
+    State(state): State<AppState>,
+    _internal: InternalService,
+    Json(req): Json<BattleLoadoutsRequest>,
+) -> Result<Json<BattleLoadoutsResponse>, AppError> {
+    let loadouts = player_pachimon_service::find_battle_loadouts(
+        &state.pool,
+        &req.player_id,
+        &req.player_pachimon_ids,
+    )
+    .await?;
+
+    Ok(Json(BattleLoadoutsResponse {
+        pachimon: loadouts
+            .into_iter()
+            .map(|loadout| BattleLoadoutResponse {
+                player_pachimon_id: loadout.player_pachimon_id,
+                pachimon_id: loadout.pachimon_id,
+                effort_values: loadout.effort_values,
+                move_ids: loadout.moves.iter().map(|m| m.move_id).collect(),
+            })
+            .collect(),
+    }))
 }

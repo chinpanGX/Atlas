@@ -20,7 +20,7 @@ builder.Services.AddMagicOnion();
 builder.Services.AddOptions<BattleTimingOptions>();
 builder.Services.AddSingleton<BattleTokenValidator>();
 builder.Services.AddSingleton(_ => MasterDatabaseFactory.Load(builder.Configuration));
-builder.Services.AddSingleton<IParticipantDataSource, DummyParticipantDataSource>();
+builder.Services.AddSingleton<IParticipantDataSource, ApiParticipantDataSource>();
 builder.Services.AddSingleton<BattleCoordinator>();
 builder.Services.AddSingleton<BattleResultReporter>();
 builder.Services.AddHttpClient(BattleResultReporter.HttpClientName, client =>
@@ -34,6 +34,8 @@ var app = builder.Build();
 app.Services.GetRequiredService<BattleTokenValidator>();
 // マスターデータも同様に、読み込めない(未配置・復号失敗)なら起動を失敗させる。
 app.Services.GetRequiredService<Atlas.MasterData.MemoryDatabase>();
+// 選出個体の取得に使うINTERNAL_API_SECRETも同様(未設定だと対戦を始められない)。
+app.Services.GetRequiredService<IParticipantDataSource>();
 
 app.MapMagicOnionService();
 

@@ -42,6 +42,8 @@ namespace Atlas.BattleServer.Tests
                     });
                     services.AddHttpClient(BattleResultReporter.HttpClientName)
                         .ConfigurePrimaryHttpMessageHandler(() => ApiServer);
+                    // Hubの進行だけを検証するため、選出個体の取得(Rustの内部API)は固定値に差し替える。
+                    services.AddSingleton<IParticipantDataSource, DummyParticipantDataSource>();
                 });
             });
 

@@ -388,7 +388,7 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
     YetAnotherHttpHandlerでHTTP/2(h2c)接続、MagicOnionのSource Generatorで生成したクライアント)の順で接続する。
     選出はパーティの枠番号順に先頭から最大3体。`IBattleConnection`は`IBattleConnectionFactory`でBattleシーンの
     スコープごとに生成し、シーン終了時に切断する
-  - Mock/実サーバーはBootstrapシーンの`RootLifetimeScope`の`Use Real Battle Server`で切り替える
+  - Mock/実サーバーはBootstrapシーンの`RootLifetimeScope`の`Use Battle Server`で切り替える
     (確認方法はリポジトリ直下のDEVELOPMENT.md「対戦(実サーバー)の確認方法」)
 
 ### 自動テスト方針
@@ -413,6 +413,7 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 | 2 | DELETE | `/battle/queue` | 待機列から離脱 | 要 |
 | 3 | GET | `/battle/queue/status` | マッチ成立確認(polling) | 要 |
 | 4 | POST | `/internal/battle/result` | 対戦結果・ログをまとめて記録(内部API) | サービス間シークレット |
+| 5 | POST | `/internal/battle/loadouts` | 選出個体の所持データ取得(内部API) | サービス間シークレット |
 
 ### 1. マッチング待機列に参加
 
@@ -547,6 +548,52 @@ OpenAPI(`ApiDoc`)には載せない(`api-codegen`の生成対象にしない)。
 | `matchId`が存在しない | `404` |
 | `winnerId`(空文字は除く)・`player1Id`/`player2Id`(空文字は除く)・ターンの`playerId`がその対戦の参加者でない | `400` |
 | 既に結果報告済み(二重報告。勝者なしで報告済みの場合も含む) | `409`(何も変更しない) |
+
+### 5. 選出個体の所持データ取得(内部API)
+
+```
+POST /internal/battle/loadouts
+```
+
+BattleServerが選出(`SubmitSelectionAsync`)を受け取ったときに呼ぶ。`/internal/battle/result`と同じく
+`X-Internal-Secret`ヘッダーで保護し、OpenAPIには載せない。プレイヤーごとに異なる所持データ
+(どのパチモンか・努力値・覚えている技)だけを返し、種族値・タイプ・技の性能・タイプ相性は
+BattleServerが自分のマスタ(`MemoryDatabase`)から引く(`LoadoutBuilder`で`ParticipantStats`/`MoveData`/
+`ITypeChart`へ変換)。
+
+リクエスト
+
+```json
+{ "playerId": "...", "playerPachimonIds": ["...", "...", "..."] }
+```
+
+レスポンス(`pachimon`はリクエストの`playerPachimonIds`と同じ順番、`moveIds`はslot順)
+
+```json
+{
+  "pachimon": [
+    {
+      "playerPachimonId": "...",
+      "pachimonId": 1031,
+      "effortValues": { "hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0 },
+      "moveIds": [33, 19, 58, 45]
+    }
+  ]
+}
+```
+
+- `playerId`の所持でない個体(他プレイヤーの個体・存在しないID)が1体でも含まれれば`404`。
+  BattleServerは選出を`InvalidArgument`で拒否する
+- APIサーバーに繋がらない等で取得できなかった場合、BattleServerは`Unavailable`を返し、選出は未確定のまま
+  残す(クライアントは同じ選出を送り直せる)
+- 所持データの取得を選出時にまとめて1回だけ行うのは、対戦中にパーティ編成・技の付け替えをしても
+  進行中の対戦に影響させないため
+
+検討したが採用しなかった案:
+
+- BattleServerがMySQLを直接読む: DBアクセスをRust経由に統一する方針から外れるため不採用
+- マッチ成立時に`battleToken`(JWT)へパーティ全員分の所持データを埋め込む: 選出はBattleServerが受け取る
+  ため、使わない個体の分までトークンに載ることになり、トークンの役割(参加資格の証明)とも混ざるため不採用
 
 ### 結果報告が届かない対戦の後始末
 

@@ -162,16 +162,27 @@ namespace Atlas.BattleServer.Battle
                     throw new ReturnStatusException(StatusCode.InvalidArgument, "invalid selection");
                 }
 
-                var loadouts = new ParticipantLoadout[playerPachimonIds.Length];
-                for (int i = 0; i < playerPachimonIds.Length; i++)
+                IReadOnlyList<ParticipantLoadout>? loadouts;
+                try
                 {
-                    loadouts[i] = dataSource.Resolve(participant.PlayerId, playerPachimonIds[i])
-                        ?? throw new ReturnStatusException(StatusCode.InvalidArgument, $"unknown player_pachimon_id: {playerPachimonIds[i]}");
+                    loadouts = await dataSource.ResolveAsync(participant.PlayerId, playerPachimonIds);
+                }
+                catch (Exception e) when (e is HttpRequestException or TaskCanceledException or InvalidOperationException)
+                {
+                    // APIサーバーに繋がらない・マスタと所持データが食い違う等。選出は未確定のまま残るため、
+                    // クライアントは同じ選出を送り直せる。
+                    logger.LogError(e, "Failed to resolve loadouts. matchId={MatchId} playerId={PlayerId}", session.MatchId, participant.PlayerId);
+                    throw new ReturnStatusException(StatusCode.Unavailable, "failed to load selected pachimon");
+                }
+
+                if (loadouts is null)
+                {
+                    throw new ReturnStatusException(StatusCode.InvalidArgument, "selection contains pachimon not owned by the player");
                 }
 
                 participant.SelectedIds = playerPachimonIds;
-                participant.Loadouts = loadouts;
-                participant.Revealed = new bool[loadouts.Length];
+                participant.Loadouts = loadouts.ToArray();
+                participant.Revealed = new bool[loadouts.Count];
 
                 if (session.Participants.All(p => p?.SelectedIds is not null))
                 {

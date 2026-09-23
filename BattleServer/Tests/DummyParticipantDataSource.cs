@@ -1,10 +1,11 @@
 using Atlas.BattleCore;
+using Atlas.BattleServer.Battle;
 
-namespace Atlas.BattleServer.Battle
+namespace Atlas.BattleServer.Tests
 {
-    // TEMP: IParticipantDataSourceの本実装(MemoryDatabase→BattleCore型への変換、progress.md #19)までの仮実装。
-    // player_pachimon_idに関わらず固定ステータス・固定技で組み立て、BattleEngine.ProcessTurnの
-    // 呼び出し経路だけを疎通確認する。所持チェック(そのplayerが本当に所持しているか)も行わない。
+    // BattleHubTests用のIParticipantDataSource。Hubの進行(参加・選出・ターン・切断)だけを検証するため、
+    // player_pachimon_idに関わらず固定ステータス・固定技で組み立て、所持チェックもしない。
+    // 本物(ApiParticipantDataSource)の変換はLoadoutBuilderTests/ApiParticipantDataSourceTestsで検証する。
     public sealed class DummyParticipantDataSource : IParticipantDataSource
     {
         // 種族値オール80・努力値0・Lv50相当(HP以外=floor(2*80*50/100)+5、HP=floor(2*80*50/100)+50+10)。
@@ -23,8 +24,9 @@ namespace Atlas.BattleServer.Battle
 
         public ITypeChart TypeChart { get; } = new AllNormalTypeChart();
 
-        public ParticipantLoadout? Resolve(string playerId, string playerPachimonId) =>
-            new(DummyPachimonId, DummyStats, DummyMoves);
+        public Task<IReadOnlyList<ParticipantLoadout>?> ResolveAsync(string playerId, IReadOnlyList<string> playerPachimonIds) =>
+            Task.FromResult<IReadOnlyList<ParticipantLoadout>?>(
+                playerPachimonIds.Select(_ => new ParticipantLoadout(DummyPachimonId, DummyStats, DummyMoves)).ToList());
 
         private sealed class AllNormalTypeChart : ITypeChart
         {

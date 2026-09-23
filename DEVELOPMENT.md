@@ -129,8 +129,8 @@ Serverはマスタを起動時に1回だけ読み込む。`seed_master_data`の�
 
 ### 対戦(実サーバー)の確認方法
 
-Clientは既定ではMock(サーバー不要のオフライン対戦)で動く。実サーバーで対戦するには、Bootstrapシーンの
-`RootLifetimeScope`のInspectorで**`Use Real Battle Server`をオン**にする(マッチングはServer、対戦はBattleServerへ接続)。
+Clientは既定で実サーバーに接続する(Bootstrapシーンの`RootLifetimeScope`の**`Use Battle Server`がオン**。マッチングは
+Server、対戦はBattleServerへ接続)。サーバー無しのオフライン対戦(Mock)で動かすときは、これをオフにする。
 対戦には2人必要なので、次のいずれかで相手を用意する。どの方法でもServer・BattleServerを先に起動しておく。
 
 | 方法 | 手順 | 向いている用途 |
@@ -182,8 +182,9 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
   そこで`dotnet build`したりしない**(`bin/`・`obj/`がパッケージ内にでき、UnityがそのDLLを取り込んでCS1704になる)
 - 通信契約(`IBattleHub`/`IBattleHubReceiver`/Payload)は`Shared/BattleContracts/`(Unityのローカルパッケージ)にあり、
   `BattleServer/BattleContracts/Atlas.BattleContracts.csproj`で同じ方式(パッケージ外のcsproj)でビルドする
-- ステータス・技は現在ダミーデータ(マスタデータの配置待ち。`Shared/docs/progress.md`参照)。Clientは開始時に
-  サーバーから届く技(`BattleStartPayload.SelfMoves`)を表示・送信するため、ダミーのままでも対戦は最後まで進む
+- 選出個体のステータス・技は、Serverの内部API(`POST /internal/battle/loadouts`)で取得した所持データと、
+  BattleServerのマスタ(`MasterData/`)から組み立てる。Serverが起動していない・`INTERNAL_API_SECRET`が
+  Serverと一致しないと選出に失敗する(`INTERNAL_API_SECRET`が未設定だとBattleServer自体が起動しない)
 - `BattleBot/`: 開発用の対戦相手ボット(上記「対戦(実サーバー)の確認方法」参照)
 - `.slnx`はUnity付属の.NET 8 SDKでは読めない。PATH上の`dotnet`がUnity付属のものになっている場合は
   .NET 10 SDK(`"C:/Program Files/dotnet/dotnet.exe"`等)で実行する
@@ -196,7 +197,7 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 - 通信ログはUnity Consoleの`[API] --> ...` / `[API] <-- ...`(Editor・開発ビルドのみ)
 - `Atlas.BattleCore`は`Packages/manifest.json`から`Shared/BattleCore`を、`Atlas.BattleContracts`は
   `Shared/BattleContracts`をローカルパッケージとして参照している
-- 対戦のMock/実サーバー切り替えはBootstrapシーンの`RootLifetimeScope`の`Use Real Battle Server`
+- 対戦のMock/実サーバー切り替えはBootstrapシーンの`RootLifetimeScope`の`Use Battle Server`
   (PlayModeテストは`TestRootLifetimeScope`で常にMock)
 
 ## 6. コード生成

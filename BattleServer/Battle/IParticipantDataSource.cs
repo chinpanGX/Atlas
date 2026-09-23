@@ -12,11 +12,12 @@ namespace Atlas.BattleServer.Battle
     public sealed record LoadoutMove(string MoveId, MoveData Data);
 
     // player_pachimon_id→BattleCore用の型(ParticipantStats/MoveData)への変換と、タイプ相性の提供。
-    // 本実装はDIのMemoryDatabase(Atlas.MasterData、MasterDatabaseFactory参照)を使って行う(progress.md #19)。
+    // 本実装はApiParticipantDataSource(Rustの内部APIで所持データを取得し、マスタと組み合わせる)。
     public interface IParticipantDataSource
     {
-        // 解決できないplayer_pachimon_idの場合はnullを返す。
-        ParticipantLoadout? Resolve(string playerId, string playerPachimonId);
+        // 選出分をまとめて解決し、playerPachimonIdsと同じ順番で返す。playerIdの所持でない個体
+        // (存在しないIDを含む)が1体でもあればnullを返す。
+        Task<IReadOnlyList<ParticipantLoadout>?> ResolveAsync(string playerId, IReadOnlyList<string> playerPachimonIds);
 
         ITypeChart TypeChart { get; }
     }

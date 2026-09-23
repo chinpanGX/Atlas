@@ -67,6 +67,10 @@ pub fn create_router(state: AppState) -> Router {
             "/internal/battle/result",
             axum::routing::post(internal::report_battle_result_handler),
         )
+        .route(
+            "/internal/battle/loadouts",
+            axum::routing::post(internal::battle_loadouts_handler),
+        )
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         // 後に追加したlayerほど外側になる。TraceLayerのspan(method/uri)の内側で
         // ボディ・SQLのログが出るよう、log_bodiesを先に追加する
