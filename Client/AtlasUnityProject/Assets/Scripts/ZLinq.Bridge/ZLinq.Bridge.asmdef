@@ -1,6 +1,6 @@
 {
-    "name": "ZLinq.Brigge",
-    "rootNamespace": "ZLinq.Brigge",
+    "name": "ZLinq.Bridge",
+    "rootNamespace": "ZLinq.Bridge",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

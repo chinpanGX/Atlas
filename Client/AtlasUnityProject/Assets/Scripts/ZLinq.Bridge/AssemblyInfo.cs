@@ -1,2 +1,3 @@
 ﻿using ZLinq;
-[assembly: ZLinqDropIn("Atlas", DropInGenerateTypes.Everything)]
+
+[assembly: ZLinqDropIn("ZLinq", DropInGenerateTypes.Everything, GenerateAsPublic = true)]

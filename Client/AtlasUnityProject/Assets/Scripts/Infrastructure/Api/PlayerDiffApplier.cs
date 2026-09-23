@@ -29,16 +29,13 @@ namespace Atlas.Infrastructure.Api
             this.partyDiffApplier = partyDiffApplier;
         }
 
-        public async UniTask ApplyAsync(PlayerDiffDto dto)
+        public UniTask ApplyAsync(PlayerDiffDto dto)
         {
-            if (dto.Items != null)
-                await itemDiffApplier.ApplyAsync(dto.Items);
-            if (dto.Pachimon != null)
-                await pachimonDiffApplier.ApplyAsync(dto.Pachimon);
-            if (dto.PachimonMoveMap != null)
-                await pachimonMoveMapDiffApplier.ApplyAsync(dto.PachimonMoveMap);
-            if (dto.PartySlots != null)
-                await partyDiffApplier.ApplyAsync(dto.PartySlots);
+            return UniTask.WhenAll(
+                dto.Items != null ? itemDiffApplier.ApplyAsync(dto.Items) : UniTask.CompletedTask,
+                dto.Pachimon != null ? pachimonDiffApplier.ApplyAsync(dto.Pachimon) : UniTask.CompletedTask,
+                dto.PachimonMoveMap != null ? pachimonMoveMapDiffApplier.ApplyAsync(dto.PachimonMoveMap) : UniTask.CompletedTask,
+                dto.PartySlots != null ? partyDiffApplier.ApplyAsync(dto.PartySlots) : UniTask.CompletedTask);
         }
     }
 }

@@ -8,13 +8,16 @@
         "GUID:a9f3d18a0da2813498862209298fb7ff",
         "GUID:619451fd5e12658408c1bba68b29ad7a",
         "GUID:b4f8e1957a2a9f944b620db617042654",
-        "GUID:41261d631a9f02542ba248f84bf54981"
+        "GUID:41261d631a9f02542ba248f84bf54981",
+        "GUID:1fe3656cf8380224fa23ec72e2b12cff"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "ZLinq.dll"
+    ],
     "autoReferenced": false,
     "defineConstraints": [],
     "versionDefines": [],
