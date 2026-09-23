@@ -4,6 +4,6 @@
 /// (`Shared/docs/design/outgame.md`参照)。
 pub struct PlayerItem {
     pub player_id: String,
-    pub item_id: i64,
+    pub item_id: i32,
     pub quantity: i32,
 }

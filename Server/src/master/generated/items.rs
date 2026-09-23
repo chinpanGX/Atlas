@@ -5,6 +5,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Items {
-    pub item_id: i64,
+    pub item_id: i32,
     pub name: String,
 }

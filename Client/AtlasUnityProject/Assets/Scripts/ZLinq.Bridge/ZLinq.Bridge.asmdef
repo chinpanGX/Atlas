@@ -1,0 +1,16 @@
+{
+    "name": "ZLinq.Brigge",
+    "rootNamespace": "ZLinq.Brigge",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "ZLinq.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

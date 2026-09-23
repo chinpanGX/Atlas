@@ -8,16 +8,16 @@ use super::rarity::Rarity;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pachimon {
-    pub pachimon_id: i64,
+    pub pachimon_id: i32,
     pub name: String,
     pub primary_type: PachimonType,
     pub secondary_type: PachimonType,
-    pub base_hp: i64,
-    pub base_atk: i64,
-    pub base_def: i64,
-    pub base_spatk: i64,
-    pub base_spdef: i64,
-    pub base_speed: i64,
+    pub base_hp: i32,
+    pub base_atk: i32,
+    pub base_def: i32,
+    pub base_spatk: i32,
+    pub base_spdef: i32,
+    pub base_speed: i32,
     pub rarity: Rarity,
-    pub move_group_id: i64,
+    pub move_group_id: i32,
 }

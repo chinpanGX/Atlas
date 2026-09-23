@@ -8,11 +8,11 @@ use super::pachimon_type::PachimonType;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Moves {
-    pub move_id: i64,
+    pub move_id: i32,
     pub name: String,
     pub move_type: PachimonType,
     pub category: MoveCategory,
-    pub base_power: i64,
-    pub accuracy: i64,
-    pub max_pp: i64,
+    pub base_power: i32,
+    pub accuracy: i32,
+    pub max_pp: i32,
 }

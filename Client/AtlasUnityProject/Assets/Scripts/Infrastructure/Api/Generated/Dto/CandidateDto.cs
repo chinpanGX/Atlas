@@ -11,10 +11,10 @@ namespace Atlas.Infrastructure.Api
         public int Index { get; set; }
 
         [JsonPropertyName("moves")]
-        public System.Collections.Generic.List<long> Moves { get; set; }
+        public System.Collections.Generic.List<int> Moves { get; set; }
 
         [JsonPropertyName("pachimonId")]
-        public long PachimonId { get; set; }
+        public int PachimonId { get; set; }
 
         [JsonPropertyName("rarity")]
         public string Rarity { get; set; }

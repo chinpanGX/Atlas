@@ -277,7 +277,7 @@ defend_type      PK(複合) FK -> pachimon_type
 effectiveness    ENUM(type_effectiveness.yaml)  -- IMMUNE / NOT_VERY_EFFECTIVE / NORMAL / SUPER_EFFECTIVE
 ```
 
-`master-data-pipeline`の型システムがint/string/bool/enumのみで小数非対応のため、`multiplier`
+`master-data-pipeline`の型システムがint/long/string/bool/enumのみで小数非対応のため、`multiplier`
 (DECIMAL)ではなく`effectiveness`(ENUM)として持つ。マスタが持つのは`(attack_type,
 defend_type) → effectiveness`という関係(マップ)のみで、`effectiveness`(ENUM)→倍率
 (0 / 0.5 / 1 / 2)への変換テーブルはデータ化せず`Atlas.BattleCore`(C#)側にハードコードする。

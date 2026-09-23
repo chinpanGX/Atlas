@@ -1,4 +1,3 @@
-using System.Linq;
 using Cysharp.Threading.Tasks;
 
 namespace Atlas.Infrastructure.Api
@@ -14,19 +13,32 @@ namespace Atlas.Infrastructure.Api
     public sealed class PlayerDiffApplier : IPlayerDiffApplier
     {
         private readonly ItemDiffApplier itemDiffApplier;
+        private readonly PachimonDiffApplier pachimonDiffApplier;
+        private readonly PachimonMoveMapDiffApplier pachimonMoveMapDiffApplier;
+        private readonly PartyDiffApplier partyDiffApplier;
 
-        public PlayerDiffApplier(ItemDiffApplier itemDiffApplier)
+        public PlayerDiffApplier(
+            ItemDiffApplier itemDiffApplier,
+            PachimonDiffApplier pachimonDiffApplier,
+            PachimonMoveMapDiffApplier pachimonMoveMapDiffApplier,
+            PartyDiffApplier partyDiffApplier)
         {
             this.itemDiffApplier = itemDiffApplier;
+            this.pachimonDiffApplier = pachimonDiffApplier;
+            this.pachimonMoveMapDiffApplier = pachimonMoveMapDiffApplier;
+            this.partyDiffApplier = partyDiffApplier;
         }
 
         public async UniTask ApplyAsync(PlayerDiffDto dto)
         {
-            // pachimon/pachimonMoveMap/partySlotsはScout/Party画面実装時(progress.md残タスク#9)に
-            // 同様のXxxDiffApplierを追加してここから呼ぶ。
-            if (dto.Items != null) 
+            if (dto.Items != null)
                 await itemDiffApplier.ApplyAsync(dto.Items);
+            if (dto.Pachimon != null)
+                await pachimonDiffApplier.ApplyAsync(dto.Pachimon);
+            if (dto.PachimonMoveMap != null)
+                await pachimonMoveMapDiffApplier.ApplyAsync(dto.PachimonMoveMap);
+            if (dto.PartySlots != null)
+                await partyDiffApplier.ApplyAsync(dto.PartySlots);
         }
     }
-
 }

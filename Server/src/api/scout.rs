@@ -79,9 +79,9 @@ pub struct CreateRollRequest {
 #[serde(rename_all = "camelCase")]
 pub struct CandidateDto {
     pub index: usize,
-    pub pachimon_id: i64,
+    pub pachimon_id: i32,
     pub rarity: String,
-    pub moves: Vec<i64>,
+    pub moves: Vec<i32>,
 }
 
 /// 紹介を受けるAPIのレスポンスボディ。ジェム消費結果は`playerDiff.items`側に含まれる

@@ -39,6 +39,12 @@ namespace Atlas.DI
             builder.Register<IPlayerProfileRepository, ApiPlayerProfileRepository>(Lifetime.Singleton);
             builder.Register<IItemRepository, ApiItemRepository>(Lifetime.Singleton);
             builder.Register<ItemDiffApplier>(Lifetime.Singleton);
+            builder.Register<IPachimonRepository, ApiPachimonRepository>(Lifetime.Singleton);
+            builder.Register<PachimonDiffApplier>(Lifetime.Singleton);
+            builder.Register<IPachimonMoveMapRepository, ApiPachimonMoveMapRepository>(Lifetime.Singleton);
+            builder.Register<PachimonMoveMapDiffApplier>(Lifetime.Singleton);
+            builder.Register<IPartyRepository, ApiPartyRepository>(Lifetime.Singleton);
+            builder.Register<PartyDiffApplier>(Lifetime.Singleton);
             builder.Register<IPlayerDiffApplier, PlayerDiffApplier>(Lifetime.Singleton);
             ConfigureAuthConnections(builder);
             builder.Register<IPlayerAccountService, PlayerAccountService>(Lifetime.Singleton);

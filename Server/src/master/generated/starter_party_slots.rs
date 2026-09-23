@@ -5,6 +5,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StarterPartySlots {
-    pub slot_no: i64,
-    pub pachimon_id: i64,
+    pub slot_no: i32,
+    pub pachimon_id: i32,
 }

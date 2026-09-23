@@ -435,10 +435,10 @@ components:
           type: array
           items:
             type: integer
-            format: int64
+            format: int32
         pachimonId:
           type: integer
-          format: int64
+          format: int32
         rarity:
           type: string
     CreatePlayerRequest:
@@ -485,7 +485,7 @@ components:
       properties:
         moveId:
           type: integer
-          format: int64
+          format: int32
         playerPachimonId:
           type: string
         slot:
@@ -504,7 +504,7 @@ components:
           type: array
           items:
             type: integer
-            format: int64
+            format: int32
         upserted:
           type: array
           items:
@@ -643,7 +643,7 @@ components:
       properties:
         itemId:
           type: integer
-          format: int64
+          format: int32
         quantity:
           type: integer
           format: int32
@@ -658,7 +658,7 @@ components:
       properties:
         pachimonId:
           type: integer
-          format: int64
+          format: int32
         playerPachimonId:
           type: string
     PlayerPachimonMoveDto:
@@ -675,7 +675,7 @@ components:
       properties:
         moveId:
           type: integer
-          format: int64
+          format: int32
         playerPachimonId:
           type: string
         playerPachimonMoveId:

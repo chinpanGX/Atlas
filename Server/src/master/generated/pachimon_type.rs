@@ -31,7 +31,7 @@ impl Serialize for PachimonType {
     where
         S: Serializer,
     {
-        serializer.serialize_i64(*self as i64)
+        serializer.serialize_i32(*self as i32)
     }
 }
 
@@ -40,7 +40,7 @@ impl<'de> Deserialize<'de> for PachimonType {
     where
         D: Deserializer<'de>,
     {
-        let value = i64::deserialize(deserializer)?;
+        let value = i32::deserialize(deserializer)?;
         match value {
             0 => Ok(PachimonType::None),
             1 => Ok(PachimonType::Normal),

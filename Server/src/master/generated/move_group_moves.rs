@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MoveGroupMoves {
-    pub unique_id: i64,
-    pub group_id: i64,
-    pub move_id: i64,
+    pub unique_id: i32,
+    pub group_id: i32,
+    pub move_id: i32,
     pub is_initial: bool,
 }

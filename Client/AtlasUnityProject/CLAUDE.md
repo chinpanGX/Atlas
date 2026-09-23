@@ -22,6 +22,14 @@
 
 - ラムダの未使用引数の`_`(discard)はこの規約の対象外(フィールドではないため、そのままでよい)
 
+## ファイル名
+
+- **ファイル名は、そのファイルで定義する主要な型(class/struct/interface/record/enum)の名前と
+  一致させる**(例: `PachimonEntity`は`PachimonEntity.cs`であって`Pachimon.cs`ではない)
+- 1ファイルに複数の型を置く場合(実装クラスとそのインターフェース等)も、主となる型の名前をファイル名にする
+  (例: `PlayerDiffApplier.cs`に`IPlayerDiffApplier`と`PlayerDiffApplier`)
+- Unityで型名を変更したときは、`.cs`と同名の`.meta`も一緒にリネームする(GUIDを維持するため)
+
 これは[design/client-architecture.md](../../Shared/docs/design/client-architecture.md)の
 コード例にも適用済み。
 

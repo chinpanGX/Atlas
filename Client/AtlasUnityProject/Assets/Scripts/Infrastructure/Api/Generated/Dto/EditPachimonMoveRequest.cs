@@ -8,7 +8,7 @@ namespace Atlas.Infrastructure.Api
     public sealed class EditPachimonMoveRequest
     {
         [JsonPropertyName("moveId")]
-        public long MoveId { get; set; }
+        public int MoveId { get; set; }
 
         [JsonPropertyName("playerPachimonId")]
         public string PlayerPachimonId { get; set; }

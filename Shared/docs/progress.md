@@ -95,14 +95,15 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
 - テスト: `tests/{auth,chat,device,player,master_data,scout}_api_test.rs`(計55件)
-- マイグレーション22本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
+- マイグレーション23本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
   move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
   players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
   scout_banners・scout_rolls/move_group_master→move_group_movesへのリネーム/
   player_party_slotsテーブル作成・player_pachimon.party_slot列削除/
   starter_party_slotsテーブル作成/player_pachimon.ivs列削除/
   player_pachimon_movesへのULID主キー(player_pachimon_move_id)追加/
-  itemsテーブル作成・player_itemsテーブル作成・players.gems列削除)
+  itemsテーブル作成・player_itemsテーブル作成・players.gems列削除/
+  master-data-pipelineのtype: int列をBIGINT→INTへ縮小(下記「今回発見したギャップ」参照))
 - パーティ編成・技の付け替え(`GET/PUT /players/me/pachimon*`, `PUT /players/me/party`)を実装
   (outgame.md #8-10)。パーティ編成は当初`player_pachimon.party_slot`(nullable INT)属性として
   設計したが、①`api-codegen`が現状OpenAPIの`nullable`(`type: [T, 'null']`)に未対応で
@@ -166,6 +167,22 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
   (`Vec<PlayerPachimonMove>`)も返すようにし(`select_roll`が`pachimonMoveMap.upserted`を
   組み立てるために必要)、`set_party`は削除前の`party_slot_id`一覧も返すようにした
   (`playerDiff.partySlots.removed`用)。呼び出し元が使わない場合は`_`で無視する
+- **今回発見したギャップ(Server、master-data-pipelineの型幅の食い違い)**:
+  `master-data-pipeline`の`type: int`は、C#側は`int`(32bit)を生成する一方、
+  `server_codegen`(Rust)は`i64`(64bit)を生成していた(DB列も追随してBIGINT)。
+  `architecture.md`/`outgame.md`の設計書側は元々`INT`と記述しており(`item_id`/`pachimon_id`/
+  `move_id`列)、実装だけがBIGINTへ乖離していた形。`type: int`を32bit(C# `int`/Rust `i32`/DB
+  `INT`)に統一し、64bit値が要る場合向けに新しい`type: long`(C# `long`/Rust `i64`/DB
+  `BIGINT`)を追加。既存の`type: int`列(pachimon/moves/move_groups/move_group_moves/items/
+  starter_party_slotsとそれを参照するplayer_pachimon等のFK列)はBIGINT→INTへ縮小する
+  マイグレーションで揃えた。同じ理由で`enum`列(`PachimonType`/`Rarity`/`MoveCategory`等)も
+  Rust側の生成`Serialize`/`Deserialize`実装が`i64`でシリアライズしていた(C#のenumはデフォルトで
+  `int`裏付け型のため、ここも32bit/64bitの食い違いだった)。`server_codegen`が生成する
+  `Serialize`/`Deserialize`実装を`i32`ベースに変更して揃えた(DB列は元々値域に合わせて
+  `TINYINT UNSIGNED`にしていたため変更不要)。REST API DTO(`api/player.rs`/`api/scout.rs`)の
+  `pachimonId`/`moveId`/`itemId`は互換性維持のため`int64`のまま据え置き、内部の`i32`との
+  境界で明示変換している(Unity側`api-codegen`の再生成は未実施。API DTO側もint32へ揃えるかは
+  今後の検討課題)
 
 ### 未実装
 

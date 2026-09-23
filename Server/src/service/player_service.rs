@@ -84,7 +84,7 @@ async fn grant_starter_party(
             .find(|p| p.pachimon_id == slot.pachimon_id)
             .ok_or(AppError::InternalError)?;
 
-        let moves: Vec<i64> = master
+        let moves: Vec<i32> = master
             .move_group_moves
             .iter()
             .filter(|row| row.group_id == pachimon.move_group_id && row.is_initial)
@@ -101,7 +101,7 @@ async fn grant_starter_party(
         )
         .bind(&party_slot_id)
         .bind(player_id)
-        .bind(slot.slot_no as i32)
+        .bind(slot.slot_no)
         .bind(&player_pachimon.player_pachimon_id)
         .execute(&mut **tx)
         .await

@@ -51,7 +51,7 @@ pub async fn signup_handler(
 #[serde(rename_all = "camelCase")]
 pub struct PlayerPachimonDto {
     pub player_pachimon_id: String,
-    pub pachimon_id: i64,
+    pub pachimon_id: i32,
 }
 
 /// 所持パチモン1体分の、覚えている技のレスポンスDTO。`playerPachimonMoveId`は割当自体のULID
@@ -63,7 +63,7 @@ pub struct PlayerPachimonMoveDto {
     pub player_pachimon_move_id: String,
     pub player_pachimon_id: String,
     pub slot: i32,
-    pub move_id: i64,
+    pub move_id: i32,
 }
 
 /// パーティ編成1割当分のレスポンスDTO。`partySlotId`は割当自体のULID
@@ -81,7 +81,7 @@ pub struct PartySlotDto {
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerItemDto {
-    pub item_id: i64,
+    pub item_id: i32,
     pub quantity: i32,
 }
 
@@ -91,7 +91,7 @@ pub struct PlayerItemDto {
 #[serde(rename_all = "camelCase")]
 pub struct ItemsDiffDto {
     pub upserted: Vec<PlayerItemDto>,
-    pub removed: Vec<i64>,
+    pub removed: Vec<i32>,
 }
 
 /// `pachimon`リソースの差分。
@@ -304,7 +304,7 @@ pub async fn edit_party_handler(
 pub struct EditPachimonMoveRequest {
     pub player_pachimon_id: String,
     pub slot: i32,
-    pub move_id: i64,
+    pub move_id: i32,
 }
 
 /// 所持パチモンの技を付け替えるAPIハンドラ。グループ内の候補技(`move_group_moves`)から

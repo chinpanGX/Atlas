@@ -5,7 +5,7 @@ use crate::model::player_item::PlayerItem;
 
 /// ジェム(スカウトの紹介コストに使う課金通貨相当)の`item_id`。
 /// `Shared/master-data/csv/items_master.csv`で`item_id=1`として定義されている。
-pub const GEM_ITEM_ID: i64 = 1;
+pub const GEM_ITEM_ID: i32 = 1;
 
 /// 新規行としてアイテムを付与する(`player_service::create`のsignup時初期付与のみで使う想定)。
 /// 呼び出し元のトランザクション内で実行する。
@@ -16,7 +16,7 @@ pub const GEM_ITEM_ID: i64 = 1;
 pub async fn grant_initial(
     tx: &mut Transaction<'_, MySql>,
     player_id: &str,
-    item_id: i64,
+    item_id: i32,
     quantity: i32,
 ) -> Result<(), AppError> {
     sqlx::query("INSERT INTO player_items (player_id, item_id, quantity) VALUES (?, ?, ?)")
@@ -36,7 +36,7 @@ pub async fn grant_initial(
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
 pub async fn list(pool: &MySqlPool, player_id: &str) -> Result<Vec<PlayerItem>, AppError> {
-    let rows: Vec<(String, i64, i32)> = sqlx::query_as(
+    let rows: Vec<(String, i32, i32)> = sqlx::query_as(
         "SELECT player_id, item_id, quantity FROM player_items \
          WHERE player_id = ? ORDER BY item_id",
     )
@@ -65,7 +65,7 @@ pub async fn list(pool: &MySqlPool, player_id: &str) -> Result<Vec<PlayerItem>, 
 pub async fn deduct(
     tx: &mut Transaction<'_, MySql>,
     player_id: &str,
-    item_id: i64,
+    item_id: i32,
     amount: i32,
 ) -> Result<PlayerItem, AppError> {
     let update_result = sqlx::query(
@@ -84,7 +84,7 @@ pub async fn deduct(
         return Err(AppError::BadRequest("insufficient items".to_string()));
     }
 
-    let row: (String, i64, i32) = sqlx::query_as(
+    let row: (String, i32, i32) = sqlx::query_as(
         "SELECT player_id, item_id, quantity FROM player_items \
          WHERE player_id = ? AND item_id = ?",
     )

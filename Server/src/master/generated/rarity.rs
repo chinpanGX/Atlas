@@ -16,7 +16,7 @@ impl Serialize for Rarity {
     where
         S: Serializer,
     {
-        serializer.serialize_i64(*self as i64)
+        serializer.serialize_i32(*self as i32)
     }
 }
 
@@ -25,7 +25,7 @@ impl<'de> Deserialize<'de> for Rarity {
     where
         D: Deserializer<'de>,
     {
-        let value = i64::deserialize(deserializer)?;
+        let value = i32::deserialize(deserializer)?;
         match value {
             1 => Ok(Rarity::S),
             2 => Ok(Rarity::A),

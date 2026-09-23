@@ -69,7 +69,7 @@ realtime_serverプロジェクトを新規作成したら、まず `config.yaml`
 
 ## その他の既知の制約(スキーマ設計時に効く)
 
-- 型は `int` / `string` / `bool` / `enum` の4種類のみ、nullable型が無い(NULLはセンチネル値で表現)
+- 型は `int`(32bit) / `long`(64bit) / `string` / `bool` / `enum` の5種類のみ、nullable型が無い(NULLはセンチネル値で表現)
 - 複合主キー・複合UNIQUE非対応(必要なら代理キー列を1本追加する)
 - 列名にRustの予約語(`type`, `move`, `match`, `loop`, `ref`, `use`, `self`, `static`, `struct`,
   `enum`, `for`, `in`, `let`, `true`, `false`, `if`, `else`, `fn`, `impl`, `trait`, `mut`, `pub`,

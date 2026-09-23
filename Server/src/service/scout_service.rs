@@ -174,7 +174,7 @@ fn roll_candidates(
         }
         let pachimon = pool[rng.gen_range(0..pool.len())];
 
-        let moves: Vec<i64> = master
+        let moves: Vec<i32> = master
             .move_group_moves
             .iter()
             .filter(|row| row.group_id == pachimon.move_group_id && row.is_initial)

@@ -8,7 +8,7 @@ namespace Atlas.Infrastructure.Api
     public sealed class PlayerItemDto
     {
         [JsonPropertyName("itemId")]
-        public long ItemId { get; set; }
+        public int ItemId { get; set; }
 
         [JsonPropertyName("quantity")]
         public int Quantity { get; set; }

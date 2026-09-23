@@ -8,7 +8,7 @@ use super::type_effectiveness::TypeEffectiveness;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypeChart {
-    pub type_chart_id: i64,
+    pub type_chart_id: i32,
     pub attack_type: PachimonType,
     pub defend_type: PachimonType,
     pub effectiveness: TypeEffectiveness,

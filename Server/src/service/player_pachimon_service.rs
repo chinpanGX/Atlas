@@ -25,8 +25,8 @@ pub struct PartySlotInput {
 pub async fn grant(
     tx: &mut Transaction<'_, MySql>,
     player_id: &str,
-    pachimon_id: i64,
-    moves: &[i64],
+    pachimon_id: i32,
+    moves: &[i32],
 ) -> Result<(PlayerPachimon, Vec<PlayerPachimonMove>), AppError> {
     let player_pachimon_id = Ulid::new().to_string();
     let effort_values =
@@ -97,7 +97,7 @@ pub async fn list_owned_pachimon(
     pool: &MySqlPool,
     player_id: &str,
 ) -> Result<Vec<PlayerPachimon>, AppError> {
-    let rows: Vec<(String, i64, chrono::NaiveDateTime)> = sqlx::query_as(
+    let rows: Vec<(String, i32, chrono::NaiveDateTime)> = sqlx::query_as(
         "SELECT player_pachimon_id, pachimon_id, obtained_at FROM player_pachimon \
          WHERE player_id = ? ORDER BY obtained_at",
     )
@@ -128,7 +128,7 @@ pub async fn list_owned_moves(
     pool: &MySqlPool,
     player_id: &str,
 ) -> Result<Vec<PlayerPachimonMove>, AppError> {
-    let rows: Vec<(String, String, i32, i64)> = sqlx::query_as(
+    let rows: Vec<(String, String, i32, i32)> = sqlx::query_as(
         "SELECT ppm.player_pachimon_move_id, ppm.player_pachimon_id, ppm.slot, ppm.move_id \
          FROM player_pachimon_moves ppm \
          JOIN player_pachimon pp ON pp.player_pachimon_id = ppm.player_pachimon_id \
@@ -295,7 +295,7 @@ pub async fn update_move(
     player_id: &str,
     player_pachimon_id: &str,
     slot: i32,
-    move_id: i64,
+    move_id: i32,
 ) -> Result<PlayerPachimonMove, AppError> {
     if !(1..=4).contains(&slot) {
         return Err(AppError::BadRequest(
@@ -303,7 +303,7 @@ pub async fn update_move(
         ));
     }
 
-    let row: Option<(i64,)> = sqlx::query_as(
+    let row: Option<(i32,)> = sqlx::query_as(
         "SELECT pachimon_id FROM player_pachimon WHERE player_pachimon_id = ? AND player_id = ?",
     )
     .bind(player_pachimon_id)

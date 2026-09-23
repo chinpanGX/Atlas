@@ -40,18 +40,18 @@ impl MasterData {
 
 #[derive(sqlx::FromRow)]
 struct PachimonRow {
-    pachimon_id: i64,
+    pachimon_id: i32,
     name: String,
     primary_type: u8,
     secondary_type: u8,
-    base_hp: i64,
-    base_atk: i64,
-    base_def: i64,
-    base_spatk: i64,
-    base_spdef: i64,
-    base_speed: i64,
+    base_hp: i32,
+    base_atk: i32,
+    base_def: i32,
+    base_spatk: i32,
+    base_spdef: i32,
+    base_speed: i32,
     rarity: u8,
-    move_group_id: i64,
+    move_group_id: i32,
 }
 
 async fn load_pachimon(pool: &MySqlPool) -> Result<Vec<Pachimon>, sqlx::Error> {
@@ -101,9 +101,9 @@ fn rarity_from_u8(value: u8) -> Rarity {
 
 #[derive(sqlx::FromRow)]
 struct MoveGroupMovesRow {
-    unique_id: i64,
-    group_id: i64,
-    move_id: i64,
+    unique_id: i32,
+    group_id: i32,
+    move_id: i32,
     is_initial: bool,
 }
 
@@ -127,8 +127,8 @@ async fn load_move_group_moves(pool: &MySqlPool) -> Result<Vec<MoveGroupMoves>, 
 
 #[derive(sqlx::FromRow)]
 struct StarterPartySlotsRow {
-    slot_no: i64,
-    pachimon_id: i64,
+    slot_no: i32,
+    pachimon_id: i32,
 }
 
 async fn load_starter_party_slots(pool: &MySqlPool) -> Result<Vec<StarterPartySlots>, sqlx::Error> {
@@ -148,7 +148,7 @@ async fn load_starter_party_slots(pool: &MySqlPool) -> Result<Vec<StarterPartySl
 
 #[derive(sqlx::FromRow)]
 struct ItemsRow {
-    item_id: i64,
+    item_id: i32,
     name: String,
 }
 

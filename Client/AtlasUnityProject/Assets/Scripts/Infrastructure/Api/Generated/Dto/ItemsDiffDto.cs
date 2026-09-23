@@ -8,7 +8,7 @@ namespace Atlas.Infrastructure.Api
     public sealed class ItemsDiffDto
     {
         [JsonPropertyName("removed")]
-        public System.Collections.Generic.List<long> Removed { get; set; }
+        public System.Collections.Generic.List<int> Removed { get; set; }
 
         [JsonPropertyName("upserted")]
         public System.Collections.Generic.List<PlayerItemDto> Upserted { get; set; }

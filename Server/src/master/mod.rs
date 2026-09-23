@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn test_pachimon_ids_are_unique() {
         let pachimon = parse_pachimon(PACHIMON_JSON).unwrap();
-        let mut ids: Vec<i64> = pachimon.iter().map(|p| p.pachimon_id).collect();
+        let mut ids: Vec<i32> = pachimon.iter().map(|p| p.pachimon_id).collect();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), pachimon.len());
@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn test_move_group_moves_unique_ids_are_unique() {
         let rows = parse_move_group_moves(MOVE_GROUP_MOVES_JSON).unwrap();
-        let mut ids: Vec<i64> = rows.iter().map(|r| r.unique_id).collect();
+        let mut ids: Vec<i32> = rows.iter().map(|r| r.unique_id).collect();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), rows.len());
@@ -204,9 +204,9 @@ mod tests {
         let moves = parse_moves(MOVES_JSON).unwrap();
         let rows = parse_move_group_moves(MOVE_GROUP_MOVES_JSON).unwrap();
 
-        let group_ids: std::collections::HashSet<i64> =
+        let group_ids: std::collections::HashSet<i32> =
             groups.iter().map(|g| g.move_group_id).collect();
-        let move_ids: std::collections::HashSet<i64> = moves.iter().map(|m| m.move_id).collect();
+        let move_ids: std::collections::HashSet<i32> = moves.iter().map(|m| m.move_id).collect();
 
         for row in &rows {
             assert!(
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn test_starter_party_slots_slot_no_are_unique() {
         let slots = parse_starter_party_slots(STARTER_PARTY_SLOTS_JSON).unwrap();
-        let mut slot_nos: Vec<i64> = slots.iter().map(|s| s.slot_no).collect();
+        let mut slot_nos: Vec<i32> = slots.iter().map(|s| s.slot_no).collect();
         slot_nos.sort_unstable();
         slot_nos.dedup();
         assert_eq!(slot_nos.len(), slots.len());
@@ -247,7 +247,7 @@ mod tests {
         let pachimon = parse_pachimon(PACHIMON_JSON).unwrap();
         let slots = parse_starter_party_slots(STARTER_PARTY_SLOTS_JSON).unwrap();
 
-        let pachimon_ids: std::collections::HashSet<i64> =
+        let pachimon_ids: std::collections::HashSet<i32> =
             pachimon.iter().map(|p| p.pachimon_id).collect();
 
         for slot in &slots {
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn test_items_ids_are_unique() {
         let items = parse_items(ITEMS_JSON).unwrap();
-        let mut ids: Vec<i64> = items.iter().map(|i| i.item_id).collect();
+        let mut ids: Vec<i32> = items.iter().map(|i| i.item_id).collect();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), items.len());

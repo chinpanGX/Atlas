@@ -1,7 +1,7 @@
 pub struct PlayerPachimon {
     pub player_pachimon_id: String,
     pub player_id: String,
-    pub pachimon_id: i64,
+    pub pachimon_id: i32,
     pub obtained_at: chrono::NaiveDateTime,
 }
 
@@ -13,5 +13,5 @@ pub struct PlayerPachimonMove {
     pub player_pachimon_move_id: String,
     pub player_pachimon_id: String,
     pub slot: i32,
-    pub move_id: i64,
+    pub move_id: i32,
 }

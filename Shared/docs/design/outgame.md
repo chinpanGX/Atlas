@@ -364,8 +364,8 @@ gems等の所持数は本テーブルに持たず、`player_items`([architecture
 
 | カラム名 | 型 | 制約 | 説明 |
 |---|---|---|---|
-| `slot_no` | BIGINT | PRIMARY KEY | 1-6 |
-| `pachimon_id` | BIGINT | NOT NULL, FOREIGN KEY → `pachimon.pachimon_id` | |
+| `slot_no` | INT | PRIMARY KEY | 1-6 |
+| `pachimon_id` | INT | NOT NULL, FOREIGN KEY → `pachimon.pachimon_id` | |
 
 `master-data-pipeline`が生成するマスタテーブル(`Shared/master-data/schema/tables/`
 参照)。全プレイヤー共通の単一固定編成(選択制ではない)で、`pachimon_id`は必ず埋まっている

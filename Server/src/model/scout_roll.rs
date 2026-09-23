@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 /// `rarity`は`"S"/"A"/"B"/"C"`の文字列(`ScoutBanner.rate_table`と同じ表現)。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoutCandidate {
-    pub pachimon_id: i64,
+    pub pachimon_id: i32,
     pub rarity: String,
-    pub moves: Vec<i64>,
+    pub moves: Vec<i32>,
 }
 
 pub struct ScoutRoll {

@@ -1,6 +1,6 @@
 # パチモンマスタ(Shared/docs/design.md の「マスターデータ設計」に対応)。
 #
-# secondary_type: このパイプラインは int/string/bool/enum の4型のみでnullable型が無いため、
+# secondary_type: このパイプラインは int/long/string/bool/enum の5型のみでnullable型が無いため、
 # PachimonType enum に NONE(id=0) を追加して「単タイプ」を表現する。
 #
 # move_group_id: schema/tables/move_groups.yaml (技グループマスタ) への参照。
