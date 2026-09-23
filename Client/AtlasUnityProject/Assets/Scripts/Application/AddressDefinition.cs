@@ -20,7 +20,7 @@ namespace Atlas.Application.Address
         public const string ForfeitConfirmModal = "ForfeitConfirmModal";
         public const string Home = "Home";
         public const string HomePage = "HomePage";
-        public const string PartyEditPage = "PartyEditPage";
+        public const string PartyPage = "PartyPage";
         public const string TitlePage = "TitlePage";
     }
 }

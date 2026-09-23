@@ -3,7 +3,7 @@ using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
 using Atlas.Navigation;
-using Atlas.Presentation.PartyEdit;
+using Atlas.Presentation.Party;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
@@ -48,7 +48,7 @@ namespace Atlas.Presentation.Home
             view.OnScoutButtonClicked.Subscribe(_ => Debug.Log("[Home] Scout button clicked (not implemented yet)")).AddTo(disposables);
             // Push完了までの連打で同じPageを重ねて積まないよう、実行中の押下は捨てる。
             view.OnPartyButtonClicked
-                .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<PartyEditPage>(), AwaitOperation.Drop)
+                .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<PartyPage>(), AwaitOperation.Drop)
                 .AddTo(disposables);
             // ChangeSceneAsyncの中でHomeシーン(=このPage自身)がUnloadされるため、連打で
             // 2回目の遷移が走らないよう最初の1回だけ受け付ける。
