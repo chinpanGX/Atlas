@@ -41,6 +41,7 @@ namespace Atlas.DI
             builder.Register<BattleEntryStore>(Lifetime.Singleton);
 
             builder.Register<AccessTokenStore>(Lifetime.Singleton);
+            builder.Register<AccessTokenRefresher>(Lifetime.Singleton);
             builder.Register<IDeviceCredentialsRepository, DeviceCredentialsRepository>(Lifetime.Singleton);
             builder.Register<IPlayerProfileRepository, ApiPlayerProfileRepository>(Lifetime.Singleton);
             builder.Register<IItemRepository, ApiItemRepository>(Lifetime.Singleton);
@@ -74,7 +75,10 @@ namespace Atlas.DI
             builder.Register<IDeviceConnection>(_ => new DeviceConnection(ApiBaseUrl), Lifetime.Singleton);
             builder.Register<IPlayerConnection>(
                 resolver => new PlayerConnection(
-                    ApiBaseUrl, resolver.Resolve<AccessTokenStore>(), resolver.Resolve<IPlayerDiffApplier>()),
+                    ApiBaseUrl,
+                    resolver.Resolve<AccessTokenStore>(),
+                    resolver.Resolve<AccessTokenRefresher>(),
+                    resolver.Resolve<IPlayerDiffApplier>()),
                 Lifetime.Singleton);
         }
     }

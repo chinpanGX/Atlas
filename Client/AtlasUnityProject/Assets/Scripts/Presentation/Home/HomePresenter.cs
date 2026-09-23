@@ -50,6 +50,7 @@ namespace Atlas.Presentation.Home
             // 2回目の遷移が走らないよう最初の1回だけ受け付ける。
             view.OnBattleButtonClicked.Take(1).Subscribe(_ => OnBattleButtonClicked().Forget()).AddTo(disposables);
             view.OnChatButtonClicked.Subscribe(_ => Debug.Log("[Home] Chat button clicked (not implemented yet)")).AddTo(disposables);
+            await UniTask.CompletedTask;
         }
 
         // player_pachimonが未実装のため、選出3体はマスターデータのPachimonIdを暫定的に固定値で

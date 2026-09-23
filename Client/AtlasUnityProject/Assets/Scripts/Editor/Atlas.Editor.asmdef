@@ -1,0 +1,19 @@
+{
+    "name": "Atlas.Editor",
+    "rootNamespace": "Atlas.Editor",
+    "references": [
+        "GUID:41261d631a9f02542ba248f84bf54981",
+        "GUID:ac5077aef605427f9a3fc74bc37132e2"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

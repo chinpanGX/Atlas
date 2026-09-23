@@ -15,24 +15,24 @@ namespace Atlas.Infrastructure
         private readonly IDeviceConnection deviceConnection;
         private readonly IPlayerConnection playerConnection;
         private readonly IPlayerProfileRepository playerProfileRepository;
-        private readonly AccessTokenStore accessTokenStore;
+        private readonly AccessTokenRefresher accessTokenRefresher;
 
         public SignInService(
             IDeviceCredentialsRepository credentialsRepository,
             IDeviceConnection deviceConnection,
             IPlayerConnection playerConnection,
             IPlayerProfileRepository playerProfileRepository,
-            AccessTokenStore accessTokenStore)
+            AccessTokenRefresher accessTokenRefresher)
         {
             this.credentialsRepository = credentialsRepository;
             this.deviceConnection = deviceConnection;
             this.playerConnection = playerConnection;
             this.playerProfileRepository = playerProfileRepository;
-            this.accessTokenStore = accessTokenStore;
+            this.accessTokenRefresher = accessTokenRefresher;
         }
 
-        // outgame.mdの補足にある「早めの再認証」「401時の再認証リトライ」は未実装で、
-        // 起動時に一度だけ認証する疎通確認レベルの実装(残タスクはprogress.md参照)。
+        // 初回認証もAccessTokenRefresher経由で行い、トークンの書き込み経路を一本化する
+        // (以降の期限前再認証・401時の再認証リトライは各ConnectionがAccessTokenRefresher経由で行う)。
         // playerDiffの適用(items等)はIPlayerConnection.SignInAsync内部(Infrastructure.Api)で
         // 完結しており、ここでは行わない。
         public async UniTask SignInAsync()
@@ -46,8 +46,7 @@ namespace Atlas.Infrastructure
                 await credentialsRepository.SaveAsync(credentials.Value);
             }
 
-            var authResult = await deviceConnection.AuthenticateAsync(credentials.Value.DeviceId, credentials.Value.SecretKey);
-            accessTokenStore.SetToken(authResult.AccessToken);
+            await accessTokenRefresher.RefreshAsync();
 
             SignInResult signIn;
             try

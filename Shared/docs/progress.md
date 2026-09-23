@@ -226,7 +226,9 @@ design/architecture.mdの全体構成(`Unity Client ←REST→ Rust/Axum`, `Unit
 
 Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済みで、利用ライブラリ一式を
 導入しコンパイルが通る状態まで到達した。バトルMock・デバイス認証〜サインイン(`playerDiff`適用)の実装により、
-通信層(REST APIクライアントの実呼び出し)にも着手している。
+通信層(REST APIクライアントの実呼び出し)にも着手している。Home⇔Battleのシーン分離・決着処理・
+ジェム表示・UICamera/横向き対応まで実装し、design/battle.md「Stage 1」の画面まわりは一区切りついた
+(下記「バトル画面」参照)。
 
 - 利用ライブラリ(VContainer/UniTask/MagicOnion.Client/YetAnotherHttpHandler/MessagePack/
   MasterMemory/Supplement/R3/UnityScreenNavigator/ZeroMessenger)を導入。詳細・導入経路は
@@ -310,6 +312,34 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   UIを繋ぐ`MockBattleConnection`(`Atlas.Infrastructure.Mock`)経由で実際にバトルが動く状態まで
   到達した。選出3体はマスターデータから`TestPartyFactory`が組み立てる(`player_pachimon`未使用の
   暫定実装、design/battle.md「Stage 1」参照)。`BattlePagePlayModeTests`でPlay Mode実機確認済み
+- **Home⇔Battleのシーン分離**: `Battle.unity`シーンを新規追加し、`ISceneNavigator`/`SceneNavigator`
+  (Bootstrap常駐のまま、重ねるシーンを1つだけ保持し前のシーンをUnloadしてから次をLoad)で
+  切り替えるようにした。Home→Battleへの選出3体の受け渡しは、シーンをまたぐとHome側のDIスコープが
+  破棄されるため、Push時のViewDtoではなくRoot常駐(Singleton)の`BattleEntryStore`経由で行う
+  (`HomePresenter`が`Set`→シーン切り替え、`BattleLifetimeScope`の`BattleEntryPoint`が読み出して
+  `BattlePage`へのViewDtoに詰め替える)。`BattleLifetimeScope`は`HomeLifetimeScope`と同様
+  `RootLifetimeScope`を直接親にする
+- **決着処理**: `IBattleConnection.OnBattleEnd`を`BattlePresenter`で購読し、勝敗理由
+  (`AllFainted`/`Forfeit`/`DisconnectTimeout`)に応じたテキストで`BattleResultModal`を表示、
+  そこからHomeへ戻る。投了ボタン→`ForfeitConfirmModal`(確認Modal)→確定で
+  `IBattleConnection.ForfeitAsync`を呼ぶフローを追加。決着後(結果Modal表示中)はコマンド・投了
+  ボタンの入力を`battleEnded`フラグで無視する
+- **`ScreenNavigator`のPop結果通知バグ修正**: Pop完了直後に結果(`UniTaskCompletionSource`)を
+  即座に`TrySetResult`していたため、待機側が続けて別のPage/Modalを`Push`すると、USNの遷移
+  アニメーションがまだ終わっていない状態で「screen is already in transition」により拒否される
+  不具合があった。Pop対象の待機者はPop前に集めておき、結果通知はPopの遷移アニメーション完了後に
+  行う(`CollectPending*Sources`→`SetResults`)よう修正
+- **`SceneNavigator`のシーン破棄タイミング調整**: USNの遷移アニメーションは`UpdateDispatcher`
+  (DontDestroyOnLoad)に登録され完了時に登録解除されるため、遷移中にシーンごとPage/Modalを
+  破棄すると登録が残り、破棄済み`RectTransform`を毎フレーム操作して例外になる。`ChangeSceneAsync`は
+  現在のシーンをUnloadする前に、そのシーン内の`PageContainer`/`ModalContainer`が
+  遷移中(`IsInTransition`)でなくなるまで待つ
+- **UI(Screen Space - Camera・横向き対応)**: Home/BattleのCanvasと画面prefabをUIレイヤーへ移動
+  (UICameraがUIレイヤーのみ描画するため)。BattleシーンのCanvasもScreen Space - Cameraに揃え、
+  `BootstrapTest`の重複UICameraを削除。`CanvasScaler`の基準を1920x1080(高さ合わせ)にし、
+  バトルのパーツが画面いっぱいに伸縮するようにした。端末の向きを横向きのみに制限
+- PlayModeテストに投了→結果→Home復帰のシナリオを追加し、パーツView分割後に壊れていた既存テストも
+  修正
 - **デバイス認証・サインアップ疎通(当初版、下記「サインイン・`playerDiff`適用」で置き換え済み)**:
   design/outgame.md「デバイス認証」「プレイヤー作成」の
   `POST /devices`→`POST /devices/authenticate`→`GET/POST /players*`という初回起動フローを
@@ -349,24 +379,38 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   - これにより、以前ここに記載していた「client-architecture.mdとの既知の乖離」(`IDeviceRepository`/
     `IAuthRepository`想定との不一致、`Atlas.Infrastructure.Rest`を作らず`Atlas.Infrastructure`に
     直接配置)は、設計書側を実装に合わせて更新したことで解消した
+- **アクセストークンの更新**: `Atlas.Infrastructure.Api`に`AccessTokenRefresher`を追加した。
+  要認証APIを送る前に端末内で有効期限をチェックし、残り5分未満なら`/devices/authenticate`で
+  再認証する。401が返ったら再認証して1回だけリトライする。実行中の再認証は共有し、同時に
+  複数走らないようにした。`AccessTokenStore`は有効期限(`ExpiresAtUtc`)も持つようにした。
+  `SignInService`の初回認証も`AccessTokenRefresher.RefreshAsync`経由に統一し、
+  `PlayerConnection`の各APIは`SendAsync`で包んだ。今後追加するChat/Scout等のConnectionも
+  同じように`SendAsync`で包む必要がある
 - **UIPackages**: 共通UI部品`CommonButton`を`Presentation/Common`から独立アセンブリ
   `UIPackages.Runtime`(+Inspector拡張の`UIPackages.Editor`)へ移動
 - **今回発見したギャップ(Client、サインイン・`playerDiff`適用)**:
-  - `ApiItemRepository.Upsert`が`Dictionary.Add(itemId, GetQuantity(itemId))`になっており、
+  - ~~`ApiItemRepository.Upsert`が`Dictionary.Add(itemId, GetQuantity(itemId))`になっており、
     受信した`quantity`ではなく既存値(初回は0)を格納する。さらに同じ`itemId`を2回`Upsert`すると
     `ArgumentException`になる(スカウトで`items`を再受信した時点で発生する)。
-    `itemEntities[itemEntity.ItemId] = itemEntity.Quantity`への修正が必要
-  - Home画面のgems表示: `HomePage`は`gemsText`を持つが、`HomePresenter`が`HomeViewDto.Gems`を
+    `itemEntities[itemEntity.ItemId] = itemEntity.Quantity`への修正が必要~~ → 解消。
+    `GetQuantity(long)`(未所持時0埋め)を`TryGet(long, out ItemEntity)`に置き換え、`Upsert`は
+    インデクサ代入(`itemEntities[itemEntity.ItemId] = itemEntity`)のみになった
+  - ~~Home画面のgems表示: `HomePage`は`gemsText`を持つが、`HomePresenter`が`HomeViewDto.Gems`を
     設定しておらず常に`0`表示になる。`IItemRepository`(`item_id: 1`)の値をPresenterへ渡す
-    `IXxxService`がまだ無い
+    `IXxxService`がまだ無い~~ → 解消。`IItemFetchService`/`ItemFetchService`(旧`IItemService`から
+    改名)を追加し、`HomePresenter`が`GetAmount(GemItemId=1)`の結果を`HomeViewDto.Gems`へ設定する
+    ようにした。あわせて`HomeViewDto.Nickname`は`PlayerId`に置き換え(固定文字列「プレイヤー」の
+    ニックネームより開発中は個体識別できる方が有用なため)
   - `PlayerProfile`のコメントが廃止済みの`IPlayerRepository.SignInAsync`を参照したまま。
-    `PlayerAccountService`に未使用フィールド`playerData`が残っている
-  - Play Modeでのローカルサーバー疎通確認は未実施(残タスク#15)
+    `PlayerAccountService`に未使用フィールド`playerData`が残っている(未修正)
+  - Play Modeでのローカルサーバー疎通確認は未実施(残タスク#15)。バトルのシーン遷移・決着処理
+    (投了→結果Modal→Home復帰)についてはMock接続でのPlayModeテストを追加済み
 - 実装メモ: `record`/`record struct`はUnity Editorが固定するC#言語バージョン(9.0)では
   使えない(C# 10以降が必要)。`Atlas.Domain`等のシンプルなデータ型は通常の`readonly struct`/
   `class`で書く
-- 未確定として残っているのは、Battle結果をHomeへ引き継ぐ方法と、Scout/Party/Chat各画面
-  (Homeからの導線先)の個別Presenter/ViewDto設計(画面実装時に決定)
+- Battle結果からHomeへ戻る画面遷移(結果Modal→`ISceneNavigator`でHomeシーンへ)は実装済み。
+  未確定として残っているのは、Scout/Party/Chat各画面(Homeからの導線先)の個別Presenter/ViewDto設計
+  (画面実装時に決定)
 
 ### Atlas.BattleCore(Shared/BattleCore/)
 
@@ -430,10 +474,10 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
-| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体、バトル画面(Mock)、デバイス認証〜サインイン(`playerDiff.items`適用)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
-| 14 | アクセストークンの事前有効期限チェック・401時の再認証リトライ(design/outgame.md補足で「望ましい」とされる挙動、現状は起動時に一度認証するのみ) | client |
+| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体(ジェム表示含む)、バトル画面(Mock、Home⇔Battleのシーン分離・決着処理・結果Modal・投了フロー)、UICamera/横向き対応、デバイス認証〜サインイン(`playerDiff.items`適用)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
+| ~~14~~ | ~~アクセストークンの事前有効期限チェック・401時の再認証リトライ~~ → 完了(`AccessTokenRefresher`。詳細は上記「4. Unity Client」の「アクセストークンの更新」、およびclient-architecture.md「アクセストークンの更新」参照。コンパイル確認のみで、実機での確認は#15と合わせて行う) | client |
 | 15 | サインイン疎通(デバイス登録〜`POST /signup`〜`POST /sign-in`・`playerDiff`適用)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
-| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用まで完了(上記「4. Unity Client」参照)。残りは`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、スカウト・`POST /edit/party`・`POST /edit/pachimon_moves`のConnection、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正(上記「今回発見したギャップ」参照) | client |
+| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正まで完了(上記「4. Unity Client」参照)。残りは`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、スカウト・`POST /edit/party`・`POST /edit/pachimon_moves`のConnection | client |
 | 17 | APIサーバーのコンテナ化(Dockerfileのマルチステージビルド+`SQLX_OFFLINE`、composeのprofileで開発時の`cargo run`と併用)。MagicOnionサーバーの着手時に行う(上記「3. Server API実装状況」の「検討したが採用しなかった案」参照) | server |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |

@@ -589,8 +589,9 @@ await screenNavigator.PopPageAsync(new PartyEditResult(...));
 BootstrapEntryPoint
   └─ ISignInService.SignInAsync()                          (Application / 実装: Infrastructure)
        ├─ IDeviceCredentialsRepository                       device_id/secret_keyの暗号化ローカル保存
-       ├─ IDeviceConnection.RegisterAsync/AuthenticateAsync  (Application / 実装: Infrastructure.Api)
-       ├─ AccessTokenStore.SetToken                          (Infrastructure.Api)
+       ├─ IDeviceConnection.RegisterAsync                    (Application / 実装: Infrastructure.Api)
+       ├─ AccessTokenRefresher.RefreshAsync                  (Infrastructure.Api)
+       │    └─ IDeviceConnection.AuthenticateAsync → AccessTokenStore.SetToken
        ├─ IPlayerConnection.SignInAsync ─┬─ POST /sign-in(404ならSignUpAsync→再度SignInAsync)
        │                                 └─ IPlayerDiffApplier.ApplyAsync(playerDiff)
        │                                      ├─ ItemDiffApplier            → IItemRepository.Upsert/Delete
@@ -602,6 +603,30 @@ BootstrapEntryPoint
 HomePresenter
   └─ IPlayerAccountService.Get() → IPlayerProfileRepository.Get()
 ```
+
+### アクセストークンの更新
+
+[outgame.md](outgame.md)「デバイス認証」補足の方針(リフレッシュトークンは無く、
+`POST /devices/authenticate`の再実行で更新する)を、`Atlas.Infrastructure.Api`の
+`AccessTokenRefresher`で実装する。トークンを書き込むのは`AccessTokenRefresher`だけにする。
+
+- 要認証APIを叩く`XxxConnection`は、生成`XxxApiClient`の呼び出しを
+  `AccessTokenRefresher.SendAsync(() => client.XxxAsync(...))`で包む
+- **送信前チェック(通信なし)**: `AccessTokenStore`が持つ有効期限(受信時の端末時刻 + `expiresIn`)の
+  残りが5分未満なら、送信前に再認証する。バックグラウンドから戻った直後もここで更新される
+- **401リトライ**: それでも401が返った場合は、再認証してから1回だけリトライする
+- **再認証は同時に1つだけ**: サーバーは再認証時に古いトークンをすぐ無効にするため、実行中の
+  再認証があればそれを共有して待つ。401を受けたときに、送信時のトークンが既に差し替わっていれば
+  再認証せずにリトライする
+
+検討したが採用しなかった案:
+
+- **一定間隔のタイマーで期限をチェックする**: 送信前チェックで同じことができ、しかも
+  バックグラウンド復帰直後の失効も防げるため不要
+- **毎回のリクエスト前に`/devices/authenticate`や`/auth/verify`を呼ぶ**: 認証はArgon2で照合するため
+  サーバー負荷が大きい。さらに、再認証のたびに並行リクエストのトークンを無効にしてしまう。
+  `/auth/verify`で得られる情報は端末内の期限チェックとほぼ同じで、検証から送信までの間の
+  失効も防げない
 
 ### インターフェース単位
 
