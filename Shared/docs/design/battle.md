@@ -669,7 +669,7 @@ APIサーバーは5分ごとに、`started_at`から**1時間**以上経った`i
   設定して`AddMagicOnion()`/`MapMagicOnionService()`を呼ぶ数行で済む
 - Docker化は行わない(Rust APIサーバーと同じ判断。Windows上でのビルド速度・デバッグの
   しやすさを優先。デプロイ方式を決める段階で改めて検討する。Rust側の同判断は
-  [Shared/docs/progress.md](../progress.md)残タスク#17参照)
+  [Shared/docs/progress.md](../progress.md) S-2参照)
 
 ### 再接続時の盤面復元
 
