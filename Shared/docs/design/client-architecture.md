@@ -37,8 +37,8 @@ Unity Client側の「View⇔ロジック」を繋ぐ土台の設計。個別画�
 Bootstrap(Build Settingsの起動シーン、Addressables対象外)
   RootLifetimeScope(VContainer) -- アプリ生存期間中ずっと存在
   最小限のロードUI(スプラッシュ/プログレス表示のみ、USNは使わない)
-  役割: MasterData読み込み、デバイス認証/セッション復元、RepositoryConfigに基づく
-        各IXxxRepositoryのDI登録、各IXxxServiceのDI登録。完了後にHomeシーンへ遷移する
+  役割: MasterData読み込み、デバイス認証・サインイン(ISignInService)、各IXxxConnection
+        (Mock/Real)・IXxxRepository・IXxxServiceのDI登録。完了後にHomeシーンへ遷移する
     │ ISceneLoader.ChangeScene("Home", additive: true, ...)
     ▼
 Home(Addressables管理)
@@ -114,7 +114,7 @@ Mirrativ記事はこれを「Clean Architectureの厳密な分離よりシンプ
 
 ```
 RootLifetimeScope(Bootstrapシーン、常駐)
-  registers: IPlayerRepository(Mock/Real選択済み), IPlayerService, RepositoryConfig, MemoryDatabase...
+  registers: IXxxConnection(Mock/Real選択済み), IXxxRepository, IPartyService, IMasterDataService...
   │
   │ LifetimeScope.EnqueueParent
   ▼
@@ -135,7 +135,7 @@ PartyEditPageLifetimeScope : PageLifetimeScope<PartyEditViewDto>
   ▼
 PartyEditPresenter ← コンストラクタ注入で依存 ─┬─ PartyEditPage(View、同じスコープでRegisterComponent済み)
   IInitializable/IDisposable実装               ├─ PartyEditViewDto(同じスコープでRegisterInstance済み)
-  (Page破棄時にScopeごとDispose)                └─ IPlayerService(親のRootLifetimeScopeまで遡って解決)
+  (Page破棄時にScopeごとDispose)                └─ IPartyService(親のRootLifetimeScopeまで遡って解決)
 
 PartyEditPage(View)が公開するもの:
   Observable<Unit> OnSaveButtonClicked  -- PartyEditPresenter.Initialize()内でSubscribe
@@ -144,7 +144,7 @@ PartyEditPage(View)が公開するもの:
 
 - 上半分(LifetimeScopeの親子)は「スコープの生存期間」を表す: Root=アプリ生存期間、
   Home=シーン生存期間、PartyEditPageLifetimeScope=そのPageの表示期間
-- 下半分(コンストラクタ注入)は「実行時に誰が誰を握っているか」を表す: `IPlayerService`
+- 下半分(コンストラクタ注入)は「実行時に誰が誰を握っているか」を表す: `IPartyService`
   だけがスコープを跨いで(Root→Page)解決される。`View`と`ViewDto`は同じPage単位スコープ内で
   完結する
 - `PartyEditPage`自身は`PartyEditPresenter`を知らない(コンストラクタ注入の矢印はPresenter側
@@ -245,7 +245,7 @@ public sealed class XxxPresenter : IInitializable, IDisposable
   (`Client/AtlasUnityProject/Assets/Scripts/Presentation/`)の`ScreenNavigator`実装時に
   コンパイル・VContainer本体のソースで動作を確認済み
 - **`IInitializable`と`IAsyncStartable`の使い分け**: Presenterの初期化が同期で完結する場合は
-  `IInitializable`(`void Initialize()`)、`IPlayerService.GetMeAsync`のように非同期の
+  `IInitializable`(`void Initialize()`)、`ISignInService.SignInAsync`のように非同期の
   初期データ取得が必要な場合は`IAsyncStartable`(`UniTask StartAsync(CancellationToken)`)を
   使う。`RegisterEntryPoint`はどちらも解決対象にする(`EntryPointDispatcher.Dispatch()`の
   `IAsyncStartable`一覧解決を確認済み)ため、Presenterごとに必要な方を選べばよい。
@@ -314,8 +314,8 @@ namespace Supplement.Core
 
 - **RootLifetimeScope**(Bootstrapシーン、アプリ生存期間中ずっと存在):
   - `MasterDataLoader`が読み込んだ`MemoryDatabase`
-  - 各`IXxxRepository`実装(Mock/Realの選択はここで行う、詳細は下記)、各`IXxxService`実装
-  - `RepositoryConfig`
+  - 各`IXxxConnection`実装(Mock/Realの選択はここで行う、詳細は下記)、各`IXxxRepository`実装、
+    各`IXxxService`実装
 - **シーンLifetimeScope**(`HomeLifetimeScope`/`BattleLifetimeScope`、対応するシーンが
   ロードされている間だけ存在): `RootLifetimeScope`の子として生成する。そのシーン固有の
   USN`PageContainer`/`ModalContainer`をここで登録する。呼び出し側(Presenter等)に
@@ -418,14 +418,14 @@ public sealed class PartyEditPageLifetimeScope : PageLifetimeScope<PartyEditView
 public sealed class PartyEditPresenter : IInitializable, IDisposable
 {
     private readonly PartyEditPage view;
-    private readonly IPlayerService playerService;
+    private readonly IPartyService partyService;
     private readonly PartyEditViewDto initialDto;
 
     [Inject]
-    public PartyEditPresenter(PartyEditPage view, IPlayerService playerService, PartyEditViewDto initialDto)
+    public PartyEditPresenter(PartyEditPage view, IPartyService partyService, PartyEditViewDto initialDto)
     {
         this.view = view;
-        this.playerService = playerService;
+        this.partyService = partyService;
         this.initialDto = initialDto;
     }
 
@@ -524,119 +524,149 @@ await screenNavigator.PopPageAsync(new PartyEditResult(...));
   ハードコードされている(差し替え用のフック・委譲先が無い)。USN側を改造しない前提のため、
   「先にUSNがInstantiate→`onLoad`で後から子スコープをBuild」以外の経路は取れない
 
-## コア進行ロジックのMock/Real切り替え(オニオンアーキテクチャ、Repository/Service抽象の一般化)
+## コア進行ロジックのMock/Real切り替え(Connection / Repository / Service)
 
 バトルは[battle.md](battle.md)で`IBattleConnection`(`MockBattleConnection`/
-`RealtimeBattleConnection`)として既に定義済み。この「Viewは抽象インターフェースしか知らず、
-実装がMock(プロセス内完結)かReal(実際の通信)かをDI側で切り替える」というパターンを、
-アウトゲーム側にも一般化して適用する。以前は`IXxxConnection`という1枚岩のインターフェースに
-Mock/Real2実装を用意する形だったが、オニオンアーキテクチャに合わせて以下の3層に分ける
-(実装例は`IPlayerConnection`→`IPlayerRepository`/`IPlayerService`を参照、下記「実装」)。
+`RealtimeBattleConnection`)として既に定義済み。この「Presenterは抽象インターフェースしか
+知らず、実装がMock(プロセス内完結)かReal(実際の通信)かをDI側で切り替える」というパターンを
+アウトゲームにも適用する。アウトゲームでは「サーバーとの通信」と「クライアントが保持する
+所持データ」を別の抽象に分け、以下の3種類で構成する(下記「サインインでの実装例」参照)。
 
-- **`Atlas.Domain`**: `IXxxRepository` — データそのもの(Entity)の取得/更新を表す抽象。
-  「何を取得できるか」だけを規定し、通信方式(REST/Mock/リアルタイム)は一切知らない
-- **`Atlas.Application`**: `IXxxService` — Presenterが直接コンストラクタ注入で依存する抽象。
-  1つの`IXxxRepository`への薄いパススルーであることが多いが、複数`IXxxRepository`をまたぐ
-  調整ロジックが必要になったらここに書く
-- **`Atlas.Infrastructure`**: `IXxxService`の実装(`XxxService`)と`IXxxRepository`の実装
-  (`MockXxxRepository`/`RestXxxRepository`)。`XxxService`はコンストラクタ注入された
-  `IXxxRepository`を呼ぶだけなのでMock/Realの違いを意識せず、**1実装で済む**
-  (Mock/Real切り替えは`IXxxRepository`側の実装差し替えだけで完結する。以前の
-  「機能ごとにMock/Real2実装をまるごと持つ」設計より重複が減る利点がある)
+- **`Atlas.Application`: `IXxxConnection`** — サーバーAPI呼び出しのポート
+  (`IDeviceConnection`/`IPlayerConnection`)。Mock/Realの切り替えはこの単位で行う。
+  Entityの永続化ではなくAPIアクション(登録・認証・サインイン等)の呼び出しなので
+  「Repository」とは呼ばない
+- **`Atlas.Domain`: `IXxxRepository`** — クライアントがローカルに保持する所持データ(Entity)の
+  読み書き。[architecture.md](architecture.md)「APIレスポンス設計」の`playerDiff`の
+  **リソース種別ごとに1つ**用意する(`items`→`IItemRepository`、`pachimon`→`IPachimonRepository`、
+  `pachimonMoveMap`→`IPachimonMoveMapRepository`、`partySlots`→`IPartyRepository`)。通信方式は一切知らず、Mock/Real
+  切り替えの対象でもない
+- **`Atlas.Application`: `IXxxService`** — Presenterが直接コンストラクタ注入で依存する抽象
+  (`ISignInService`/`IPlayerAccountService`)。「Connectionを呼ぶ→結果をRepositoryへ反映する」
+  という一連の流れや、Repositoryからの読み出しをまとめる。実装(`XxxService`)は
+  `Atlas.Infrastructure`(base)に1つだけ置き、Mock/Realの違いを意識しない
 
-**`IXxxRepository`/`IXxxService`のメソッドは`CancellationToken`を引数に取らない**
-(`IPlayerRepository.GetMeAsync()`/`IPlayerService.GetMeAsync()`参照)。理由:
+**`IXxxConnection`/`IXxxRepository`/`IXxxService`のメソッドは`CancellationToken`を引数に取らない**
+(`IPlayerConnection.SignInAsync()`/`ISignInService.SignInAsync()`参照)。理由:
 
 - これらはRootシーンで`Lifetime.Singleton`登録されるため、そもそも特定のPageの表示期間には
   紐付かない。呼び出し元のPresenter(Page単位スコープ)が`IAsyncStartable.StartAsync`等で
   受け取る`CancellationToken`をそのまま素通しさせても、Singletonであるサービス側の処理を
   Page単位で正しく打ち切れる保証はない(他のPageからの呼び出しと共有され得るため)
 - Presenter側で個別に途中キャンセルしたい場合は、呼び出し側で`UniTask.WithCancellation`等を
-  使ってPresenter側の責務として実装する。Repository/Serviceのインターフェース自体には
-  キャンセルの概念を持ち込まない
-- Real実装(`RestXxxRepository`等)がHTTPリクエストを中断したい場合は、実装内部で
+  使ってPresenter側の責務として実装する。インターフェース自体にはキャンセルの概念を持ち込まない
+- Real実装がHTTPリクエストを中断したい場合は、実装内部で
   `UnityEngine.Application.exitCancellationToken`(アプリ終了時にキャンセル)等、実装側で
   完結する手段を使う。インターフェースの契約には影響しない
-- バトルの`IBattleRepository`(実装時に追加、リアルタイムセッション)のように、呼び出し単位でも
-  Page単位でもない別のライフサイクル(セッション単位)でのキャンセルが本当に必要な場合は、
-  このルールの例外として個別に検討する
+- バトルの`IBattleConnection`のように、呼び出し単位でもPage単位でもない別のライフサイクル
+  (セッション単位)でのキャンセルが本当に必要な場合は、このルールの例外として個別に検討する
+
+### `playerDiff`の適用
+
+`playerDiff`を返すAPI(サインイン・スカウト・パーティ編成・技の付け替え)の
+`XxxConnection`実装は、レスポンス受信直後に`IPlayerDiffApplier.ApplyAsync(response.PlayerDiff)`を
+呼ぶ。`PlayerDiffApplier`はリソース種別ごとの`XxxDiffApplier`(`ItemDiffApplier`等)へ
+振り分けるだけの窓口で、各`XxxDiffApplier`が`upserted`/`removed`を対応する
+`IXxxRepository`の`Upsert`/`Delete`へ変換する。これにより、APIごとに反映処理を書かずに
+済む([architecture.md](architecture.md)「クライアント側の反映」の方針)。
+
+- `IPlayerDiffApplier`/`XxxDiffApplier`は生成DTO(`PlayerDiffDto`/`ItemsDiffDto`等)を
+  直接受け取るため、`Atlas.Infrastructure.Api`に置く。Service側(`SignInService`等)は
+  `playerDiff`の存在を知らず、Connectionを呼ぶだけで各Repositoryが最新化された状態になる
+- 複数リソースをまとめた汎用のDiff型・汎用Repositoryは作らない。リソース種別ごとに
+  専用の`XxxDiffApplier`+`IXxxRepository`を1組ずつ追加する
+- `playerId`/`nickname`は`playerDiff`に含まれない(architecture.md参照)ため、
+  `IPlayerConnection.SignInAsync`の戻り値(`SignInResult`)として返し、`SignInService`が
+  `IPlayerProfileRepository`へ保存する
+- 現状のRepository実装(`ApiItemRepository`/`ApiPachimonRepository`/`ApiPachimonMoveMapRepository`/
+  `ApiPartyRepository`/`ApiPlayerProfileRepository`)はメモリ保持のみで、
+  ローカルディスクへは永続化しない。サーバーのDBが正であり、起動時に毎回`POST /sign-in`で
+  フルスナップショットを取り直せるため
+
+### サインインでの実装例
+
+```
+BootstrapEntryPoint
+  └─ ISignInService.SignInAsync()                          (Application / 実装: Infrastructure)
+       ├─ IDeviceCredentialsRepository                       device_id/secret_keyの暗号化ローカル保存
+       ├─ IDeviceConnection.RegisterAsync/AuthenticateAsync  (Application / 実装: Infrastructure.Api)
+       ├─ AccessTokenStore.SetToken                          (Infrastructure.Api)
+       ├─ IPlayerConnection.SignInAsync ─┬─ POST /sign-in(404ならSignUpAsync→再度SignInAsync)
+       │                                 └─ IPlayerDiffApplier.ApplyAsync(playerDiff)
+       │                                      ├─ ItemDiffApplier            → IItemRepository.Upsert/Delete
+       │                                      ├─ PachimonDiffApplier        → IPachimonRepository.Upsert/Delete
+       │                                      ├─ PachimonMoveMapDiffApplier → IPachimonMoveMapRepository.Upsert/Delete
+       │                                      └─ PartyDiffApplier           → IPartyRepository.Upsert/Delete
+       └─ IPlayerProfileRepository.SaveAsync(PlayerProfile)
+
+HomePresenter
+  └─ IPlayerAccountService.Get() → IPlayerProfileRepository.Get()
+```
 
 ### インターフェース単位
 
-バトルは1つのリアルタイムセッションなので`IBattleConnection`系1本にまとめたが、アウトゲームは
-互いに独立したREST呼び出しの集まり(`design/outgame.md`のAPI一覧)なので、**既存の
-`api-codegen`が生成する`XxxApiClient`単位(Device/Auth/Player/Chat/Scout)にそれぞれ対応する
-`IXxxRepository`をAtlas.Domainに定義する**方針にする(1つの巨大な`IOutgameRepository`には
-しない)。理由: 「スカウトだけ本番サーバーに繋いで他はMockのまま動作確認する」のような
-部分的な切り替えがしやすいため。
+`IXxxConnection`は、`api-codegen`が生成する`XxxApiClient`単位(Device/Player/Chat/Scout)に
+それぞれ対応させる(1つの巨大な`IOutgameConnection`にはしない)。理由: 「スカウトだけ本番
+サーバーに繋いで他はMockのまま動作確認する」のような部分的な切り替えがしやすいため。
 
-- `IDeviceRepository` / `IAuthRepository` / `IPlayerRepository` / `IChatRepository` /
-  `IScoutRepository` — 既存のRust API実装済み範囲に対応
-- `IPachimonRepository` / `IPartyRepository`(outgame.md #8-10、パーティ編成・技の付け替え) —
-  対応するRust API自体が未実装のため、実装時に追加する
-- バトルの`IBattleConnection`系も同じ考え方に合わせるなら`IBattleRepository`(Domain、
-  `IBattleHub`/`IBattleHubReceiver`をミラーしたリアルタイムセッション抽象)+`IBattleService`
-  (Application)+`BattleService`(Infrastructure)+`MockBattleRepository`/
-  `RealtimeBattleRepository`(Infrastructure)という構成になる。バトルは未実装のため、
-  実装時に本節の命名規則に合わせて定義する
+- 実装済み: `IDeviceConnection`(`POST /devices`・`POST /devices/authenticate`)、
+  `IPlayerConnection`(`POST /signup`・`POST /sign-in`)
+- 未実装: Chat/Scout、およびパーティ編成・技の付け替え(`POST /edit/party`・
+  `POST /edit/pachimon_moves`)用のConnection。いずれも対応する画面の実装時に追加する
+- `IXxxRepository`は上記の通り`playerDiff`のリソース種別単位であり、Connectionの単位とは
+  一致しない(1つのConnectionが複数リソースの差分を返し得るため)
 
 各インターフェースの具体的なメソッド・Payload形状は、対応する画面を実装するタイミングで
 `design/outgame.md`のAPI仕様に合わせて個別に定義する(本ドキュメントではパターンのみ規定し、
 先回りして全メソッドを定義することはしない)。
 
-### 実装
+### 実装の配置
 
-- `Atlas.Infrastructure`(base): `XxxService : IXxxService`を機能ごとに1つ置く。
-  コンストラクタ注入された`IXxxRepository`を呼ぶだけの薄い実装(`PlayerService`参照)
-- `Atlas.Infrastructure.Mock`(Mock実装をまとめるサブアセンブリ): `MockXxxRepository`。
-  インメモリの擬似データを返すだけ。バトルの`MockBattleRepository`は`Atlas.BattleCore`を
-  実際に呼ぶため複雑だが、アウトゲームのMockは「それっぽい固定/生成データを返すだけ」で
-  足りるため、実装は単純になる想定
-- Real実装(`RestXxxRepository`/`RealtimeBattleRepository`)は、`Atlas.Infrastructure.Mock`と
-  対になる別サブアセンブリ(例: `Atlas.Infrastructure.Rest`)に置く想定(実装時に追加)。
-  `RestXxxRepository`は`Atlas.Infrastructure.Api`が生成した`XxxApiClient`をそのまま呼び、
-  DTOを`Atlas.Domain`側の型へ詰め替えるだけの薄いアダプタ。`Atlas.Infrastructure.Api`配下は
-  `api-codegen`の生成物(再生成で上書きされる)なので、アダプタ自身はそこには置かない
+- `Atlas.Infrastructure`(base): `XxxService : IXxxService`(`SignInService`/
+  `PlayerAccountService`)と、ローカルファイルへの永続化を伴うRepository
+  (`DeviceCredentialsRepository`、Supplementの`IFileStorageService`経由)
+- `Atlas.Infrastructure.Api`: `api-codegen`生成物(`Generated/`配下、再生成で上書きされる)に加え、
+  それを呼ぶReal実装(`DeviceConnection`/`PlayerConnection`)、`PlayerDiffApplier`/
+  `XxxDiffApplier`、メモリ保持のRepository実装(`ApiItemRepository`/`ApiPachimonRepository`/
+  `ApiPachimonMoveMapRepository`/`ApiPartyRepository`/`ApiPlayerProfileRepository`)、`AccessTokenStore`。手書きのコードは`Generated/`の外に置き、
+  生成DTOを`Atlas.Domain`/`Atlas.Application`側の型へ詰め替える
+- `Atlas.Infrastructure.Mock`: `MockXxxConnection`(`MockDeviceConnection`/
+  `MockPlayerConnection`)と`MockBattleConnection`。アウトゲームのMockは固定値を返すだけ
 
 ### 切り替え方法
 
-- `RepositoryConfig`(ScriptableObject、Rootシーンから参照)に、機能ごとの
-  `RepositoryMode { Mock, Real }`をenumフィールドで持たせる(Battle/Device/Auth/Player/Chat/
-  Scoutをそれぞれ独立して設定可能にする)
-- `RootLifetimeScope.Configure`内でこの設定を読み、機能ごとに`Register<IXxxRepository>`の
-  登録先(Mock実装 or Real実装)をif分岐で切り替える。`Register<IXxxService, XxxService>`は
-  Mock/Realに関わらず常に同じ登録でよい。専用のFactory抽象・DIコンテナの外側での
-  切り替え機構は、現時点の規模では過剰と判断し導入しない
-- Inspector上で機能ごとに個別トグルできるようにし、「対戦は本番、アウトガメはMock」のような
-  組み合わせでの動作確認をしやすくする
+- `RootLifetimeScope`の`protected virtual void ConfigureAuthConnections(IContainerBuilder)`に
+  `IDeviceConnection`/`IPlayerConnection`の登録だけを切り出し、本番は常にReal実装を登録する。
+  Mockへの差し替えはこれをoverrideした派生スコープで行う(Battle PlayModeテストの
+  `TestRootLifetimeScope`が、ローカルAPIサーバー無しでBootstrap→Home→Battleの起動経路を
+  検証するために使用)。`IXxxRepository`/`IXxxService`の登録はMock/Realに関わらず常に同じ
+- Connectionが増えて「機能ごとにInspectorからMock/Realをトグルしたい」要求が出た時点で、
+  機能ごとの`RepositoryMode { Mock, Real }`を持つScriptableObject(`RepositoryConfig`)を
+  導入する案を再検討する(現状は未導入)
+
+**検討したが採用しなかった案: `IXxxRepository`をMock/Real切り替えの単位にする構成**。
+当初は`IPlayerRepository`(Domain、`GetMeAsync()`でサーバーから都度取得)に
+`MockPlayerRepository`/`RealPlayerRepository`を用意し、`IPlayerService`がそれを
+パススルーする形だった。`playerDiff`共通レスポンス形式の導入(サーバーが返すのが
+「取得結果」ではなく「クライアント保持データへの差分」になった)に伴い、Repositoryを
+「ローカル保持データ」、通信を「Connection」に分離する現行構成へ置き換えた。
 
 ## asmdef構成との対応
 
-既存の`Assets/Scripts/`配下の空asmdef群(`Atlas.Domain`/`Atlas.Infrastructure`/
-`Atlas.Infrastructure.Api`/`Atlas.Application`)に、上記の型を以下のように配置する。
-`Atlas.Presentation`/`Atlas.DI`/`Atlas.Navigation`/`Atlas.Infrastructure.Mock`(いずれも新規)を
-追加する以外は、既存の依存方向を変更しない。オニオンアーキテクチャに合わせ、`Atlas.Infrastructure`
-配下は「base(Service実装)」「Mock(Repository実装)」「Rest(Repository実装、実装時に追加)」の
-サブアセンブリに分ける。
-
 | asmdef | 配置する型 | 参照 |
 |---|---|---|
-| `Atlas.Domain` | `PlayerData`等のEntity、`IXxxRepository`群 | UniTaskのみ |
-| `Atlas.Application` | `IXxxService`群(Presenterが直接依存する抽象) | `Atlas.Domain`, UniTask |
-| `Atlas.Infrastructure`(base、新規) | `XxxService`(`IXxxService`の実装。`IXxxRepository`へのパススルー) | `Atlas.Domain`, `Atlas.Application`, UniTask |
-| `Atlas.Infrastructure.Mock`(新規) | `MockXxxRepository`(`IXxxRepository`のインメモリ実装) | `Atlas.Domain`, UniTask |
-| `Atlas.Infrastructure.Rest`(将来追加) | `RestXxxRepository`(`IXxxRepository`の実装)、`RealtimeBattleRepository` | `Atlas.Domain`, `Atlas.Infrastructure.Api`, `Atlas.MasterData`, `Atlas.BattleCore`, UniTask, MagicOnion Client |
-| `Atlas.Infrastructure.Api` | (既存のまま)`api-codegen`生成物のみ | UniTaskのみ(変更なし) |
-| `Atlas.Navigation`(新規) | `IScreenNavigator`/`ScreenNavigator`(USNの`PageContainer`/`ModalContainer`をラップする画面遷移基盤)、`PageLifetimeScope<TViewDto>`基底クラス | USN, VContainer, UniTaskのみ |
-| `Atlas.Presentation`(新規) | USNの`Page`派生クラス(View)、`XxxPresenter`、`XxxViewDto`、Page同梱の子`LifetimeScope`(`XxxPageLifetimeScope`)。**画面単位**の型のみを持ち、シーン単位のスコープは持たない | `Atlas.Domain`, `Atlas.Application`, `Atlas.Navigation`, USN, VContainer, R3 |
-| `Atlas.DI`(新規) | `RootLifetimeScope`/`HomeLifetimeScope`/`BattleLifetimeScope`等、**シーン単位**の`LifetimeScope`全て。`IXxxRepository`のMock/Real実装・`IXxxService`の実装をDIコンテナへ登録する構成ルート(Composition Root) | `Atlas.Domain`, `Atlas.Application`, `Atlas.Presentation`, `Atlas.Infrastructure`(base/Mock/Rest全部), `Atlas.Navigation`, USN, Supplement, VContainer |
+| `Atlas.Domain` | Entity(`PlayerProfile`/`ItemEntity`/`DeviceCredentials`等)、`IXxxRepository`群 | UniTaskのみ |
+| `Atlas.Application` | `IXxxService`群(Presenterが直接依存する抽象)、`IXxxConnection`群(通信ポート)、それらの戻り値型(`PlayerData`/`SignInResult`/`AuthenticationResult`) | `Atlas.Domain`, `Atlas.MasterData`, UniTask |
+| `Atlas.Infrastructure`(base) | `XxxService`(`IXxxService`の実装)、`DeviceCredentialsRepository`、`MasterDataService` | `Atlas.Domain`, `Atlas.Application`, `Atlas.Infrastructure.Api`, `Atlas.MasterData`, UniTask, Supplement等 |
+| `Atlas.Infrastructure.Api` | `api-codegen`生成物(`Generated/`)、`XxxConnection`(Real実装)、`PlayerDiffApplier`/`XxxDiffApplier`、`ApiXxxRepository`、`AccessTokenStore` | `Atlas.Domain`, `Atlas.Application`, UniTask |
+| `Atlas.Infrastructure.Mock` | `MockXxxConnection`、`MockBattleConnection` | `Atlas.Domain`, `Atlas.Application`, `Atlas.MasterData`, `Atlas.BattleCore`, UniTask |
+| `Atlas.Navigation` | `IScreenNavigator`/`ScreenNavigator`(USNの`PageContainer`/`ModalContainer`をラップする画面遷移基盤)、`PageLifetimeScope<TViewDto>`基底クラス | USN, VContainer, UniTaskのみ |
+| `Atlas.Presentation` | USNの`Page`派生クラス(View)、`XxxPresenter`、`XxxViewDto`、Page同梱の子`LifetimeScope`(`XxxPageLifetimeScope`)。**画面単位**の型のみを持ち、シーン単位のスコープは持たない | `Atlas.Domain`, `Atlas.Application`, `Atlas.Navigation`, USN, VContainer, R3 |
+| `Atlas.DI` | `RootLifetimeScope`/`HomeLifetimeScope`/`BattleLifetimeScope`等、**シーン単位**の`LifetimeScope`全て。Connection(Mock/Real)・Repository・Serviceの実装をDIコンテナへ登録する構成ルート(Composition Root) | `Atlas.Domain`, `Atlas.Application`, `Atlas.Presentation`, `Atlas.Infrastructure`(base/Api/Mock全部), `Atlas.Navigation`, USN, Supplement, VContainer |
 
 Presenterは`Atlas.Presentation`に属するが、`IXxxService`(Applicationのインターフェース)経由でしか
-呼ばないため、`IXxxRepository`の実体(Mock/Real)はもちろん、そもそも`IXxxRepository`という
-存在自体も意識しない(`Atlas.Domain`の型はEntityとしてのみ利用し、`Atlas.Infrastructure`系は
-一切参照しない)。`Atlas.Application`は、当初想定していたPresenter/View境界インターフェースの
-置き場ではなく、`IXxxService`群の置き場として機能するようになった(複数`IXxxRepository`をまたぐ
-調整ロジックが必要になったら`XxxService`の実装側=`Atlas.Infrastructure`(base)に書く)。
+呼ばないため、Connectionの実体(Mock/Real)も、所持データがどのRepositoryにどう保持されているかも
+意識しない(`Atlas.Domain`の型はEntityとしてのみ利用し、`Atlas.Infrastructure`系は一切参照しない)。
 
 **`Atlas.Navigation`の分離**: `IScreenNavigator`/`ScreenNavigator`/`PageLifetimeScope<TViewDto>`は
 特定の画面(`XxxPage`/`XxxPresenter`)の型を一切知らない汎用の画面遷移基盤であり、USNと
@@ -649,8 +679,8 @@ VContainerだけに依存する。`Atlas.Domain`にも`Atlas.Presentation`にも
 `Atlas.Domain`/`Atlas.Application`/`Atlas.Presentation`/`Atlas.Infrastructure`/`Atlas.Navigation`
 を束ねてDIコンテナへ登録する場所と位置づけ、シーン単位の`LifetimeScope`(`RootLifetimeScope`
 本体に加え、`HomeLifetimeScope`/`BattleLifetimeScope`等シーンロード時に生成される
-スコープ)を**すべて**ここに置く。`RootLifetimeScope`が`IXxxRepository`のMock/Real実装・
-`IXxxService`の実装を`Configure`内で登録するため`Atlas.Infrastructure`への参照が、`HomeLifetimeScope`が
+スコープ)を**すべて**ここに置く。`RootLifetimeScope`が`IXxxConnection`のMock/Real実装・
+`IXxxRepository`/`IXxxService`の実装を`Configure`内で登録するため`Atlas.Infrastructure`への参照が、`HomeLifetimeScope`が
 `screenNavigator.PushPageAsync<HomePage>()`のように画面をPushするため`Atlas.Presentation`への
 参照が、それぞれ必要になる。これを`Atlas.Presentation`内の例外として個別に扱うのではなく、
 「他の全レイヤーに依存してよい最上位のアセンブリ」として`Atlas.DI`に一本化する。
@@ -675,7 +705,7 @@ Assets/Scripts/Navigation/
 
 ```
 Assets/Scripts/DI/
-  RootLifetimeScope.cs           -- Bootstrapシーン。IXxxRepositoryのMock/Real登録・IXxxServiceの登録
+  RootLifetimeScope.cs           -- Bootstrapシーン。IXxxConnectionのMock/Real登録・IXxxRepository/IXxxServiceの登録
   HomeLifetimeScope.cs           -- Homeシーン
   BattleLifetimeScope.cs         -- (将来追加)Battleシーン
 ```
@@ -705,8 +735,7 @@ Assets/Scripts/Presentation/
   (例: `Party`)。ただしAddressables側はprefab単体なのでさらに画面名フォルダは切らない
   (`Views/Party/PartyEditPage.prefab`のようにフラット)のに対し、C#側は1画面5ファイルに
   なるため画面名フォルダを切る、という非対称さがある(理由が異なるため統一しない)
-- `IScreenNavigator`実装は`Atlas.Navigation`直下に置く(上記参照)。`RepositoryConfig`等、
-  Presentation内で特定の機能に属さない共通の型は`Atlas.Presentation`直下に置く
+- `IScreenNavigator`実装は`Atlas.Navigation`直下に置く(上記参照)。Presentation内で特定の機能に属さない共通の型は`Atlas.Presentation`直下に置く
 
 ## 実装検証済み(Bootstrap→Home→TitlePage)
 

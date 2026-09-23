@@ -157,9 +157,12 @@ Rust/Axum API Server    C#/MagicOnion Server
 
 ### クライアント側の反映
 
-- Pachimon/Gemsのローカル永続化を新規実装する(Supplementの`ISaveDataRepository`/
-  `IFileStorageService`、client-architecture.md「クライアント利用ライブラリ」参照)
-- `playerDiff`を受け取った箇所は共通の適用ロジックを通す(APIごとに反映処理を書かない)
+- `playerDiff`のリソース種別ごとにクライアント側の`IXxxRepository`(`IItemRepository`等)を持ち、
+  受信した差分をそこへ適用する。現状はメモリ保持のみでローカルディスクへは永続化しない
+  (サーバーのDBが正で、起動時に毎回`POST /sign-in`でフルスナップショットを取り直せるため)
+- `playerDiff`を受け取った箇所は共通の適用ロジック(`IPlayerDiffApplier`)を通す
+  (APIごとに反映処理を書かない)。構成は[client-architecture.md](client-architecture.md)
+  「`playerDiff`の適用」参照
 
 ## クライアント利用ライブラリ
 

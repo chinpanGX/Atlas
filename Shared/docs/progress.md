@@ -158,8 +158,10 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
   `POST /scout/rolls/{rollId}/select`は`{playerPachimonId,pachimonId,rarity}`を
   `playerDiff`(`pachimon`+`pachimonMoveMap`のみ更新、`rarity`は削除)に置き換えた。
   `player_items`の増減は`WHERE quantity >= ?`を使った条件付き`UPDATE`で原子的に不足検出する
-  (旧`players.gems`の実装パターンを踏襲)。Client側は`api-codegen`で生成コードのみ再生成済みで、
-  実際の呼び出し側実装(ローカル永続化含む)は未着手(下記残タスク#16参照)
+  (旧`players.gems`の実装パターンを踏襲)。Client側は`api-codegen`で再生成したうえで、
+  `POST /signup`/`POST /sign-in`の呼び出しと`playerDiff.items`の適用まで実装済み
+  (下記「4. Unity Client」の「サインイン・`playerDiff`適用」参照)。スカウト・パーティ編成・
+  技の付け替えの呼び出し側は未着手(残タスク#16)
 - **`grant`/`set_party`の戻り値を拡張**。`player_pachimon_service::grant`は生成した技
   (`Vec<PlayerPachimonMove>`)も返すようにし(`select_roll`が`pachimonMoveMap.upserted`を
   組み立てるために必要)、`set_party`は削除前の`party_slot_id`一覧も返すようにした
@@ -180,7 +182,7 @@ design/architecture.mdの全体構成(`Unity Client ←REST→ Rust/Axum`, `Unit
 ### Unity Client
 
 Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済みで、利用ライブラリ一式を
-導入しコンパイルが通る状態まで到達した。バトルMock・デバイス認証(サインアップ)疎通の実装により、
+導入しコンパイルが通る状態まで到達した。バトルMock・デバイス認証〜サインイン(`playerDiff`適用)の実装により、
 通信層(REST APIクライアントの実呼び出し)にも着手している。
 
 - 利用ライブラリ(VContainer/UniTask/MagicOnion.Client/YetAnotherHttpHandler/MessagePack/
@@ -235,8 +237,9 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
 - **`IScreenNavigator`**(旧称`INavigationService`): `PushPageAsync<TPage, TViewDto>(dto)`で
   Push時にデータを渡し、`WaitForPopAsync<TResult>`でPop時の結果を型付きで受け取れる
 - **Connection抽象の一般化**: `IBattleConnection`(battle.md)のMock/Real切り替えパターンを
-  アウトゲームにも適用。既存Rust API境界(Device/Auth/Player/Chat/Scout)ごとに`IXxxConnection`
-  を定義する方針(1つの巨大インターフェースにはしない)。具体的な`IXxxConnection`実装は未着手
+  アウトゲームにも適用。既存Rust API境界(Device/Player/Chat/Scout)ごとに`IXxxConnection`
+  を定義する方針(1つの巨大インターフェースにはしない)。`IDeviceConnection`/`IPlayerConnection`
+  を実装済み(下記「サインイン・`playerDiff`適用」参照)。Chat/Scout/パーティ編成用は未着手
 - **画面をまたぐ通知**: Supplementの`IMessageBroker`(ZeroMessenger実装)をグローバル用途限定で
   導入(トースト通知・gems残高変更等)。同一画面内のView→Presenter通知はR3のObservable
   直接購読のみ。MessagePipeも検討したがSupplementに同種の仕組みが既にあるため不採用。
@@ -251,18 +254,21 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   Play Modeでの実機確認(Bootstrap→Home遷移→TitlePage表示→ボタンクリックでの表示更新)まで完了
 - **ホーム画面本体**: `HomePage`/`HomePresenter`/`HomePageLifetimeScope`
   (`Presentation/Home/`)を実装し、Homeシーンの初期表示を(検証用の)TitlePageから置き換えた。
-  `IPlayerRepository`(`Atlas.Domain`)+`MockPlayerRepository`(`Atlas.Infrastructure.Mock`、
-  `GET /players/me`のMock)を実装。ニックネーム・gems表示、Scout/Party/Battle/Chatへの導線ボタン
+  当初は`IPlayerRepository`+`MockPlayerRepository`(`GET /players/me`のMock)で表示していたが、
+  現在は`IPlayerAccountService`経由でサインイン結果を読む形に置き換え済み(下記「サインイン・
+  `playerDiff`適用」参照)。ニックネーム・gems表示、Scout/Party/Battle/Chatへの導線ボタン
   (遷移先画面が無いため現状はログ出力のみ)をPlay Modeで実機確認済み。`HomePresenter`は非同期の
   初期データ取得が必要なため`IInitializable`ではなく`IAsyncStartable`を使用(使い分けは
-  client-architecture.md「DIによる結線とライフサイクル」参照)。`IPlayerRepository`のReal実装は
-  下記「デバイス認証・サインアップ疎通」参照
-- **バトル画面**: `Presentation/Battle/`(`BattlePage`/`BattlePresenter`/`BattleUiState`/
-  `BattleViewDto`/`BattlePageLifetimeScope`)を実装し、`Atlas.BattleCore`(`BattleEngine`)と
+  client-architecture.md「DIによる結線とライフサイクル」参照)
+- **バトル画面**: `Presentation/Battle/`(`BattlePage`/`BattlePresenter`/`BattleViewDto`/
+  `BattlePageLifetimeScope`、Viewの部品と表示用DTOは`Views/`配下に`CommandView`+`CommandDto`・
+  `SelfInfoView`+`SelfInfoDto`・`OpponentInfoView`+`OpponentInfoDto`・`BattleUIStateDto`として
+  分割。旧`BattleUiState`は廃止)を実装し、`Atlas.BattleCore`(`BattleEngine`)と
   UIを繋ぐ`MockBattleConnection`(`Atlas.Infrastructure.Mock`)経由で実際にバトルが動く状態まで
   到達した。選出3体はマスターデータから`TestPartyFactory`が組み立てる(`player_pachimon`未使用の
   暫定実装、design/battle.md「Stage 1」参照)。`BattlePagePlayModeTests`でPlay Mode実機確認済み
-- **デバイス認証・サインアップ疎通**: design/outgame.md「デバイス認証」「プレイヤー作成」の
+- **デバイス認証・サインアップ疎通(当初版、下記「サインイン・`playerDiff`適用」で置き換え済み)**:
+  design/outgame.md「デバイス認証」「プレイヤー作成」の
   `POST /devices`→`POST /devices/authenticate`→`GET/POST /players*`という初回起動フローを
   実装。`IDeviceConnection`/`RealDeviceConnection`(Atlas.Infrastructure、`DeviceApiClient`
   経由)・`IPlayerRepository`のReal実装`RealPlayerRepository`(`PlayerApiClient`経由)・
@@ -277,17 +283,42 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   再認証リトライ(outgame.mdの補足で「望ましい」とされる挙動)は未実装で、起動時に一度だけ
   認証する疎通確認レベルの実装に留めている(残タスク参照)。ニックネーム入力画面が無いため
   新規プレイヤー作成時は固定文字列「プレイヤー」を使う
-- **client-architecture.mdとの既知の乖離**: 「インターフェース単位」節が想定していた
-  `IDeviceRepository`/`IAuthRepository`という命名・構成ではなく、実際は`IDeviceConnection`
-  (バトルの`IBattleConnection`と同じ「Connection」命名を流用)+`IAuthService`が
-  デバイス登録・認証・プレイヤー作成をまとめてオーケストレーションする形になった。また
-  設計書には無い`IDeviceCredentialsRepository`/`AccessTokenStore`(ローカル永続化・
-  アクセストークン保持)を新規に導入している。Real実装(`RealDeviceConnection`/
-  `RealPlayerRepository`/`AuthService`)も、設計書が想定していた別サブアセンブリ
-  `Atlas.Infrastructure.Rest`ではなく、既存の`Atlas.Infrastructure`(base)に直接
-  置いている。1回きりの認証フローに`IAuthRepository`やサブアセンブリ分割を導入するほどの
-  複雑さが無いと判断した実装時の簡略化だが、設計書の更新・実装の手直しはどちらも今回は
-  見送り、乖離があることだけ明記しておく
+- **サインイン・`playerDiff`適用**: Server側のAPI再編(残タスク#16)に合わせてClientの
+  通信・データ保持層を作り直した。旧`IPlayerRepository`/`RealPlayerRepository`/
+  `MockPlayerRepository`/`IPlayerService`/`PlayerService`/`IAuthService`/`AuthService`/
+  `RealDeviceConnection`を廃止し、以下の構成に置き換えた(設計は
+  client-architecture.md「コア進行ロジックのMock/Real切り替え(Connection / Repository / Service)」)
+  - 通信ポート(`Atlas.Application`): `IDeviceConnection`(Domainから移動)・`IPlayerConnection`
+    (`SignUpAsync`/`SignInAsync`)。Real実装`DeviceConnection`/`PlayerConnection`は
+    `Atlas.Infrastructure.Api`、Mock実装`MockDeviceConnection`/`MockPlayerConnection`は
+    `Atlas.Infrastructure.Mock`
+  - `playerDiff`の適用: `PlayerConnection.SignInAsync`がレスポンス受信直後に
+    `IPlayerDiffApplier`→`ItemDiffApplier`→`IItemRepository`(`ApiItemRepository`、メモリ保持)へ
+    反映する。`playerId`/`nickname`は`SignInService`が`IPlayerProfileRepository`
+    (`ApiPlayerProfileRepository`、メモリ保持)へ保存する。`pachimon`/`pachimonMoveMap`/
+    `partySlots`のApplier・Repositoryは未実装(Scout/Party画面実装時に追加)
+  - `ISignInService`/`SignInService`: デバイス登録・認証→`POST /sign-in`(404なら
+    `POST /signup`→再度`POST /sign-in`)をまとめて実行し、`BootstrapEntryPoint`から呼ぶ。
+    `IPlayerAccountService`/`PlayerAccountService`が`HomePresenter`向けにプロフィールを返す
+  - Mock/Real切り替えは`RootLifetimeScope.ConfigureAuthConnections`(virtual)のoverrideで行う。
+    Battle PlayModeテスト用の`TestRootLifetimeScope`がMock Connectionに差し替え、保存先
+    ディレクトリも`BattlePlayModeTestSaveData`に分離する(`BootstrapTest.unity`シーン追加)
+  - これにより、以前ここに記載していた「client-architecture.mdとの既知の乖離」(`IDeviceRepository`/
+    `IAuthRepository`想定との不一致、`Atlas.Infrastructure.Rest`を作らず`Atlas.Infrastructure`に
+    直接配置)は、設計書側を実装に合わせて更新したことで解消した
+- **UIPackages**: 共通UI部品`CommonButton`を`Presentation/Common`から独立アセンブリ
+  `UIPackages.Runtime`(+Inspector拡張の`UIPackages.Editor`)へ移動
+- **今回発見したギャップ(Client、サインイン・`playerDiff`適用)**:
+  - `ApiItemRepository.Upsert`が`Dictionary.Add(itemId, GetQuantity(itemId))`になっており、
+    受信した`quantity`ではなく既存値(初回は0)を格納する。さらに同じ`itemId`を2回`Upsert`すると
+    `ArgumentException`になる(スカウトで`items`を再受信した時点で発生する)。
+    `itemEntities[itemEntity.ItemId] = itemEntity.Quantity`への修正が必要
+  - Home画面のgems表示: `HomePage`は`gemsText`を持つが、`HomePresenter`が`HomeViewDto.Gems`を
+    設定しておらず常に`0`表示になる。`IItemRepository`(`item_id: 1`)の値をPresenterへ渡す
+    `IXxxService`がまだ無い
+  - `PlayerProfile`のコメントが廃止済みの`IPlayerRepository.SignInAsync`を参照したまま。
+    `PlayerAccountService`に未使用フィールド`playerData`が残っている
+  - Play Modeでのローカルサーバー疎通確認は未実施(残タスク#15)
 - 実装メモ: `record`/`record struct`はUnity Editorが固定するC#言語バージョン(9.0)では
   使えない(C# 10以降が必要)。`Atlas.Domain`等のシンプルなデータ型は通常の`readonly struct`/
   `class`で書く
@@ -356,10 +387,10 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 | 6 | 内部API(`/internal/battle/result`)実装 | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
-| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体、バトル画面(Mock)、デバイス認証・サインアップ疎通(Real)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
+| 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体、バトル画面(Mock)、デバイス認証〜サインイン(`playerDiff.items`適用)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
 | 14 | アクセストークンの事前有効期限チェック・401時の再認証リトライ(design/outgame.md補足で「望ましい」とされる挙動、現状は起動時に一度認証するのみ) | client |
-| 15 | サインアップ疎通(デバイス登録〜プレイヤー作成)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
-| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側(ローカル永続化・各画面からの実呼び出し)は未着手のため残す | client |
+| 15 | サインイン疎通(デバイス登録〜`POST /signup`〜`POST /sign-in`・`playerDiff`適用)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
+| 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用まで完了(上記「4. Unity Client」参照)。残りは`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、スカウト・`POST /edit/party`・`POST /edit/pachimon_moves`のConnection、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正(上記「今回発見したギャップ」参照) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |
