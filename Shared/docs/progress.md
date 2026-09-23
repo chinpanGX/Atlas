@@ -360,6 +360,30 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   発生しない)。Modal/`BattlePage`のPrefabはスクリプトで生成・追加しており(既存部分は変更なし)、
   レイアウトはUnity上での調整前提。`BattlePagePlayModeTests`に自発的な交代のシナリオを追加
   (強制交代は乱数次第で発生タイミングが変わるためPlayModeテスト対象外)
+- **バトルのコマンドUI刷新**: 画面右下をメインメニューパネル(たたかう/こうたい)と技パネル(技4つ+もどる)に
+  分け、`CommandView`がSetActiveで切り替える(新しいターンの開始時はメインメニューに戻す)。技ボタンは
+  `MoveCommandView`で技名・タイプ・PP(残り/最大、PP0は押せない)を表示し、残りPPは`BattlePresenter`が
+  開始時の`SelfMoves`から自分の技使用ごとに減らす。交代は`SwitchSelectModal`を作り直し、左に選出3体
+  (名前・HP実数・ゲージ・状態、選択枠)、中央にパーティ編成と同じ`PachimonInfoView`(タイプ・ステータス・技)、
+  下に「こうたいする」「もどる」。場に出ている/瀕死のパチモンも詳細は見られるが確定はできない。詳細の組み立ては
+  `PachimonInfoDtoBuilder`に切り出してパーティ編成と共通化。`CommandCanvas`/`BattlePage`のPrefabは既存部分を
+  残してパネルを追加(旧`BattlePage`の交代ボタンは削除)、Play Modeで表示を確認済み
+- **BattleServerへの実接続**: 通信契約を`Shared/BattleContracts/`(Unityローカルパッケージ、`Atlas.BattleContracts`)へ
+  切り出してBattleServerと共有。Homeの対戦ボタン→`MatchmakingModal`(キャンセル可)→`IBattleMatchmaker`
+  (`ApiBattleMatchmaker`: `POST /battle/queue`+`GET /battle/queue/status`を1秒間隔、選出はパーティの枠番号順に
+  先頭から最大3体)→Battleシーンで`IBattleConnectionFactory`が`RealtimeBattleConnection`
+  (`Atlas.Infrastructure.Realtime`、MagicOnion+YetAnotherHttpHandler)を生成、の流れを実装。api-codegenを再実行し
+  `BattleApiClient`を追加。Mock/実サーバーはBootstrapシーンの`RootLifetimeScope`の`Use Real Battle Server`で切り替え
+  (既定オフ=Mock。PlayModeテストは常にMock)。BattleServerがダミーデータ(下記ギャップ参照)のため、
+  `BattleStartPayload`に自分側の技(`SelfMoves`: 技ID・残りPP・最大PP)を追加し、Clientはサーバーから届いた技と
+  PachimonIdを表示・送信するよう変更(`BattlePresenter`は手元のマスタ/所持データから技を組み立てなくなった)。
+  あわせて`BattlePresenter.CalculateMaxHp`を`PachimonStatCalculator`に統一
+- **対戦の確認手段**: 対戦相手ボット`BattleServer/BattleBot/`(REST+MagicOnionで自動対戦、`--loop`/`--count`)、
+  Multiplayer Play Mode(`com.unity.multiplayer.playmode` 3.0.0)を導入。同じPCで2人分を動かすため、セーブデータの
+  保存先をインスタンスごとに分ける`SaveDataDirectory`を追加(Editor本体は既定のまま、追加Editorインスタンスは
+  `SaveData_VP_<id>`、ビルドは`SaveData_Build`/`-saveSlot N`)。ボット2体で実サーバー
+  (最新ソースのServer+BattleServer)を通した対戦(マッチング→強制交代→全滅決着→結果記録)を確認済み。
+  Unity Clientからの実サーバー対戦(ボット相手/Multiplayer Play Mode/ビルド)は未確認
 - **`ScreenNavigator`のPop結果通知バグ修正**: Pop完了直後に結果(`UniTaskCompletionSource`)を
   即座に`TrySetResult`していたため、待機側が続けて別のPage/Modalを`Push`すると、USNの遷移
   アニメーションがまだ終わっていない状態で「screen is already in transition」により拒否される
@@ -574,6 +598,9 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 | 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正まで完了(上記「4. Unity Client」参照)。残りは`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、スカウト・`POST /edit/party`・`POST /edit/pachimon_moves`のConnection | client |
 | 17 | APIサーバーのコンテナ化(Dockerfileのマルチステージビルド+`SQLX_OFFLINE`、composeのprofileで開発時の`cargo run`と併用)。MagicOnionサーバーの着手時に行う(上記「3. Server API実装状況」の「検討したが採用しなかった案」参照) | server |
 | 18 | 通信エラー時のエラーModal。通信基盤(Infrastructure)でエラーを検知し、`IMessageBroker`(ZeroMessenger)で通知→各シーンのスコープの購読者がErrorModalをPushする構成を想定。`IScreenNavigator`がシーン単位で常駐スコープ(`RootLifetimeScope`)に無いこと、起動時のサインイン失敗はシーンのNavigatorが無い段階で起きること、認証不要の`DeviceConnection`は`AccessTokenRefresher.SendAsync`を通らないことから、設計から見直す。リトライ/タイトルへ戻す等のUXも含めて決める(現状パーティ編成の保存失敗は画面に留まってログ出力のみ) | client |
+| 19 | BattleServerの実データ化(案1): マスターデータの配置(copy-models/copy-realtime-bytes)と、player_pachimonの技・努力値をRust経由で取得する方法の設計・実装。現状は`DummyParticipantDataSource`で全員同じステータス・技19/20になる(Clientはサーバーから届く技を表示するため動作はする) | battle-server/server |
+| 20 | IL2CPPビルド対応: UnityにMessagePackのSource Generatorが入っておらず、`Atlas.BattleContracts`のPayloadは動的シリアライズ(Editor/Monoのみ動作)。IL2CPP(モバイル等)向けにはGenerator導入またはResolverの事前生成が必要 | client |
+| 21 | 対戦UIの残り: 残りPP表示(`SelfMoves`に値はある)、相手の切断/再接続(`OnOpponentDisconnected`等)の表示、ターン制限時間のカウントダウン表示、BattleServerへの参加失敗時のエラーModal(#18) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |

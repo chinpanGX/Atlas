@@ -2,10 +2,13 @@ using System;
 using System.Linq;
 using System.Threading;
 using Atlas.Application;
+using Atlas.Application.Address;
 using Atlas.Domain;
 using Atlas.MasterData;
 using Atlas.MasterData.Models;
 using Atlas.Navigation;
+using Atlas.Presentation.Common;
+using Atlas.Presentation.Party;
 using Cysharp.Threading.Tasks;
 using R3;
 using VContainer.Unity;
@@ -22,6 +25,7 @@ namespace Atlas.Presentation.Battle
         private readonly IMasterDataService masterDataService;
         private readonly BattleViewDto initialDto;
         private readonly IScreenNavigator screenNavigator;
+        private readonly ISceneNavigator sceneNavigator;
         private readonly CompositeDisposable disposables = new();
         private readonly CancellationTokenSource lifetimeCancellation = new();
 
@@ -39,6 +43,11 @@ namespace Atlas.Presentation.Battle
         private string opponentPlayerId;
 
         private int selfActiveIndex;
+        // 選出各枠のマスターデータのPachimonId・技。どちらもOnMatchStart(サーバーが判定に使う値)から取る。
+        private int[] selfPachimonIdBySlot;
+        private PachimonMoveSet[] selfMoveSets;
+        // 選出各枠・各技の残りPP。OnMatchStartの値から、自分が技を使うたびに減らす(再接続時は再送値で戻す)。
+        private int[][] selfCurrentPp;
         private int[] selfHpPercentBySlot;
         private bool[] selfFaintedBySlot;
         private MovesData[] selfMoves = Array.Empty<MovesData>();
@@ -48,13 +57,14 @@ namespace Atlas.Presentation.Battle
 
         public BattlePresenter(
             BattlePage view, IBattleConnection connection, IMasterDataService masterDataService, BattleViewDto initialDto,
-            IScreenNavigator screenNavigator)
+            IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator)
         {
             this.view = view;
             this.connection = connection;
             this.masterDataService = masterDataService;
             this.initialDto = initialDto;
             this.screenNavigator = screenNavigator;
+            this.sceneNavigator = sceneNavigator;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
@@ -66,11 +76,7 @@ namespace Atlas.Presentation.Battle
             // OnMatchStartが届くまでは行動できない。
             RefreshCommandsInteractable();
 
-            for (var slot = 0; slot < view.OnCommandButtonClicked.Count; slot++)
-            {
-                var capturedSlot = slot;
-                view.OnCommandButtonClicked[slot].Subscribe(_ => SubmitMove(capturedSlot)).AddTo(disposables);
-            }
+            view.OnMoveButtonClicked.Subscribe(SubmitMove).AddTo(disposables);
 
             view.OnSwitchButtonClicked
                 .SubscribeAwait(async (_, ct) => await SelectAndSwitchAsync(isForced: false, ct), AwaitOperation.Drop)
@@ -80,8 +86,16 @@ namespace Atlas.Presentation.Battle
                 .SubscribeAwait(async (_, ct) => await ConfirmForfeitAsync(ct), AwaitOperation.Drop)
                 .AddTo(disposables);
 
-            await connection.JoinAsync("dummy-token", "dummy-match");
-            await connection.SubmitSelectionAsync(initialDto.SelfPachimonIds);
+            var join = await connection.JoinAsync(initialDto.BattleToken, initialDto.MatchId);
+            if (join.Status != JoinResultStatus.Success)
+            {
+                // トークン期限切れ(マッチ成立から30秒)やシークレットの食い違い等。対戦できないためHomeへ戻す。
+                UnityEngine.Debug.LogError($"[Battle] BattleServerへの参加に失敗しました: {join.Status}");
+                await sceneNavigator.ChangeSceneAsync(AddressDefinition.Home, cancellation);
+                return;
+            }
+
+            await connection.SubmitSelectionAsync(initialDto.SelectedPlayerPachimonIds);
         }
 
         public void Dispose()
@@ -103,7 +117,7 @@ namespace Atlas.Presentation.Battle
 
         private void SubmitMove(int index)
         {
-            if (!CanAct || index >= selfMoves.Length)
+            if (!CanAct || index >= selfMoves.Length || selfCurrentPp[selfActiveIndex][index] <= 0)
             {
                 return;
             }
@@ -192,14 +206,23 @@ namespace Atlas.Presentation.Battle
             return new SwitchSelectViewDto
             {
                 IsForced = isForced,
-                Candidates = initialDto.SelfPachimonIds
-                    .Select((id, slot) => new SwitchCandidateDto
+                Candidates = selfPachimonIdBySlot
+                    .Select((pachimonId, slot) =>
                     {
-                        PartySlot = slot,
-                        Name = masterDataService.Database.PachimonDataTable.FindByPachimonId(int.Parse(id)).Name,
-                        HpPercent = selfHpPercentBySlot[slot],
-                        IsActive = slot == selfActiveIndex,
-                        IsFainted = selfFaintedBySlot[slot],
+                        var master = masterDataService.Database.PachimonDataTable.FindByPachimonId(pachimonId);
+                        var maxHp = PachimonStatCalculator.CalculateHp(master.BaseHp);
+                        var moves = selfMoveSets[slot].Moves.Select((m, i) =>
+                            new PachimonInfoDtoBuilder.MoveInput(i + 1, int.Parse(m.MoveId), selfCurrentPp[slot][i]));
+                        return new SwitchCandidateDto
+                        {
+                            PartySlot = slot,
+                            Name = master.Name,
+                            CurrentHp = maxHp * selfHpPercentBySlot[slot] / 100,
+                            MaxHp = maxHp,
+                            IsActive = slot == selfActiveIndex,
+                            IsFainted = selfFaintedBySlot[slot],
+                            Info = PachimonInfoDtoBuilder.Build(masterDataService.Database, pachimonId, moves),
+                        };
                     })
                     .ToList(),
             };
@@ -211,6 +234,9 @@ namespace Atlas.Presentation.Battle
             opponentPlayerId = payload.Opponent.PlayerId;
 
             selfActiveIndex = payload.Self.ActivePachimonIndex;
+            selfPachimonIdBySlot = payload.Self.SelectedPachimon.Select(s => s.State.PachimonId).ToArray();
+            selfMoveSets = payload.SelfMoves;
+            selfCurrentPp = payload.SelfMoves.Select(set => set.Moves.Select(m => m.CurrentPp).ToArray()).ToArray();
             selfHpPercentBySlot = payload.Self.SelectedPachimon.Select(s => s.State?.HpPercent ?? 100).ToArray();
             selfFaintedBySlot = payload.Self.SelectedPachimon.Select(s => s.State?.IsFainted ?? false).ToArray();
             RefreshSelfMoves();
@@ -278,6 +304,7 @@ namespace Atlas.Presentation.Battle
 
             awaitingTurnResult = false;
             forcedSwitchRequired = payload.PlayersRequiringForcedSwitch.Contains(selfPlayerId);
+            view.ShowCommandPanel();
             RefreshCommandsInteractable();
 
             if (openSwitchModal is not null || forcedSwitchRequired)
@@ -331,6 +358,7 @@ namespace Atlas.Presentation.Battle
             if (actorIsSelf)
             {
                 opponentHpPercent = action.TargetRemainingHpPercent;
+                ConsumeSelfPp(action.MoveId);
             }
             else
             {
@@ -339,28 +367,29 @@ namespace Atlas.Presentation.Battle
             }
         }
 
-        private void RefreshSelfMoves()
+        // 技を選んだ時点で命中/外れに関わらずPPを1消費する(design/battle.md「PP消費」、サーバーと同じ規則)。
+        private void ConsumeSelfPp(string moveId)
         {
-            var pachimonId = int.Parse(initialDto.SelfPachimonIds[selfActiveIndex]);
-            selfMoves = PachimonMoveLookup.GetInitialMoves(masterDataService.Database, pachimonId).ToArray();
+            var moveIndex = Array.FindIndex(selfMoveSets[selfActiveIndex].Moves, m => m.MoveId == moveId);
+            if (moveIndex >= 0 && selfCurrentPp[selfActiveIndex][moveIndex] > 0)
+            {
+                selfCurrentPp[selfActiveIndex][moveIndex]--;
+            }
         }
 
-        // floor(2*base*level/100) + level + 10 (design/battle.md「実効ステータス計算」、IV/EVは
-        // 常に0)。Presenterはdesign/client-architecture.mdの方針でAtlas.Infrastructureに依存できず
-        // TestPartyFactory.CalculateStatを呼べないため、同じ式をここでも計算する。
-        private const int FixedLevel = 50;
-
-        private static int CalculateMaxHp(int baseHp)
+        private void RefreshSelfMoves()
         {
-            return 2 * baseHp * FixedLevel / 100 + FixedLevel + 10;
+            selfMoves = selfMoveSets[selfActiveIndex].Moves
+                .Select(m => masterDataService.Database.MovesDataTable.FindByMoveId(int.Parse(m.MoveId)))
+                .ToArray();
         }
 
         private BattleUIStateDto BuildUiState()
         {
-            var selfPachimonId = int.Parse(initialDto.SelfPachimonIds[selfActiveIndex]);
+            var selfPachimonId = selfPachimonIdBySlot[selfActiveIndex];
             var selfPachimon = masterDataService.Database.PachimonDataTable.FindByPachimonId(selfPachimonId);
             var selfHpPercent = selfHpPercentBySlot[selfActiveIndex];
-            var selfMaxHp = CalculateMaxHp(selfPachimon.BaseHp);
+            var selfMaxHp = PachimonStatCalculator.CalculateHp(selfPachimon.BaseHp);
 
             var opponentName = opponentActivePachimonId is { } id
                 ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).Name
@@ -381,7 +410,16 @@ namespace Atlas.Presentation.Battle
                     CurrentHpPercent = $"{opponentHpPercent}%",
                     CurrentHpGauge = opponentHpPercent / 100f,
                 },
-                Commands = selfMoves.Select((m, i) => new CommandDto { SlotNo = i, Name = m.Name }).ToList(),
+                Commands = selfMoves
+                    .Select((m, i) => new CommandDto
+                    {
+                        SlotNo = i,
+                        Name = m.Name,
+                        TypeName = PachimonTypeNames.ToDisplayName(m.MoveType),
+                        CurrentPp = selfCurrentPp[selfActiveIndex][i],
+                        MaxPp = selfMoveSets[selfActiveIndex].Moves[i].MaxPp,
+                    })
+                    .ToList(),
             };
         }
     }

@@ -127,6 +127,26 @@ dotnet run                          # http://127.0.0.1:5000
 
 Serverはマスタを起動時に1回だけ読み込む。`seed_master_data`の後はServerを再起動する。
 
+### 対戦(実サーバー)の確認方法
+
+Clientは既定ではMock(サーバー不要のオフライン対戦)で動く。実サーバーで対戦するには、Bootstrapシーンの
+`RootLifetimeScope`のInspectorで**`Use Real Battle Server`をオン**にする(マッチングはServer、対戦はBattleServerへ接続)。
+対戦には2人必要なので、次のいずれかで相手を用意する。どの方法でもServer・BattleServerを先に起動しておく。
+
+| 方法 | 手順 | 向いている用途 |
+|---|---|---|
+| A. 対戦相手ボット | `cd BattleServer && dotnet run --project BattleBot -- --loop` を起動しておき、UnityでBattleボタンを押す | 普段の動作確認(Editor 1つでよい) |
+| B. Multiplayer Play Mode | Window > Multiplayer > Multiplayer Play Mode で追加のEditorインスタンス(Player 2)を有効にし、両方でBattleボタンを押す | 両方の画面を見ながら確認したいとき |
+| C. ビルド+Editor | スタンドアロンビルドを起動し、EditorとそれぞれでBattleボタンを押す(ビルドを複数起動するなら `-saveSlot 2` 等を付ける) | 最終確認 |
+
+- ボットの引数: `--loop`(対戦が終わるたびに再びマッチングに並ぶ)、`--count N`(N体同時に動かす。`--count 2`でボット同士が
+  対戦し、Unity無しでREST・マッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(既定`http://127.0.0.1:3000`)。
+  ボットは起動のたびに新しいプレイヤーを作る(DBにボットのプレイヤーが増える)
+- B・Cでは、同じPCで2人分を動かすとセーブデータ(`deviceCredentials`)が同じになり、自分自身とマッチングしようとして
+  しまうため、インスタンスごとに保存先を分けている(`Assets/Scripts/DI/SaveDataDirectory.cs`)。Editor本体は既定の`SaveData`、
+  Multiplayer Play Modeの追加インスタンスは`SaveData_VP_<id>`、ビルドは`SaveData_Build`(`-saveSlot N`で`SaveData_Build_N`)
+- マッチング成立からBattleServerへの接続までの期限は30秒(`battleToken`の有効期限)
+
 ## 5. コンポーネント別
 
 ### Server(Rust) — 作業ディレクトリ `Server/`
@@ -160,7 +180,13 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 - `Atlas.BattleCore`(`Shared/BattleCore/`、Unityのローカルパッケージ)は
   `BattleServer/BattleCore/Atlas.BattleCore.csproj`でDLLとしてビルドする。**`Shared/BattleCore/`の中にcsprojを置いたり、
   そこで`dotnet build`したりしない**(`bin/`・`obj/`がパッケージ内にでき、UnityがそのDLLを取り込んでCS1704になる)
-- ステータス・技は現在ダミーデータ(マスタデータの配置待ち。`Shared/docs/progress.md`参照)
+- 通信契約(`IBattleHub`/`IBattleHubReceiver`/Payload)は`Shared/BattleContracts/`(Unityのローカルパッケージ)にあり、
+  `BattleServer/BattleContracts/Atlas.BattleContracts.csproj`で同じ方式(パッケージ外のcsproj)でビルドする
+- ステータス・技は現在ダミーデータ(マスタデータの配置待ち。`Shared/docs/progress.md`参照)。Clientは開始時に
+  サーバーから届く技(`BattleStartPayload.SelfMoves`)を表示・送信するため、ダミーのままでも対戦は最後まで進む
+- `BattleBot/`: 開発用の対戦相手ボット(上記「対戦(実サーバー)の確認方法」参照)
+- `.slnx`はUnity付属の.NET 8 SDKでは読めない。PATH上の`dotnet`がUnity付属のものになっている場合は
+  .NET 10 SDK(`"C:/Program Files/dotnet/dotnet.exe"`等)で実行する
 
 ### Client(Unity) — `Client/AtlasUnityProject/`
 
@@ -168,7 +194,10 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 - ServerのURLは`Assets/Scripts/DI/RootLifetimeScope.cs`の`ApiBaseUrl`(`http://127.0.0.1:3000`固定)。
   BattleServerのURLはマッチング成立時にServerから受け取るため、Client側の設定は不要
 - 通信ログはUnity Consoleの`[API] --> ...` / `[API] <-- ...`(Editor・開発ビルドのみ)
-- `Atlas.BattleCore`は`Packages/manifest.json`から`Shared/BattleCore`をローカルパッケージとして参照している
+- `Atlas.BattleCore`は`Packages/manifest.json`から`Shared/BattleCore`を、`Atlas.BattleContracts`は
+  `Shared/BattleContracts`をローカルパッケージとして参照している
+- 対戦のMock/実サーバー切り替えはBootstrapシーンの`RootLifetimeScope`の`Use Real Battle Server`
+  (PlayModeテストは`TestRootLifetimeScope`で常にMock)
 
 ## 6. コード生成
 

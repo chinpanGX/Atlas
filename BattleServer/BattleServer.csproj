@@ -7,8 +7,8 @@
     <!-- BATTLE_TOKEN_SECRET/INTERNAL_API_SECRETはdotnet user-secretsで設定する(Development環境で自動的に読み込まれる)。
          手順はリポジトリ直下のDEVELOPMENT.md参照 -->
     <UserSecretsId>atlas-battleserver</UserSecretsId>
-    <!-- Tests/・BattleCore/は別プロジェクトのため取り込まない -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**;BattleCore/**</DefaultItemExcludes>
+    <!-- Tests/・BattleCore/・BattleContracts/・BattleBot/は別プロジェクトのため取り込まない -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**;BattleCore/**;BattleContracts/**;BattleBot/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +20,8 @@
     <!-- Shared/BattleCoreはBattleCore/Atlas.BattleCore.csproj(Unityパッケージの外に置いたcsproj)で
          DLLとしてビルドして参照する(Unityのasmdefと同じくinternalの境界を保つため)。 -->
     <ProjectReference Include="BattleCore\Atlas.BattleCore.csproj" />
+    <!-- Shared/BattleContracts(Clientと共有する通信契約)も同じ方式でDLLとして参照する。 -->
+    <ProjectReference Include="BattleContracts\Atlas.BattleContracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

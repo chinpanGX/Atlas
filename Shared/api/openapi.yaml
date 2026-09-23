@@ -24,6 +24,73 @@ paths:
           description: トークンが無い、または無効
       security:
       - bearer_auth: []
+  /battle/queue:
+    post:
+      tags:
+      - battle
+      summary: マッチング待機列に参加するAPIハンドラ。
+      description: |-
+        他に待機者がいればその場でペアを成立させる。成立結果は`GET /battle/queue/status`で取得する。
+        既に待機中・マッチ成立済み(結果未取得)の場合は何もしない。
+        ペア成立時は`battle_matches`に対戦行を作成する(先に待っていた側が`player1`)。
+
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`、
+        パーティが1体も編成されていない場合に`AppError::BadRequest`を返す。
+      operationId: join_queue_handler
+      responses:
+        '200':
+          description: 待機列への参加成功(ボディ無し)
+        '400':
+          description: パーティが1体も編成されていない
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
+    delete:
+      tags:
+      - battle
+      summary: マッチング待機列から離脱するAPIハンドラ。待機列にいない場合も成功扱い。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`を返す。
+      operationId: leave_queue_handler
+      responses:
+        '200':
+          description: 待機列からの離脱成功(ボディ無し)
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
+  /battle/queue/status:
+    get:
+      tags:
+      - battle
+      summary: マッチ成立を確認するAPIハンドラ(polling用)。
+      description: |-
+        マッチ成立済みなら接続情報を返し、そのマッチ結果はサーバー側から削除される
+        (2回目以降の呼び出しでは返らない)。
+
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`を返す。
+      operationId: queue_status_handler
+      responses:
+        '200':
+          description: マッチング状況
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatusResponse'
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
   /chat/poll:
     get:
       tags:
@@ -693,6 +760,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MessageDto'
+    QueueStatusResponse:
+      type: object
+      description: |-
+        マッチ成立確認APIのレスポンスボディ。
+
+        api-codegenがnullableに対応しないため`Option`は使わず、`status`が`"waiting"`の間は
+        `matchId`/`battleServer`/`battleToken`を空文字で返す。
+      required:
+      - status
+      - matchId
+      - battleServer
+      - battleToken
+      properties:
+        battleServer:
+          type: string
+        battleToken:
+          type: string
+          description: 'BattleServer接続用の短命JWT(HS256, claims: `match_id`/`player_id`, 有効期限30秒)'
+        matchId:
+          type: string
+        status:
+          type: string
+          description: '`"waiting"` or `"matched"`'
     RegisterDeviceRequest:
       type: object
       description: |-
@@ -786,3 +876,5 @@ tags:
   description: チャット
 - name: scout
   description: スカウト(ガチャ)
+- name: battle
+  description: 対戦マッチング

@@ -195,7 +195,13 @@ public record JoinResult(JoinResultStatus Status);
 public record MoveRequest(string MoveId);
 
 public record BattleStartPayload(
-    ParticipantSnapshot Self, ParticipantSnapshot Opponent, int TurnTimeLimitSeconds);
+    ParticipantSnapshot Self, ParticipantSnapshot Opponent, int TurnTimeLimitSeconds,
+    PachimonMoveSet[] SelfMoves);
+// SelfMovesは自分側の選出各枠の技(Self.SelectedPachimonとインデックスが対応、Movesのインデックスが
+// 技スロット)。Clientは手元の所持データではなくこれを表示・送信し、サーバーが判定に使う技と常に一致させる
+// (BattleServerが扱う技・ステータスはBattleServer側のデータが正。相手側の技は非公開のため送らない)
+public record PachimonMoveSet(MoveState[] Moves);
+public record MoveState(string MoveId, int CurrentPp, int MaxPp);  // CurrentPpは送信時点の残りPP
 // TurnTimeLimitSecondsはUIのターンタイマー表示用。新しいターンの開始(OnMatchStart/
 // OnTurnResult受信)を合図に、Clientローカルでこの秒数からカウントダウンを表示する
 // (サーバー側の実際のタイムアウト判定とは別のローカル表示用タイマー)
@@ -373,6 +379,17 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 - Client側は`MockBattleConnection`を`RealtimeBattleConnection`(実際のMagicOnion
   StreamingHubクライアント)に差し替えるだけで、呼び出し元(UI・進行制御)は変更不要
 - 対戦終了時の`/internal/battle/result`呼び出しもこの段階で実装する
+- 実装済みの構成:
+  - 通信契約(`IBattleHub`/`IBattleHubReceiver`/Payload)は`Shared/BattleContracts/`(Unityのローカルパッケージ、
+    名前空間`Atlas.BattleContracts`)に置き、BattleServerは`BattleServer/BattleContracts/Atlas.BattleContracts.csproj`
+    (`Atlas.BattleCore`と同じくパッケージ外のcsproj)で同じソースをビルドする
+  - Clientはマッチング(`IBattleMatchmaker`: `POST /battle/queue`→`GET /battle/queue/status`を1秒間隔で確認、
+    Homeの`MatchmakingModal`でキャンセル可)→`RealtimeBattleConnection`(`Atlas.Infrastructure.Realtime`、
+    YetAnotherHttpHandlerでHTTP/2(h2c)接続、MagicOnionのSource Generatorで生成したクライアント)の順で接続する。
+    選出はパーティの枠番号順に先頭から最大3体。`IBattleConnection`は`IBattleConnectionFactory`でBattleシーンの
+    スコープごとに生成し、シーン終了時に切断する
+  - Mock/実サーバーはBootstrapシーンの`RootLifetimeScope`の`Use Real Battle Server`で切り替える
+    (確認方法はリポジトリ直下のDEVELOPMENT.md「対戦(実サーバー)の確認方法」)
 
 ### 自動テスト方針
 

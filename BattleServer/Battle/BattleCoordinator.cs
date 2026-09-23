@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Atlas.BattleCore;
 using Atlas.BattleServer.Auth;
-using Atlas.BattleServer.Contracts;
+using Atlas.BattleContracts;
 using Atlas.BattleServer.Internal;
 using Cysharp.Runtime.Multicast;
 using Grpc.Core;
@@ -592,10 +592,32 @@ namespace Atlas.BattleServer.Battle
         private BattleStartPayload BuildStartPayload(BattleSession session, int selfSlot)
         {
             var core = session.Core!;
+            var self = session.Participants[selfSlot]!;
+            var selfSide = core.GetSide(ToSideId(selfSlot));
             return new BattleStartPayload(
-                BuildSnapshot(session.Participants[selfSlot]!, core.GetSide(ToSideId(selfSlot)), revealAll: true),
+                BuildSnapshot(self, selfSide, revealAll: true),
                 BuildSnapshot(session.Participants[1 - selfSlot]!, core.GetSide(ToSideId(1 - selfSlot)), revealAll: false),
-                (int)Math.Ceiling(_timing.TurnTimeLimit.TotalSeconds));
+                (int)Math.Ceiling(_timing.TurnTimeLimit.TotalSeconds),
+                BuildSelfMoves(self, selfSide));
+        }
+
+        // 自分側の選出各枠の技と残りPP。クライアントはこれを表示・送信する(手元の所持データは使わない)。
+        private static PachimonMoveSet[] BuildSelfMoves(BattleParticipant participant, BattleSide side)
+        {
+            var moveSets = new PachimonMoveSet[side.Party.Count];
+            for (int i = 0; i < moveSets.Length; i++)
+            {
+                var loadoutMoves = participant.Loadouts![i].Moves;
+                var moves = new MoveState[loadoutMoves.Count];
+                for (int m = 0; m < moves.Length; m++)
+                {
+                    moves[m] = new MoveState(loadoutMoves[m].MoveId, side.Party[i].CurrentPp[m], loadoutMoves[m].Data.MaxPp);
+                }
+
+                moveSets[i] = new PachimonMoveSet(moves);
+            }
+
+            return moveSets;
         }
 
         private static ParticipantSnapshot BuildSnapshot(BattleParticipant participant, BattleSide side, bool revealAll)

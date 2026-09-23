@@ -1,6 +1,6 @@
 using Atlas.BattleServer.Auth;
 using Atlas.BattleServer.Battle;
-using Atlas.BattleServer.Contracts;
+using Atlas.BattleContracts;
 using Grpc.Core;
 using MagicOnion;
 using MagicOnion.Server.Hubs;

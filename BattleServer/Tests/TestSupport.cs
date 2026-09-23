@@ -3,7 +3,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Atlas.BattleServer.Battle;
-using Atlas.BattleServer.Contracts;
+using Atlas.BattleContracts;
 using Atlas.BattleServer.Internal;
 using Grpc.Net.Client;
 using MagicOnion.Client;

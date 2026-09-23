@@ -5,10 +5,12 @@ using Atlas.Domain;
 using Atlas.Infrastructure;
 using Atlas.Infrastructure.Api;
 using Atlas.Infrastructure.Mock;
+using Atlas.Infrastructure.Realtime;
 using Atlas.Navigation;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
 using Supplement.ZeroMessenger;
+using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 
@@ -27,6 +29,10 @@ namespace Atlas.DI
         // 仕組みは未導入のためハードコードしている。
         private const string ApiBaseUrl = "http://127.0.0.1:3000";
 
+        // オフで対戦をMock(MockBattleMatchmaker/MockBattleConnection、サーバー不要)、オンでAPIサーバーの
+        // マッチング+BattleServer(MagicOnion)への実接続にする。BootstrapシーンのRootLifetimeScopeで切り替える。
+        [SerializeField] private bool useRealBattleServer;
+
         protected override void Configure(IContainerBuilder builder)
         {
             // ApiRequestは生成コードの静的ヘルパーでDIを通らないため、ロガーはここで直接差し込む。
@@ -35,6 +41,11 @@ namespace Atlas.DI
             ApiRequest.Logger = UnityEngine.Debug.isDebugBuild ? new UnityApiRequestLogger() : null;
             builder.RegisterAddressablesLoader();
             builder.RegisterEncryptedFileStorage();
+            if (SaveDataDirectory.Resolve() is { } saveDataDirectory)
+            {
+                builder.RegisterBuildCallback(resolver =>
+                    resolver.Resolve<IFileStorageService>().SetDirectoryName(saveDataDirectory));
+            }
             builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
             builder.Register<IMasterDataService, MasterDataService>(Lifetime.Singleton);
             builder.Register<ISceneNavigator, SceneNavigator>(Lifetime.Singleton);
@@ -61,13 +72,30 @@ namespace Atlas.DI
             builder.Register<IPachimonMoveMappingService, PachimonMoveMappingService>(Lifetime.Singleton);
             builder.Register<ISignInService, SignInService>(Lifetime.Singleton);
 
-            // MasterDataServiceのDatabaseはBootstrapEntryPoint.StartAsync内のLoadAsync完了後に
-            // 確定するが、IBattleConnectionはBattle画面へ遷移するまで実際には解決されない
-            // (Lifetime.Singletonの遅延生成)ため、ここでは問題ない。
-            builder.Register<IBattleConnection>(
-                resolver => new MockBattleConnection(resolver.Resolve<IMasterDataService>().Database),
-                Lifetime.Singleton);
+            ConfigureBattleConnections(builder);
             builder.RegisterEntryPoint<BootstrapEntryPoint>();
+        }
+
+        // 対戦のマッチングと接続(IBattleConnectionはBattleシーンのスコープがIBattleConnectionFactoryで都度生成する)。
+        // Battle PlayModeテスト(TestRootLifetimeScope)はuseRealBattleServerに関わらず常にMockにする。
+        protected virtual void ConfigureBattleConnections(IContainerBuilder builder)
+        {
+            if (useRealBattleServer)
+            {
+                builder.Register<IBattleMatchmaker>(
+                    resolver => new ApiBattleMatchmaker(
+                        ApiBaseUrl,
+                        resolver.Resolve<AccessTokenStore>(),
+                        resolver.Resolve<AccessTokenRefresher>(),
+                        resolver.Resolve<IPartyService>()),
+                    Lifetime.Singleton);
+                builder.Register<IBattleConnectionFactory, RealtimeBattleConnectionFactory>(Lifetime.Singleton);
+            }
+            else
+            {
+                builder.Register<IBattleMatchmaker, MockBattleMatchmaker>(Lifetime.Singleton);
+                builder.Register<IBattleConnectionFactory, MockBattleConnectionFactory>(Lifetime.Singleton);
+            }
         }
 
         // IDeviceConnection/IPlayerConnectionの登録だけを差し替え可能にする。本番は常にApi実装

@@ -13,7 +13,7 @@ namespace Atlas.Presentation.Party
         {
             nameText.text = move.Name;
             typeText.text = move.TypeName;
-            ppText.text = move.MaxPp.ToString();
+            ppText.text = $"{move.CurrentPp}/{move.MaxPp}";
         }
 
         public void Clear()

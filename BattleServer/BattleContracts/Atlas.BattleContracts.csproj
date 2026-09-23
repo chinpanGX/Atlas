@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Shared/BattleContracts(Unityのローカルパッケージ)のRuntimeソースを、BattleServer用のDLLとしてビルドする。
+       BattleCore/Atlas.BattleCore.csprojと同じ理由(bin|objをUnityパッケージ内に出さない)でパッケージの外に置き、
+       Unityと同じ条件(LangVersion 9.0、ImplicitUsings無効)でコンパイルする。 -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Atlas.BattleContracts</AssemblyName>
+    <RootNamespace>Atlas.BattleContracts</RootNamespace>
+    <LangVersion>9.0</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Shared\BattleContracts\Runtime\**\*.cs" LinkBase="Runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MagicOnion.Abstractions" Version="7.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BattleCore\Atlas.BattleCore.csproj" />
+  </ItemGroup>
+
+</Project>

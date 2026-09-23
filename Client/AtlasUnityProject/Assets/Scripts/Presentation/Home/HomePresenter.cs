@@ -22,10 +22,12 @@ namespace Atlas.Presentation.Home
         private readonly IScreenNavigator screenNavigator;
         private readonly ISceneNavigator sceneNavigator;
         private readonly BattleEntryStore battleEntryStore;
+        private readonly IBattleMatchmaker battleMatchmaker;
         private readonly CompositeDisposable disposables = new();
 
         public HomePresenter(HomePage view, IPlayerAccountService playerService, IItemFetchService itemFetchService,
-            IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator, BattleEntryStore battleEntryStore)
+            IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator, BattleEntryStore battleEntryStore,
+            IBattleMatchmaker battleMatchmaker)
         {
             this.view = view;
             this.playerService = playerService;
@@ -33,6 +35,7 @@ namespace Atlas.Presentation.Home
             this.screenNavigator = screenNavigator;
             this.sceneNavigator = sceneNavigator;
             this.battleEntryStore = battleEntryStore;
+            this.battleMatchmaker = battleMatchmaker;
         }
 
         // HomeはPush時のViewDtoを持たず、自分でIPlayerAccountServiceから初期データを取得する。
@@ -50,19 +53,47 @@ namespace Atlas.Presentation.Home
             view.OnPartyButtonClicked
                 .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<PartyPage>(), AwaitOperation.Drop)
                 .AddTo(disposables);
-            // ChangeSceneAsyncの中でHomeシーン(=このPage自身)がUnloadされるため、連打で
-            // 2回目の遷移が走らないよう最初の1回だけ受け付ける。
-            view.OnBattleButtonClicked.Take(1).Subscribe(_ => OnBattleButtonClicked().Forget()).AddTo(disposables);
+            // マッチング待ち〜シーン切り替えの間の連打は捨てる。キャンセルした場合は再び押せる。
+            view.OnBattleButtonClicked
+                .SubscribeAwait(async (_, ct) => await FindMatchAndStartBattleAsync(ct), AwaitOperation.Drop)
+                .AddTo(disposables);
             view.OnChatButtonClicked.Subscribe(_ => Debug.Log("[Home] Chat button clicked (not implemented yet)")).AddTo(disposables);
             await UniTask.CompletedTask;
         }
 
-        // player_pachimonが未実装のため、選出3体はマスターデータのPachimonIdを暫定的に固定値で
-        // 渡す(design/battle.md「Stage 1」参照。実装時にパーティ編成結果へ置き換える)。
-        // Battleは別シーンのため、Push時のViewDtoではなくBattleEntryStore経由で受け渡す。
-        private async UniTaskVoid OnBattleButtonClicked()
+        // マッチング待ちModalを出して対戦相手を探し、成立したらBattleシーンへ切り替える。USNは遷移中の
+        // Push/Popを拒否するため、Pushの完了を待ってからマッチングを始め、Popの完了を待ってから切り替える
+        // (Mockのマッチングは待たずに成立するため、この順序を守らないとPush中のPopになる)。
+        // Battleは別シーンのため、マッチング結果はPush時のViewDtoではなくBattleEntryStore経由で受け渡す。
+        private async UniTask FindMatchAndStartBattleAsync(CancellationToken cancellation)
         {
-            battleEntryStore.Set(new[] { "1001", "1002", "1003" });
+            var modal = await screenNavigator.PushModalAsync<MatchmakingModal>();
+
+            BattleMatch match = null;
+            using (var matchCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
+            using (modal.OnCancelButtonClicked.Take(1).Subscribe(_ => matchCancellation.Cancel()))
+            {
+                try
+                {
+                    match = await battleMatchmaker.FindMatchAsync(matchCancellation.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception e)
+                {
+                    // パーティが空(400)等。エラーModalの仕組み(残タスク)ができるまではログのみ。
+                    Debug.LogError($"[Home] マッチングに失敗しました: {e.Message}");
+                }
+            }
+
+            await screenNavigator.PopModalAsync();
+            if (match is null)
+            {
+                return;
+            }
+
+            battleEntryStore.Set(match);
             await sceneNavigator.ChangeSceneAsync(AddressDefinition.Battle);
         }
 

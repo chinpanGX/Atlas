@@ -1,11 +1,12 @@
+using System.Threading.Tasks;
 using MagicOnion;
 
-namespace Atlas.BattleServer.Contracts
+namespace Atlas.BattleContracts
 {
     // docs/design/battle.md「MagicOnion Hub設計(C#側)」の契約。Client側のIBattleConnectionは
     // このHub/Receiverと対になるメソッド構成を持つ。
-    // TODO: Unity Client側(RealtimeBattleConnection)を実装する際、Contracts/配下をClientからも
-    // 参照できる共有パッケージへ切り出す(現状はBattleServerのみが参照する)。
+    // Shared/BattleContracts(Unityのローカルパッケージ)に置き、BattleServer(BattleServer/BattleContracts/
+    // Atlas.BattleContracts.csproj経由)とUnity Client(RealtimeBattleConnection)の両方から参照する。
     public interface IBattleHub : IStreamingHub<IBattleHub, IBattleHubReceiver>
     {
         Task<JoinResult> JoinAsync(string battleToken, string matchId);

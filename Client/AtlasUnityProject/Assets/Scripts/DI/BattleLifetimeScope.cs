@@ -1,5 +1,6 @@
 using System.Threading;
 using Atlas.Application;
+using Atlas.Domain;
 using Atlas.Navigation;
 using Atlas.Presentation.Battle;
 using Cysharp.Threading.Tasks;
@@ -24,6 +25,10 @@ namespace Atlas.DI
             builder.RegisterComponent(pageContainer);
             builder.RegisterComponent(modalContainer);
             builder.Register<IScreenNavigator, ScreenNavigator>(Lifetime.Singleton);
+            // 1対戦=1接続。このスコープ(Battleシーン)の破棄時にDisposeされ、BattleServerとの接続も閉じる。
+            builder.Register<IBattleConnection>(
+                resolver => resolver.Resolve<IBattleConnectionFactory>().Create(resolver.Resolve<BattleEntryStore>().Match),
+                Lifetime.Singleton);
             builder.RegisterEntryPoint<BattleEntryPoint>();
         }
     }
@@ -41,8 +46,13 @@ namespace Atlas.DI
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
-            await screenNavigator.PushPageAsync<BattlePage, BattleViewDto>(
-                new BattleViewDto { SelfPachimonIds = battleEntryStore.SelfPachimonIds });
+            var match = battleEntryStore.Match;
+            await screenNavigator.PushPageAsync<BattlePage, BattleViewDto>(new BattleViewDto
+            {
+                MatchId = match.MatchId,
+                BattleToken = match.BattleToken,
+                SelectedPlayerPachimonIds = match.SelectedPlayerPachimonIds,
+            });
         }
     }
 }

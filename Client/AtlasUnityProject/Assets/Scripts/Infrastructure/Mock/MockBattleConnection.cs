@@ -66,7 +66,8 @@ namespace Atlas.Infrastructure.Mock
             OnMatchStart?.Invoke(new BattleStartPayload(
                 BuildSnapshot(SelfPlayerId, state.Player1, selfMembers, selfRevealed),
                 BuildSnapshot(OpponentPlayerId, state.Player2, opponentMembers, opponentRevealed),
-                TurnTimeLimitSeconds));
+                TurnTimeLimitSeconds,
+                BuildSelfMoves(selfMembers)));
 
             return UniTask.CompletedTask;
         }
@@ -194,6 +195,15 @@ namespace Atlas.Infrastructure.Mock
             var defenderMembers = defenderSideId == BattleSideId.Player1 ? selfMembers : opponentMembers;
             var defenderActiveIndex = state.GetSide(defenderSideId).ActiveIndex;
             return PercentOf(outcome.TargetRemainingHp, defenderMembers[defenderActiveIndex].State.Stats.Hp);
+        }
+
+        private static PachimonMoveSet[] BuildSelfMoves(IReadOnlyList<PartyMember> members)
+        {
+            return members
+                .Select(member => new PachimonMoveSet(member.MoveIds
+                    .Select((moveId, i) => new MoveState(moveId, member.State.CurrentPp[i], member.State.Moves[i].MaxPp))
+                    .ToArray()))
+                .ToArray();
         }
 
         private static ParticipantSnapshot BuildSnapshot(

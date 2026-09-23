@@ -1,0 +1,21 @@
+{
+    "name": "Atlas.BattleContracts",
+    "rootNamespace": "Atlas.BattleContracts",
+    "references": [
+        "Atlas.BattleCore"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "MagicOnion.Abstractions.dll",
+        "MessagePack.dll",
+        "MessagePack.Annotations.dll",
+        "Grpc.Core.Api.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

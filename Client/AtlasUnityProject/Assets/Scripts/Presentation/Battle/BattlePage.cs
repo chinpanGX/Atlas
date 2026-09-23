@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using R3;
 using UIPackages.Runtime;
 using UnityEngine;
@@ -11,11 +10,11 @@ namespace Atlas.Presentation.Battle
         [SerializeField] private SelfInfoView selfInfoView;
         [SerializeField] private OpponentInfoView opponentInfoView;
         [SerializeField] private CommandView commandView;
-        [SerializeField] private CommonButton switchButton;
         [SerializeField] private CommonButton forfeitButton;
 
-        public IReadOnlyList<Observable<Unit>> OnCommandButtonClicked => commandView.OnCommandButtonClicked;
-        public Observable<Unit> OnSwitchButtonClicked => switchButton.OnClickAsObservable();
+        // 押された技のSlotNoを流す。
+        public Observable<int> OnMoveButtonClicked => commandView.OnMoveClicked;
+        public Observable<Unit> OnSwitchButtonClicked => commandView.OnSwitchClicked;
         public Observable<Unit> OnForfeitButtonClicked => forfeitButton.OnClickAsObservable();
 
         public void Refresh(BattleUIStateDto stateDto)
@@ -30,7 +29,12 @@ namespace Atlas.Presentation.Battle
         public void SetCommandsInteractable(bool interactable)
         {
             commandView.SetInteractable(interactable);
-            switchButton.interactable = interactable;
+        }
+
+        // 新しいターンの入力は「たたかう/こうたい」から始める。
+        public void ShowCommandPanel()
+        {
+            commandView.ShowCommandPanel();
         }
     }
 }

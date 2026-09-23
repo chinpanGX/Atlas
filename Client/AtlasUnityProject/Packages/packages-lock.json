@@ -1,5 +1,13 @@
 {
   "dependencies": {
+    "com.atlas.battlecontracts": {
+      "version": "file:../../../Shared/BattleContracts",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.atlas.battlecore": "0.1.0"
+      }
+    },
     "com.atlas.battlecore": {
       "version": "file:../../../Shared/BattleCore",
       "depth": 0,
@@ -211,6 +219,12 @@
     "com.unity.mathematics": {
       "version": "1.4.0",
       "depth": 1,
+      "source": "builtin",
+      "dependencies": {}
+    },
+    "com.unity.multiplayer.playmode": {
+      "version": "3.0.0",
+      "depth": 0,
       "source": "builtin",
       "dependencies": {}
     },

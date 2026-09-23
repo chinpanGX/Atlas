@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Atlas.BattleCore;
-using Atlas.BattleServer.Contracts;
+using Atlas.BattleContracts;
 using Grpc.Core;
 
 namespace Atlas.BattleServer.Tests
@@ -58,6 +58,14 @@ namespace Atlas.BattleServer.Tests
             Assert.All(start.Opponent.SelectedPachimon.Skip(1), slot => Assert.True(!slot.IsRevealed && slot.State is null));
             Assert.Equal(100, start.Opponent.SelectedPachimon[0].State!.HpPercent);
             Assert.Equal(30, start.TurnTimeLimitSeconds);
+
+            // 自分側の技(サーバーが判定に使う技)が選出各枠分届く。DummyParticipantDataSourceは技19/20固定。
+            Assert.Equal(3, start.SelfMoves.Length);
+            Assert.All(start.SelfMoves, set =>
+            {
+                Assert.Equal(["19", "20"], set.Moves.Select(m => m.MoveId));
+                Assert.All(set.Moves, m => Assert.Equal(m.MaxPp, m.CurrentPp));
+            });
         }
 
         [Fact]

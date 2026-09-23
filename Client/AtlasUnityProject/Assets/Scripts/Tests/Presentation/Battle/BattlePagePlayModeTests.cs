@@ -50,17 +50,21 @@ namespace Atlas.Tests.Presentation.Battle
             // 自分側・相手側のパーツView(SelfCanvas/OpponentCanvas)は子の名前が一部重複するため、パスで引く。
             var selfHpText = GameObject.Find("SelfCanvas/LayoutRoot/HpText/CurrentHp").GetComponent<TextMeshProUGUI>();
             var opponentHpText = GameObject.Find("OpponentCanvas/LayoutRoot/Image/CurrentHpPercentage").GetComponent<TextMeshProUGUI>();
-            var moveButton1 = GameObject.Find("MoveButton1").GetComponent<Button>();
+            var fightButton = GameObject.Find("FightButton").GetComponent<Button>();
 
-            // 技は自動選択(常に先頭のMoveButton1を押す)。実際のUIボタンをクリックし、
-            // Presenter経由でMockBattleConnection→Atlas.BattleCoreまで伝播することを確認する。
+            // 「たたかう」で技パネルを開き、技は自動選択(常に先頭のMoveButton1を押す)。実際のUIボタンを
+            // クリックし、Presenter経由でMockBattleConnection→Atlas.BattleCoreまで伝播することを確認する。
+            // ターン結果を受け取るとメインメニューパネルに戻るため、毎回「たたかう」から押す。
             var hpChanged = false;
             for (var i = 0; i < ClickCount; i++)
             {
                 var beforeSelfHp = selfHpText.text;
                 var beforeOpponentHp = opponentHpText.text;
 
-                moveButton1.onClick.Invoke();
+                fightButton.onClick.Invoke();
+                yield return null;
+                Assert.IsNull(GameObject.Find("CommandPanel"), "たたかう後もメインメニューパネルが表示されたままです。");
+                GameObject.Find("MoveButton1").GetComponent<Button>().onClick.Invoke();
                 yield return null;
 
                 // 伝播を確認できた時点で打ち切る。押し続けて決着すると結果ModalのPush(Addressables
@@ -95,12 +99,19 @@ namespace Atlas.Tests.Presentation.Battle
                 "交代Modalの表示に時間がかかりすぎました。");
             yield return new WaitForSeconds(0.5f);
 
-            Assert.IsFalse(GameObject.Find("SwitchCandidate1").GetComponent<Button>().interactable,
-                "場に出ているパチモン(選出1体目)が交代先として選べる状態になっています。");
             Assert.IsTrue(GameObject.Find("SwitchCancelButton").activeInHierarchy,
-                "自発的な交代でやめるボタンが表示されていません。");
+                "自発的な交代でもどるボタンが表示されていません。");
+            var confirmButton = GameObject.Find("SwitchConfirmButton").GetComponent<Button>();
+
+            // 場に出ているパチモン(選出1体目)は詳細を見るために選択はできるが、交代は確定できない。
+            GameObject.Find("SwitchCandidate1").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Assert.IsFalse(confirmButton.interactable, "場に出ているパチモンを選んだ状態で交代を確定できてしまいます。");
 
             GameObject.Find("SwitchCandidate2").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Assert.IsTrue(confirmButton.interactable, "控えのパチモンを選んでも交代を確定できません。");
+            confirmButton.onClick.Invoke();
             yield return WaitUntilOrFail(() => selfNameText.text != beforeName,
                 "交代後も自分側の名前表示が変わりませんでした。");
 

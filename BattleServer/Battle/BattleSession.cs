@@ -1,5 +1,5 @@
 using Atlas.BattleCore;
-using Atlas.BattleServer.Contracts;
+using Atlas.BattleContracts;
 using Atlas.BattleServer.Internal;
 using MagicOnion.Server.Hubs;
 

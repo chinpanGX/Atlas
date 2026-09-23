@@ -23,7 +23,7 @@ namespace Atlas.Infrastructure
         public async UniTask LoadAsync()
         {
             using var handle = await assetLoader.LoadAssetAsync<TextAsset>(
-                AddressDefinition.masterdatabytes, CancellationToken.None);
+                AddressDefinition.masterdata, CancellationToken.None);
             Database = MasterDataLoader.Load(handle.Result.bytes);
         }
     }

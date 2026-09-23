@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 開発用の対戦相手ボット。APIサーバー(REST)でデバイス登録〜マッチングを行い、BattleServerに
+       接続してランダムに技を選ぶ。Unity Editor 1つで実サーバー対戦を確認するため、およびボット同士で
+       サーバー全体(REST・マッチング・BattleServer・結果記録)を通しで確認するために使う。
+       使い方はリポジトリ直下のDEVELOPMENT.md「対戦の確認方法」参照。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Atlas.BattleBot</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MagicOnion.Client" Version="7.11.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BattleContracts\Atlas.BattleContracts.csproj" />
+  </ItemGroup>
+
+</Project>

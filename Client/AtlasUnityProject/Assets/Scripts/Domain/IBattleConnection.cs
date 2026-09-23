@@ -27,8 +27,15 @@ namespace Atlas.Domain
 
     public sealed record MoveRequest(string MoveId);
 
+    // SelfMovesは自分側の選出各枠の技(Self.SelectedPachimonとインデックスが対応)。サーバーが判定に使う
+    // 技そのものなので、技の表示・送信は手元の所持データではなくこれを使う。
     public sealed record BattleStartPayload(
-        ParticipantSnapshot Self, ParticipantSnapshot Opponent, int TurnTimeLimitSeconds);
+        ParticipantSnapshot Self, ParticipantSnapshot Opponent, int TurnTimeLimitSeconds, PachimonMoveSet[] SelfMoves);
+
+    // 選出1枠分の技。Movesのインデックスが技スロット。
+    public sealed record PachimonMoveSet(MoveState[] Moves);
+
+    public sealed record MoveState(string MoveId, int CurrentPp, int MaxPp);
 
     public sealed record ParticipantSnapshot(
         string PlayerId, PachimonSlot[] SelectedPachimon, int ActivePachimonIndex);

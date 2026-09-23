@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Atlas.Navigation;
 using Cysharp.Threading.Tasks;
 using R3;
@@ -15,6 +16,8 @@ namespace Atlas.Presentation.Battle
         private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
 
+        private SwitchCandidateDto selected;
+
         public SwitchSelectPresenter(SwitchSelectModal view, SwitchSelectViewDto initialDto, IScreenNavigator screenNavigator)
         {
             this.view = view;
@@ -26,12 +29,27 @@ namespace Atlas.Presentation.Battle
         {
             view.Refresh(initialDto);
 
-            // どれか1回押した時点で閉じる(Pop中に再度押されて二重にPopしないようにする)。
-            view.OnCandidateClicked.Select(SwitchSelectResult.Selected)
+            // 最初は交代できる先頭の控えを選択しておく(強制交代では選ぶだけで確定できる状態にする)。
+            // 交代できる控えが無い場合は場のパチモンの詳細を出しておく。
+            Select(initialDto.Candidates.FirstOrDefault(c => c.CanSwitchTo)
+                   ?? initialDto.Candidates.First(c => c.IsActive));
+
+            view.OnCandidateClicked
+                .Subscribe(slot => Select(initialDto.Candidates.First(c => c.PartySlot == slot)))
+                .AddTo(disposables);
+
+            // 確定/やめるのどちらかを1回押した時点で閉じる(Pop中に再度押されて二重にPopしないようにする)。
+            view.OnConfirmButtonClicked.Select(_ => SwitchSelectResult.Selected(selected.PartySlot))
                 .Merge(view.OnCancelButtonClicked.Select(_ => SwitchSelectResult.Canceled))
                 .Take(1)
                 .Subscribe(result => screenNavigator.PopModalAsync<SwitchSelectResult>(result).Forget())
                 .AddTo(disposables);
+        }
+
+        private void Select(SwitchCandidateDto candidate)
+        {
+            selected = candidate;
+            view.Select(candidate);
         }
 
         public void Dispose()

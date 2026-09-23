@@ -10,4 +10,8 @@ BattleServer/Tests/bin/
 BattleServer/Tests/obj/
 BattleServer/BattleCore/bin/
 BattleServer/BattleCore/obj/
+BattleServer/BattleContracts/bin/
+BattleServer/BattleContracts/obj/
+BattleServer/BattleBot/bin/
+BattleServer/BattleBot/obj/
 BattleServer/.idea/

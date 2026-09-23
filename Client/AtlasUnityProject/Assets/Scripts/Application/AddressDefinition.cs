@@ -13,15 +13,20 @@ namespace Atlas.Application.Address
     
     public partial class AddressDefinition
     {
-        public const string masterdatabytes = "masterdata.bytes";
+        public const string masterdata = "masterdata";
         public const string Battle = "Battle";
         public const string BattlePage = "BattlePage";
         public const string BattleResultModal = "BattleResultModal";
+        public const string CommandCanvas = "CommandCanvas";
         public const string ForfeitConfirmModal = "ForfeitConfirmModal";
         public const string Home = "Home";
         public const string HomePage = "HomePage";
+        public const string MatchmakingModal = "MatchmakingModal";
+        public const string OpponentCanvas = "OpponentCanvas";
         public const string PartyPage = "PartyPage";
+        public const string SelfCanvas = "SelfCanvas";
         public const string SwitchSelectModal = "SwitchSelectModal";
         public const string TitlePage = "TitlePage";
+        public const string white_2x2 = "white_2x2";
     }
 }

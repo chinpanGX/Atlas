@@ -1,0 +1,10 @@
+{
+  "name": "com.atlas.battlecontracts",
+  "version": "0.1.0",
+  "displayName": "Atlas Battle Contracts",
+  "description": "BattleServer(MagicOnion)とUnity Clientの通信契約(IBattleHub/IBattleHubReceiver/Payload)。BattleServerはBattleServer/BattleContracts/Atlas.BattleContracts.csproj経由で同じソースをビルドする。",
+  "unity": "6000.0",
+  "dependencies": {
+    "com.atlas.battlecore": "0.1.0"
+  }
+}

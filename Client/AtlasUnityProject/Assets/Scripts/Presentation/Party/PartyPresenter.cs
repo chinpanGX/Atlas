@@ -4,11 +4,8 @@ using System.Linq;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Domain;
-using Atlas.MasterData;
-using Atlas.MasterData.Enums;
 using Atlas.MasterData.Models;
 using Atlas.Navigation;
-using Atlas.Presentation.Common;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
@@ -20,9 +17,6 @@ namespace Atlas.Presentation.Party
     // POST /edit/party(全置き換え)で保存してから前の画面へ戻る。
     public sealed class PartyPresenter : IInitializable, IDisposable
     {
-        // 種族値の上限。ステータスゲージの長さは種族値/この値で表す(実効値はレベル固定で種族値に比例するため)。
-        private const float MaxBaseStat = 255f;
-
         private readonly PartyPage view;
         private readonly IPartyService partyService;
         private readonly IPachimonService pachimonService;
@@ -176,48 +170,15 @@ namespace Atlas.Presentation.Party
 
         private PachimonInfoDto CreatePachimonInfoDto(PachimonEntity pachimon)
         {
-            var master = FindMaster(pachimon);
-
-            var typeNames = new List<string> { PachimonTypeNames.ToDisplayName(master.PrimaryType) };
-            if (master.SecondaryType != PachimonType.None)
-            {
-                typeNames.Add(PachimonTypeNames.ToDisplayName(master.SecondaryType));
-            }
-
+            // 対戦外なので残りPPは最大値(PachimonInfoDtoBuilderがマスタのMaxPpで埋める値と同じにする)。
             var moves = pachimonMoveMappingService.GetByPlayerPachimonId(pachimon.PlayerPachimonId)
                 .Select(moveMap =>
                 {
-                    var move = masterDataService.Database.MovesDataTable.FindByMoveId((int)moveMap.MoveId);
-                    return new PachimonMoveDto
-                    {
-                        Slot = moveMap.Slot,
-                        Name = move.Name,
-                        TypeName = PachimonTypeNames.ToDisplayName(move.MoveType),
-                        MaxPp = move.MaxPp,
-                    };
-                })
-                .ToList();
-
-            return new PachimonInfoDto
-            {
-                Name = master.Name,
-                TypeNames = typeNames,
-                Stats = new[]
-                {
-                    CreateStatDto("HP", PachimonStatCalculator.CalculateHp(master.BaseHp), master.BaseHp),
-                    CreateStatDto("こうげき", PachimonStatCalculator.CalculateOther(master.BaseAtk), master.BaseAtk),
-                    CreateStatDto("ぼうぎょ", PachimonStatCalculator.CalculateOther(master.BaseDef), master.BaseDef),
-                    CreateStatDto("とくこう", PachimonStatCalculator.CalculateOther(master.BaseSpatk), master.BaseSpatk),
-                    CreateStatDto("とくぼう", PachimonStatCalculator.CalculateOther(master.BaseSpdef), master.BaseSpdef),
-                    CreateStatDto("すばやさ", PachimonStatCalculator.CalculateOther(master.BaseSpeed), master.BaseSpeed),
-                },
-                Moves = moves,
-            };
-        }
-
-        private static PachimonStatDto CreateStatDto(string label, int value, int baseStat)
-        {
-            return new PachimonStatDto { Label = label, Value = value, Ratio = baseStat / MaxBaseStat };
+                    var moveId = (int)moveMap.MoveId;
+                    var maxPp = masterDataService.Database.MovesDataTable.FindByMoveId(moveId).MaxPp;
+                    return new PachimonInfoDtoBuilder.MoveInput(moveMap.Slot, moveId, maxPp);
+                });
+            return PachimonInfoDtoBuilder.Build(masterDataService.Database, (int)pachimon.PachimonId, moves);
         }
 
         private PachimonData FindMaster(PachimonEntity pachimon)
