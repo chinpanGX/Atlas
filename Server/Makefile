@@ -28,9 +28,14 @@ clean:
 restart: down up
 
 # MySQLが接続可能になるまで待機(起動直後はまだ接続を受け付けないため)
+# -h 127.0.0.1 を明示してTCP経由でpingする(migrateもTCPで接続するため)。
+# -hを省略するとUnixソケット経由になり、ボリューム初期化直後の一時サーバー
+# (初期化スクリプト専用、port: 0でTCP未listen)にも"ready"と誤判定してしまい、
+# 本サーバーがTCPをlistenする前にmigrateが接続してしまうことがある
+# (sqlxが"expected to read 4 bytes, got 0 bytes at EOF"で失敗する原因)。
 wait-db:
 	@echo "Waiting for MySQL to be ready..."
-	@until docker exec atlas_mysql mysqladmin ping -u root --silent; do \
+	@until docker exec atlas_mysql mysqladmin ping -h 127.0.0.1 -u root --silent; do \
 		sleep 1; \
 	done
 	@echo "MySQL is ready."
