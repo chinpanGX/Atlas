@@ -71,6 +71,13 @@ namespace Atlas.DI
             builder.Register<IPachimonService, PachimonService>(Lifetime.Singleton);
             builder.Register<IPachimonMoveMappingService, PachimonMoveMappingService>(Lifetime.Singleton);
             builder.Register<ISignInService, SignInService>(Lifetime.Singleton);
+            builder.Register<IScoutConnection>(
+                resolver => new ScoutConnection(
+                    ApiBaseUrl,
+                    resolver.Resolve<AccessTokenStore>(),
+                    resolver.Resolve<AccessTokenRefresher>(),
+                    resolver.Resolve<IPlayerDiffApplier>()),
+                Lifetime.Singleton);
 
             ConfigureBattleConnections(builder);
             builder.RegisterEntryPoint<BootstrapEntryPoint>();

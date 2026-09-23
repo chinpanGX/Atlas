@@ -23,6 +23,7 @@ cargo build
 
 cargo run                                # APIサーバー本体(src/main.rs)を起動
 cargo run --bin seed_master_data         # マスタデータをJSON→DBへUPSERT投入
+cargo run --bin seed_scout_banners       # 常設スカウトバナーをDBへUPSERT投入
 cargo run --example setup_check          # 環境構築確認用の最小サーバー
 
 cargo test                               # 全テスト実行
@@ -64,9 +65,12 @@ extractor  要認証エンドポイント共通の認証チェック(axumのFrom
 - `src/master/generated/*.rs`は`master-data-pipeline`が生成する型定義(手で編集しない)
 - `src/master/cache.rs`が起動時にDBから全マスタを読み込み`MasterData`としてメモリ保持する
   (無停止反映は非対応。マスタ更新後はサーバー再起動が必要)
-- **現状`seed_master_data`(`src/bin/seed_master_data.rs`)は`pachimon`テーブルしか対応していない**。
-  他テーブルをDB投入対象にする場合は`master-data-schema-add`スキルの手順に従い、
-  `cache.rs`/`seed_master_data.rs`を先に拡張する必要がある(詳細は`Shared/docs/progress.md`)
+- `seed_master_data`(`src/bin/seed_master_data.rs`)は`move_groups`/`moves`/`move_group_moves`/
+  `pachimon`/`starter_party_slots`/`items`の6テーブルを投入する(`type_chart`はJSON生成のみでDB未投入)。
+  新しいテーブルを投入対象にする場合は`master-data-schema-add`スキルの手順に従い、
+  `seed_master_data.rs`(必要なら`cache.rs`も)を拡張する
+- `scout_banners`はマスターデータの対象外で、`seed_scout_banners`が常設バナーを投入する。
+  `make db-reset`後は2つのseedとサーバー再起動が必要(`server-dev-env`スキル参照)
 - スキーマ/CSV変更時の生成・配置フローは`master-data-pipeline`スキルを使う
 
 ## マイグレーション

@@ -636,8 +636,9 @@ HomePresenter
 サーバーに繋いで他はMockのまま動作確認する」のような部分的な切り替えがしやすいため。
 
 - 実装済み: `IDeviceConnection`(`POST /devices`・`POST /devices/authenticate`)、
-  `IPlayerConnection`(`POST /signup`・`POST /sign-in`・`POST /edit/party`)
-- 未実装: Chat/Scout、および技の付け替え(`POST /edit/pachimon_moves`)用のConnection。
+  `IPlayerConnection`(`POST /signup`・`POST /sign-in`・`POST /edit/party`)、
+  `IScoutConnection`(`GET /scout/banners`・`POST /scout/rolls`・`POST /scout/rolls/{rollId}/select`)
+- 未実装: Chat、および技の付け替え(`POST /edit/pachimon_moves`)用のConnection。
   いずれも対応する画面の実装時に追加する
 - `IXxxRepository`は上記の通り`playerDiff`のリソース種別単位であり、Connectionの単位とは
   一致しない(1つのConnectionが複数リソースの差分を返し得るため)
@@ -657,13 +658,14 @@ HomePresenter
   `PlayerAccountService`)と、ローカルファイルへの永続化を伴うRepository
   (`DeviceCredentialsRepository`、Supplementの`IFileStorageService`経由)
 - `Atlas.Infrastructure.Api`: `api-codegen`生成物(`Generated/`配下、再生成で上書きされる)に加え、
-  それを呼ぶReal実装(`DeviceConnection`/`PlayerConnection`/`ApiBattleMatchmaker`)、`PlayerDiffApplier`/
+  それを呼ぶReal実装(`DeviceConnection`/`PlayerConnection`/`ScoutConnection`/`ApiBattleMatchmaker`)、`PlayerDiffApplier`/
   `XxxDiffApplier`、メモリ保持のRepository実装(`ApiItemRepository`/`ApiPachimonRepository`/
   `ApiPachimonMoveMapRepository`/`ApiPartyRepository`/`ApiPlayerProfileRepository`)、`AccessTokenStore`。手書きのコードは`Generated/`の外に置き、
   生成DTOを`Atlas.Domain`/`Atlas.Application`側の型へ詰め替える
 - `Atlas.Infrastructure.Mock`: `MockXxxConnection`(`MockDeviceConnection`/
   `MockPlayerConnection`)と`MockBattleConnection`/`MockBattleConnectionFactory`/
-  `MockBattleMatchmaker`。アウトゲームのMockは固定値を返すだけ
+  `MockBattleMatchmaker`。アウトゲームのMockは固定値を返すだけ。`IScoutConnection`のMockは
+  Mockへ差し替える場面(PlayModeテスト等)が無いため作っていない
 - `Atlas.Infrastructure.Realtime`: `RealtimeBattleConnection`/`RealtimeBattleConnectionFactory`
   (MagicOnion+YetAnotherHttpHandler)。BattleServerとの通信契約(`IBattleHub`/Payload)は
   `Shared/BattleContracts/`(ローカルパッケージ`Atlas.BattleContracts`)をBattleServerと共有する
@@ -675,6 +677,7 @@ HomePresenter
   Mockへの差し替えはこれをoverrideした派生スコープで行う(Battle PlayModeテストの
   `TestRootLifetimeScope`が、ローカルAPIサーバー無しでBootstrap→Home→Battleの起動経路を
   検証するために使用)。`IXxxRepository`/`IXxxService`の登録はMock/Realに関わらず常に同じ
+- `IScoutConnection`は差し替え用のvirtualメソッドに切り出さず、`Configure`で常にReal実装を登録する
 - 対戦(`IBattleMatchmaker`/`IBattleConnectionFactory`)は`ConfigureBattleConnections`(virtual)に
   切り出し、Bootstrapシーンの`RootLifetimeScope`のInspector(`Use Battle Server`)で切り替える。
   既定はオン(実サーバー。オフでMock、サーバー不要)。`TestRootLifetimeScope`はこの設定に関わらず常にMockにする
@@ -694,7 +697,7 @@ HomePresenter
 | asmdef | 配置する型 | 参照 |
 |---|---|---|
 | `Atlas.Domain` | Entity(`PlayerProfile`/`ItemEntity`/`DeviceCredentials`等)、`IXxxRepository`群 | UniTaskのみ |
-| `Atlas.Application` | `IXxxService`群(Presenterが直接依存する抽象)、`IXxxConnection`群(通信ポート)、`IBattleMatchmaker`/`IBattleConnectionFactory`、それらの戻り値型(`PlayerData`/`SignInResult`/`AuthenticationResult`/`BattleMatch`) | `Atlas.Domain`, `Atlas.MasterData`, UniTask |
+| `Atlas.Application` | `IXxxService`群(Presenterが直接依存する抽象)、`IXxxConnection`群(通信ポート)、`IBattleMatchmaker`/`IBattleConnectionFactory`、それらの戻り値型(`PlayerData`/`SignInResult`/`AuthenticationResult`/`BattleMatch`/`ScoutBanner`/`ScoutRoll`/`ScoutCandidate`) | `Atlas.Domain`, `Atlas.MasterData`, UniTask |
 | `Atlas.Infrastructure`(base) | `XxxService`(`IXxxService`の実装)、`DeviceCredentialsRepository`、`MasterDataService` | `Atlas.Domain`, `Atlas.Application`, `Atlas.Infrastructure.Api`, `Atlas.MasterData`, UniTask, Supplement等 |
 | `Atlas.Infrastructure.Api` | `api-codegen`生成物(`Generated/`)、`XxxConnection`(Real実装)、`PlayerDiffApplier`/`XxxDiffApplier`、`ApiXxxRepository`、`AccessTokenStore` | `Atlas.Domain`, `Atlas.Application`, UniTask |
 | `Atlas.Infrastructure.Mock` | `MockXxxConnection`、`MockBattleConnection`/`MockBattleConnectionFactory`/`MockBattleMatchmaker` | `Atlas.Domain`, `Atlas.Application`, `Atlas.MasterData`, `Atlas.BattleCore`, UniTask |
@@ -737,6 +740,8 @@ VContainerだけに依存する。`Atlas.Domain`にも`Atlas.Presentation`にも
 Assets/Scripts/Navigation/
   IScreenNavigator.cs
   ScreenNavigator.cs             -- IScreenNavigatorの実装(ScreenServiceの実装クラス名に揃える)
+  ISceneNavigator.cs
+  SceneNavigator.cs
   PageLifetimeScope.cs           -- PageLifetimeScope<TViewDto>基底クラス
 ```
 
@@ -747,35 +752,62 @@ Assets/Scripts/Navigation/
 Assets/Scripts/DI/
   RootLifetimeScope.cs           -- Bootstrapシーン。IXxxConnectionのMock/Real登録・IXxxRepository/IXxxServiceの登録
   HomeLifetimeScope.cs           -- Homeシーン
-  BattleLifetimeScope.cs         -- (将来追加)Battleシーン
+  BattleLifetimeScope.cs         -- Battleシーン
+  SaveDataDirectory.cs           -- セーブデータの保存先の切り替え(Multiplayer Play Mode・スタンドアロンビルド用)
 ```
 
-Addressablesのprefab配置規則(`Assets/Addressables/Views/{機能名}/{PageClassName}.prefab`、
-上記「データ受け渡し型の命名規則」参照)に合わせ、C#側も`{機能名}`でまとめる。ただし
-1画面につき`XxxPage`/`XxxPresenter`/`XxxViewDto`/`XxxResult`/`XxxPageLifetimeScope`の
-最大5ファイルが生じるため、**画面名でもう1階層サブフォルダを切る**。
+`Atlas.Presentation`はAddressablesのprefab配置(`Assets/Addressables/Views/{機能名}/`、
+上記「データ受け渡し型の命名規則」参照)と同じ`{機能名}`でフォルダを切る。
+
+- **Page**: `XxxPage`/`XxxPageLifetimeScope`/`XxxPresenter`/`XxxViewDto`は`{機能名}`直下に置く。
+  その画面だけで使うView部品・表示用Dto・ロジック(`PachimonListView`/`PartySlotDto`/`PartyEditor`等)も同じ階層に置く
+- **Modal**: `{機能名}`の下にModalごとのサブフォルダを切り、`XxxModal`/`XxxModalLifetimeScope`/
+  `XxxPresenter`/`XxxViewDto`/`XxxResult`とそのModal専用の部品をまとめる(namespaceは`{機能名}`のまま)
+- **部品が多い画面**: Pageの部品が多い場合は`Views/`サブフォルダにまとめてよい(`Battle/Views/`)
+- **他機能と共用する部品**: 最初に作った機能のフォルダに置いたまま、他機能から参照する
+  (`Party/`の`PachimonInfoView`/`PachimonCellView`/`PachimonInfoDtoBuilder`をScout・Battleからも使う)
+- **特定の機能に属さない共通の型**: `Common/`に置く(`PaletteColor`/`PachimonTypeNames`等)
 
 ```
 Assets/Scripts/Presentation/
-  Party/                          -- 機能名(Addressablesの{機能名}と揃える)
-    PartyEdit/                    -- 画面名(1画面 = 1サブフォルダ)
-      PartyEditPage.cs
-      PartyEditPresenter.cs
-      PartyEditViewDto.cs
-      PartyEditResult.cs
-      PartyEditPageLifetimeScope.cs
-    PartyList/
-      ...
+  Common/                         -- 機能に属さない共通の型
+  Home/                           -- 機能名(Addressablesの{機能名}と揃える)
+    HomePage.cs
+    HomePageLifetimeScope.cs
+    HomePresenter.cs
+    HomeViewDto.cs
+    Matchmaking/                  -- Modal(1Modal = 1サブフォルダ)
+      MatchmakingModal.cs
+      MatchmakingModalLifetimeScope.cs
+      MatchmakingViewDto.cs
   Scout/
-    ScoutTop/
+    ScoutPage.cs
+    ScoutPageLifetimeScope.cs
+    ScoutPresenter.cs
+    ScoutViewDto.cs
+    ScoutCandidateListView.cs     -- ScoutPage専用の部品
+    Confirm/
+      ScoutConfirmModal.cs
       ...
+  Battle/
+    BattlePage.cs
+    ...
+    Views/                        -- BattlePageの部品(CommandView/SelfInfoView等)
+    Forfeit/
+    Result/
+    Switch/
 ```
 
-- Addressablesの`{機能名}`(prefab配置)とC#の`{機能名}`(スクリプト配置)は同じ名前を使う
-  (例: `Party`)。ただしAddressables側はprefab単体なのでさらに画面名フォルダは切らない
-  (`Views/Party/PartyEditPage.prefab`のようにフラット)のに対し、C#側は1画面5ファイルに
-  なるため画面名フォルダを切る、という非対称さがある(理由が異なるため統一しない)
-- `IScreenNavigator`実装は`Atlas.Navigation`直下に置く(上記参照)。Presentation内で特定の機能に属さない共通の型は`Atlas.Presentation`直下に置く
+- Addressables側はprefab単体なので、Modalも含めて`Views/{機能名}/`直下にフラットに置く
+  (`Views/Scout/ScoutConfirmModal.prefab`)。機能をまたいで使う部品のprefabは`Views/Parts/`に置く
+  (`CellTemplate`/`PachimonInfoPanel`)。C#側だけModalのサブフォルダを切る非対称さは、
+  prefabは1画面1ファイルなのに対しC#は1画面4〜5ファイルになるため(理由が異なるため統一しない)
+- `IScreenNavigator`実装は`Atlas.Navigation`直下に置く(上記参照)
+
+**検討したが採用しなかった案: 1画面ごとにサブフォルダを切る構成**(`Party/PartyEdit/PartyEditPage.cs`)。
+当初はこの規則だったが、実際の機能は現状1機能1Pageで、Pageまでサブフォルダに入れると
+機能名フォルダの直下が空になるだけだったため、Pageは機能名直下・Modalだけサブフォルダ、の現行構成にした。
+1機能に複数Pageが入るようになった時点で再検討する。
 
 ## 実装検証済み(Bootstrap→Home→TitlePage)
 

@@ -38,15 +38,15 @@ DB設計は上記の機能別設計書に統合されている)。`CLAUDE.md`等
    → そのテーブルを持つ機能の `Shared/docs/design/{battle,scout,outgame}.md` の「DB設計」節を更新
      (複数機能から参照されるテーブル(`player_items`等)は`architecture.md`側に定義を集約し、
      機能別設計書からは参照リンクのみにする)
-   → マイグレーション本数・内容の一覧は`Shared/docs/progress.md`「3. Server API実装状況」を更新
+   → マイグレーション本数・内容の一覧は`Shared/docs/progress.md`「2. APIサーバー(Rust/Axum)」を更新
 4. **Client側の層構成・クラス構成を変更した**
    → `Shared/docs/design/client-architecture.md` を更新。特に削除/改名したクラス名(例:
      `IPlayerRepository`→`IPlayerConnection`)が設計書の説明文・コード例・asmdef表に残っていないか
      `grep`で確認する
 5. **どの作業でも共通**
-   → `Shared/docs/progress.md` の該当セクション(実装済み表・残タスク一覧・進捗チェックボックス)
+   → `Shared/docs/progress.md` の該当セクション(クライアント / APIサーバー / バトルサーバー / 共通 の「実施済み」「TODO」チェックリスト)
      を更新する。特に「実装したつもりが別の層(DB投入やキャッシュ)が追いついていない」ような
-     ギャップを見つけたら、`progress.md`内の既存パターン(「今回発見したギャップ」節)に倣って
+     ギャップを見つけたら、`progress.md`の該当領域の「TODO」にタスク(タイトル+詳細)として
      明記しておく — これは実装漏れの再発見コストを下げるための、このプロジェクト固有の運用
 
 ## 書き方の流儀(既存ドキュメントから読み取れるスタイル)

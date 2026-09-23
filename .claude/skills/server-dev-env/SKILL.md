@@ -12,8 +12,15 @@ description: Atlas/Server(Rust/axum)のローカル開発環境(MySQL Dockerコ�
 ## 初回セットアップ
 
 ```bash
-make setup   # up (docker compose up -d) + wait-db + migrate
+make setup                          # up (docker compose up -d) + wait-db + migrate
+cargo run --bin seed_master_data    # マスターデータを投入
+cargo run --bin seed_scout_banners  # 常設スカウトバナーを投入
+cargo run                           # APIサーバー起動(マスタは起動時に読み込む)
 ```
+
+`make setup`はテーブルを作るだけで、マスターデータやバナーは入らない。未投入のまま起動すると
+`POST /signup`がスターター編成(`starter_party_slots`)を複製できず500になり、
+`GET /scout/banners`は空配列を返す。
 
 ## 日常操作
 
@@ -29,8 +36,19 @@ make ps         # 状態確認
 ## DBを空にして作り直す
 
 ```bash
-make db-reset   # clean(down -v) + up + wait-db + migrate
+make db-reset                       # clean(down -v) + up + wait-db + migrate
+cargo run --bin seed_master_data    # マスターデータを再投入
+cargo run --bin seed_scout_banners  # 常設スカウトバナーを再投入
+# 起動中のAPIサーバーは再起動する(古い=空のマスタをメモリに持ったままのため)
 ```
+
+`make db-reset`はマスターデータ・バナーも含めて全テーブルを空にするため、上の2つのseedと
+APIサーバーの再起動までを1セットで行う。
+
+DBをリセットすると、Unity Client側に保存済みのデバイス情報(`device_id`/`secret_key`)は
+サーバー側に存在しなくなり、サインインできなくなる。Editorの場合は
+`%USERPROFILE%/AppData/LocalLow/DefaultCompany/AtlasUnityProject/SaveData`
+(Multiplayer Play Modeの仮想プレイヤーは`SaveData_VP_<id>`)を削除してから起動する。
 
 ## マイグレーション
 
@@ -53,11 +71,17 @@ cargo run --bin seed_master_data   # master_data/*.json を MySQL へ UPSERT
 # その後サーバーを再起動して初めて新しいマスタ内容が反映される
 ```
 
-**現状 `seed_master_data` は `pachimon` テーブルしか対応していない**
-(`moves` / `move_groups` / `move_group_moves` はファイル生成のみでDB未投入、
-`Shared/docs/progress.md` 参照)。他テーブルを投入対象にする場合は
-`master-data-schema-add` スキルの手順に従って `cache.rs` / `seed_master_data.rs` を
-先に拡張する必要がある。
+`seed_master_data`が投入するのは`move_groups` / `moves` / `move_group_moves` / `pachimon` /
+`starter_party_slots` / `items`の6テーブル(`type_chart`はDB投入対象外)。
+このうち起動時にメモリへキャッシュするのは`pachimon` / `move_group_moves` /
+`starter_party_slots` / `items`(`src/master/cache.rs`)。新しいマスタテーブルを投入対象に
+加える場合は、`master-data-schema-add`スキルの手順に従って`seed_master_data.rs`
+(必要なら`cache.rs`も)を拡張する。
+
+`scout_banners`はマスターデータ(`master-data-pipeline`)の対象外で、
+`cargo run --bin seed_scout_banners`が常設バナー1件(`SCOUT000000000000000000001`、
+1回150ジェム)を固定IDでUPSERTする。何度実行してもよい。バナーはリクエストのたびに
+DBから読むため、投入後にAPIサーバーを再起動する必要はない。
 
 ## APIサーバーの起動と通信ログ
 
@@ -98,7 +122,7 @@ DEBUG request{method=POST uri=/devices}: Server::http_log: response body status=
 cargo test
 ```
 
-- `tests/{auth,chat,device,player}_api_test.rs`: `tower::ServiceExt::oneshot` によるAPIレベル結合テスト
+- `tests/{auth,battle,chat,device,player,scout}_api_test.rs`: `tower::ServiceExt::oneshot` によるAPIレベル結合テスト
 - `tests/master_data_test.rs` や一部のservice層テストは `sqlx::test` を使い、実際のDBを必要とする
   → 事前に `make up`(または `make setup`)でMySQLコンテナが起動していることを確認する
 - DB不要な単体テストは `src/` 内の `#[cfg(test)] mod tests` にある(例: `src/master/mod.rs` の

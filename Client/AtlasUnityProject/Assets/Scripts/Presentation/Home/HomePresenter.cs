@@ -4,6 +4,7 @@ using Atlas.Application;
 using Atlas.Application.Address;
 using Atlas.Navigation;
 using Atlas.Presentation.Party;
+using Atlas.Presentation.Scout;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
@@ -46,9 +47,10 @@ namespace Atlas.Presentation.Home
             var dto = CreateDto();
             view.Refresh(dto);
 
-            // Scout/チャットの各画面は未実装のため、現時点ではログのみ。
-            // 各画面を実装するタイミングでIScreenNavigator.PushPageAsyncに置き換える
-            view.OnScoutButtonClicked.Subscribe(_ => Debug.Log("[Home] Scout button clicked (not implemented yet)")).AddTo(disposables);
+            // スカウトでジェムが減るため、スカウト画面から戻ったらHomeの表示を取り直す。
+            view.OnScoutButtonClicked
+                .SubscribeAwait(async (_, ct) => await OpenScoutAsync(ct), AwaitOperation.Drop)
+                .AddTo(disposables);
             // Push完了までの連打で同じPageを重ねて積まないよう、実行中の押下は捨てる。
             view.OnPartyButtonClicked
                 .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<PartyPage>(), AwaitOperation.Drop)
@@ -57,8 +59,16 @@ namespace Atlas.Presentation.Home
             view.OnBattleButtonClicked
                 .SubscribeAwait(async (_, ct) => await FindMatchAndStartBattleAsync(ct), AwaitOperation.Drop)
                 .AddTo(disposables);
+            // チャット画面は未実装のため、現時点ではログのみ。
             view.OnChatButtonClicked.Subscribe(_ => Debug.Log("[Home] Chat button clicked (not implemented yet)")).AddTo(disposables);
             await UniTask.CompletedTask;
+        }
+
+        private async UniTask OpenScoutAsync(CancellationToken cancellation)
+        {
+            var page = await screenNavigator.PushPageAsync<ScoutPage>();
+            await screenNavigator.WaitForPopAsync<object>(page, cancellation);
+            view.Refresh(CreateDto());
         }
 
         // マッチング待ちModalを出して対戦相手を探し、成立したらBattleシーンへ切り替える。USNは遷移中の

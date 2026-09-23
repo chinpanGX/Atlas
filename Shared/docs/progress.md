@@ -14,21 +14,19 @@
 
 | 領域 | 状況 |
 |---|---|
-| クライアント(Unity) | 認証〜サインイン、Home、パーティ編成、マッチング〜対戦〜結果までは実装済み。スカウト・チャット・技の付け替え・ニックネーム入力の画面は未着手。**実サーバーにつないだPlay Modeでの確認は未実施** |
+| クライアント(Unity) | 認証〜サインイン、Home、パーティ編成、スカウト、マッチング〜対戦〜結果までは実装済み。サインインとスカウトは実サーバーにつないだPlay Modeで確認済み。チャット・技の付け替え・ニックネーム入力の画面は未着手 |
 | APIサーバー(Rust/Axum) | 設計書にあるAPIはすべて実装済み(結合テスト62件)。残りはコンテナ化とテスト環境の不具合 |
 | バトルサーバー(C#/MagicOnion) | Hub一式・切断と再接続・制限時間・結果報告・選出個体の実データ化まで実装済み(xUnit約30件)。ボット同士の実サーバー対戦で確認済み |
 | 共通(マスターデータ・コード生成) | パイプラインはClient/Server/BattleServerの3か所へ配置済み。技の種類が少ない |
 
 ## 次に進める順番
 
-目標は「Unity ClientからBattleServer上で、プレイヤーの所持データを使って対戦できる」こと。
-Server・BattleServerはボット同士の対戦で確認済みなので、Client側の確認から始める。
+対戦まわり(C-1・C-3〜C-5)は手動テストまで進めたところでいったん止め、クライアント側だけで
+完結する画面の実装を優先する。
 
-1. C-1 Multiplayer Play Modeでの実サーバー対戦確認(不具合が見つかれば修正を最優先)
-2. C-3 自分側の切断→再接続
-3. C-4 対戦まわりの失敗時のエラーModal
-4. C-5 ターン制限時間と相手の切断中表示
-5. その後、C-11 IL2CPP対応、C-7〜C-10 各画面、M-3 `.meta`が消える問題
+1. C-8 チャット画面、C-9 技の付け替え画面、C-10 ニックネーム入力画面
+2. その後、対戦まわり(C-1 実サーバー対戦確認、C-3 再接続、C-4 エラーModal、C-5 制限時間表示)に戻る
+3. C-11 IL2CPP対応、M-3 `.meta`が消える問題
 
 ---
 
@@ -69,11 +67,13 @@ Server・BattleServerはボット同士の対戦で確認済みなので、Clien
 - [x] `AccessTokenRefresher`: 期限切れ5分前の再認証、401時に再認証して1回リトライ、同時実行の共有
 - [x] Mock/Realの認証Connectionを`RootLifetimeScope.ConfigureAuthConnections`で切り替え
 - [x] セーブデータの保存先をインスタンスごとに分ける`SaveDataDirectory`(Multiplayer Play Mode用)
+- [x] 実サーバー(ローカルのAPIサーバー・MySQL)で、デバイス登録 → `/sign-in`が404 → `/signup` → `/sign-in` →
+  `playerDiff`の適用(ジェム300・スターター6体)までをPlay Modeで確認
 
 #### Home
 
 - [x] `HomePage`/`HomePresenter`: PlayerId・ジェム表示、Scout/Party/Battle/Chatへのボタン
-  (ScoutとChatは遷移先が無いためログ出力のみ)
+  (Chatは遷移先が無いためログ出力のみ)。スカウト画面から戻ったらジェム表示を取り直す
 
 #### パーティ編成
 
@@ -81,6 +81,18 @@ Server・BattleServerはボット同士の対戦で確認済みなので、Clien
 - [x] 入れ替え・外す・最後の1体は外せない、のルールを`PartyEditor`に分離(EditModeテスト`PartyEditorTests`)
 - [x] 戻る時に変更があれば`POST /edit/party`で保存、失敗時は画面に留まる
 - [x] ステータス計算を`PachimonStatCalculator`(レベル50固定)に統一(`TestPartyFactory`は除く、C-12参照)
+
+#### スカウト
+
+- [x] `IScoutConnection`(`GET /scout/banners`・`POST /scout/rolls`・`POST /scout/rolls/{rollId}/select`)と
+  Real実装`ScoutConnection`(`AccessTokenRefresher.SendAsync`で包み、`playerDiff`を適用)。Mock実装は無い
+- [x] `ScoutPage`/`ScoutPresenter`: 開催中バナーの先頭1件でスカウト、下部に候補10体(セルは`CellTemplate`を流用)、
+  選択中の候補のステータスを左・技を右に表示(`PachimonInfoPanel`をネストし配置だけScoutPage側で変更)
+- [x] 1回目のタップで選択、同じ候補の2回目のタップで確認Modal(`ScoutConfirmModal`「{パチモン名}\nで、確定しますか？」)→確定。
+  ジェム不足ならスカウトボタンを押せない。候補を確定するまで戻るボタンを押せない(ジェム消費済みで取り直すAPIが無いため)
+- [x] prefabは`Addressables/Views/Scout/`。Addressablesへの登録は手動(SmartAddresserのルールは自動適用されていない)
+- [x] 実サーバーにつないだPlay Modeで、スカウト → 選択 → いいえ/はい → 入手(所持7体・ジェム300→150)→ Home復帰を確認
+- [x] スカウト画面でパチモン名・タイプが見えない問題を修正(旧C-14)
 
 #### バトル
 
@@ -103,9 +115,10 @@ Server・BattleServerはボット同士の対戦で確認済みなので、Clien
   - 事前準備: BattleServerのuser-secrets設定(DEVELOPMENT.md「3.」)、両サーバーを最新のコードで起動
   - 初期技4つの変更前に作ったアカウントは、セーブデータ(`SaveData`/`SaveData_VP_<id>`)を消して作り直す
   - 確認すること: マッチング → 選出 → 技4つの表示と送信 → 交代 → 決着 → 結果Modal → Home復帰、相手パチモンの名前・タイプ表示
-- [ ] **C-2 サインインの実サーバー疎通確認**
-  - デバイス登録 → `POST /signup` → `POST /sign-in` → `playerDiff`の適用を、ローカルのAPIサーバー・MySQLにつないでPlay Modeで確認する
-  - `AccessTokenRefresher`(期限前の再認証・401時のリトライ)もコンパイル確認しかしていない。C-1と同時に確認できる
+- [ ] **C-2 `AccessTokenRefresher`の実サーバー確認**
+  - サインインまでの疎通は確認済み。期限前の再認証・401時のリトライはまだコンパイル確認しかしていない
+  - DBをリセットした後は、端末に残った古いデバイス情報(`SaveData`)を消す必要がある。
+    自動で作り直す仕組みは無い(認証失敗時の扱いはC-6と合わせて決める)
 - [ ] **C-3 自分側の切断→再接続**
   - 現状は一瞬切れただけで`DisconnectTimeout`負けになる
   - `RealtimeBattleConnection`で切断を検知し(`WaitForDisconnect`)、同じ`battleToken`/`matchId`で`JoinAsync`を再実行する(猶予60秒以内に数回)
@@ -121,9 +134,6 @@ Server・BattleServerはボット同士の対戦で確認済みなので、Clien
   - 設計から見直す点: `IScreenNavigator`がシーン単位で`RootLifetimeScope`に無い、起動時のサインイン失敗はNavigatorが無い段階で起きる、
     認証不要の`DeviceConnection`は`AccessTokenRefresher.SendAsync`を通らない
   - リトライ/タイトルへ戻す等のUXも合わせて決める(現状、パーティ編成の保存失敗はログ出力のみ)
-- [ ] **C-7 スカウト画面**
-  - `IScoutConnection`(`GET /scout/banners`・`POST /scout/rolls`・`POST /scout/rolls/{rollId}/select`)と画面を作る
-  - Connectionの各APIは`AccessTokenRefresher.SendAsync`で包み、`playerDiff`(items / pachimon / pachimonMoveMap)を適用する
 - [ ] **C-8 チャット画面**
   - `IChatConnection`(`POST /chat/send`・`GET /chat/poll`)と画面を作る。Connectionは`SendAsync`で包む
 - [ ] **C-9 技の付け替え画面**
@@ -140,6 +150,12 @@ Server・BattleServerはボット同士の対戦で確認済みなので、Clien
   - `TestPartyFactory.CalculateStat`(Mock用)が独自のステータス計算を持っている。`PachimonStatCalculator`へ統一する
 - [ ] **C-13 パチモンのサムネイル画像**
   - `PachimonDto.Thumbnail`がnullのため、単色のプレースホルダで表示している
+- [ ] **C-15 VContainerが新規の`*LifetimeScope.cs`を空テンプレートで上書きする**
+  - VContainerの`ScriptTemplateProcessor`が、`XxxLifetimeScope.cs`の`.meta`作成時に中身を空のテンプレートへ書き換える
+    (Unityのメニューから作る時用の機能だが、エディタ外で書いたファイルにも効く)。スカウト実装時に2ファイルが上書きされ、書き直した
+  - `VContainerSettings`の`DisableScriptModifier`を有効にするか検討する
+- [ ] **C-16 `AddressDefinition.cs`の再生成**
+  - AddressDefinitionGeneratorで生成した定数に`ScoutPage`/`ScoutConfirmModal`が無い(画面は型名で読み込むため動作には影響しない)
 
 ---
 
@@ -265,7 +281,7 @@ Server・BattleServerはボット同士の対戦で確認済みなので、Clien
 | `starter_party_slots` | 6 | 新規プレイヤーに付与するスターター(rarity C の6体) |
 | `items` | 1 | `item_id: 1` = ジェム |
 
-- Serverでメモリキャッシュする対象は`pachimon`・`move_group_moves`・`starter_party_slots`・`items`(`src/master/cache.rs`)。`moves`/`move_groups`/`type_chart`はDB投入のみ
+- Serverでメモリキャッシュする対象は`pachimon`・`move_group_moves`・`starter_party_slots`・`items`(`src/master/cache.rs`)。`moves`/`move_groups`はDB投入のみ。`type_chart`はServer向けJSONを生成するだけで、テーブルもDB投入も無い(タイプ相性はBattleCore側で使う)
 
 #### api-codegen(submodule)
 
