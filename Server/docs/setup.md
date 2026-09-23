@@ -95,7 +95,13 @@ SHOW DATABASES;
 
 ```env
 DATABASE_URL=mysql://root@127.0.0.1:3306/atlas_dev
+BATTLE_TOKEN_SECRET=<32バイト以上のランダム値>
+INTERNAL_API_SECRET=<ランダム値>
 ```
+
+`BATTLE_TOKEN_SECRET`・`INTERNAL_API_SECRET`はBattleServerと同じ値にする必要がある(未設定だと
+起動・テストがpanicする)。生成方法・BattleServer側の設定・その他の変数は
+リポジトリ直下の[DEVELOPMENT.md](../../DEVELOPMENT.md)「3. 共通の設定」を参照。
 
 ## 5. DBスキーマの反映(マイグレーション)
 

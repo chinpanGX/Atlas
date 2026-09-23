@@ -1,4 +1,5 @@
 <Solution>
-  <Project Path="../Shared/BattleCore/Atlas.BattleCore.csproj" />
+  <Project Path="BattleCore/Atlas.BattleCore.csproj" />
   <Project Path="BattleServer.csproj" />
+  <Project Path="Tests/BattleServer.Tests.csproj" />
 </Solution>

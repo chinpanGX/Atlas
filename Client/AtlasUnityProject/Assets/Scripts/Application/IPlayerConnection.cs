@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
 namespace Atlas.Application
@@ -10,6 +11,9 @@ namespace Atlas.Application
         UniTask SignUpAsync(string nickname);
 
         UniTask<SignInResult> SignInAsync();
+
+        // 編成の全置き換え。slotsに含まれない枠は解除される(1〜6枠、同じパチモンの重複不可)。
+        UniTask EditPartyAsync(IReadOnlyList<PartySlotInput> slots);
     }
 
     public sealed class SignInResult

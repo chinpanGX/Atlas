@@ -31,6 +31,7 @@ C#/MagicOnionサーバー(リアルタイム対戦)はRust側への内部APIで�
 Atlas/
 ├── Client/                 # Unityクライアント(これから実装、まだ画面/通信/ゲームロジック未着手)
 ├── Server/                 # Rustバックエンド(REST API、実装中) — 詳細は Server/CLAUDE.md 参照
+├── BattleServer/           # C#/MagicOnionのリアルタイム対戦サーバー(Atlas.BattleCoreをDLLとして参照)
 ├── Shared/                 # クライアント/サーバー間の共有定義(マスターデータスキーマ、設計書)
 ├── master-data-pipeline/   # マスターデータ生成パイプライン(サブモジュール、自作)
 ├── api-codegen/            # OpenAPI仕様書→Unity向けDTO・通信APIクライアント生成ツール(サブモジュール、自作)
@@ -38,6 +39,9 @@ Atlas/
 ```
 
 `master-data-pipeline` / `api-codegen` / `Supplement` はgit submodule([.gitmodules](.gitmodules))。
+
+ローカル環境の設定(Server/BattleServerで共有するシークレット等)・起動順・よく使うコマンドは
+[DEVELOPMENT.md](DEVELOPMENT.md)にまとめている。
 
 ## 設計書
 

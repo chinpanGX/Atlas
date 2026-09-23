@@ -44,6 +44,18 @@ namespace Atlas.Presentation.Party
             pachimonListView.Refresh(pachimons);
         }
 
+        // 選択中の枠(selectedSlot)または一覧のパチモン(selectedPachimonId)に選択フレームを、
+        // 編成中のパチモンに編成中フレームを付ける。未選択の側はnull。
+        public void RefreshFrames(int? selectedSlot, string selectedPachimonId, IReadOnlyCollection<string> partyPachimonIds)
+        {
+            for (var index = 0; index < slotViews.Length; index++)
+            {
+                slotViews[index].SetSelected(index + 1 == selectedSlot);
+            }
+
+            pachimonListView.RefreshFrames(selectedPachimonId, partyPachimonIds);
+        }
+
         public void RefreshPachimonInfo(PachimonInfoDto info)
         {
             pachimonInfoView.Refresh(info);
@@ -52,6 +64,12 @@ namespace Atlas.Presentation.Party
         public void HidePachimonInfo()
         {
             pachimonInfoView.Hide();
+        }
+
+        // 保存中は戻るボタンを押せなくする。
+        public void SetBackButtonInteractable(bool interactable)
+        {
+            backButton.interactable = interactable;
         }
     }
 }

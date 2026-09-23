@@ -5,7 +5,7 @@ use tracing::Level;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::api::{auth, battle, chat, device, player, scout};
+use crate::api::{auth, battle, chat, device, internal, player, scout};
 use crate::http_log;
 use crate::openapi::ApiDoc;
 use crate::state::AppState;
@@ -61,6 +61,11 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/battle/queue/status",
             axum::routing::get(battle::queue_status_handler),
+        )
+        // BattleServerからの内部API(X-Internal-Secretで保護、OpenAPIには載せない)
+        .route(
+            "/internal/battle/result",
+            axum::routing::post(internal::report_battle_result_handler),
         )
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         // 後に追加したlayerほど外側になる。TraceLayerのspan(method/uri)の内側で

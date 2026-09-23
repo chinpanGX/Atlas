@@ -17,6 +17,14 @@ namespace Atlas.Presentation.Battle
             OnCommandButtonClicked = commandButtons.Select(button => button.OnClickAsObservable()).ToArray();
         }
 
+        public void SetInteractable(bool interactable)
+        {
+            foreach (var button in commandButtons)
+            {
+                button.interactable = interactable;
+            }
+        }
+
         // SlotNoが無い(=対応するコマンドが無い)枠のボタンは非表示にする(元のBattlePage.SetMoveButton
         // と同じ方針)。
         public void Refresh(IReadOnlyList<CommandDto> commands)

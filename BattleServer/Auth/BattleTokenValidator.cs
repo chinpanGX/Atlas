@@ -22,6 +22,9 @@ namespace Atlas.BattleServer.Auth
         // Microsoft.IdentityModelのデフォルト(5分)だと有効期限30秒のトークンが実質延びるため小さくする。
         private static readonly TimeSpan ClockSkew = TimeSpan.FromSeconds(5);
 
+        // HS256の鍵長(256bit)。
+        private const int MinSecretBytes = 32;
+
         private const string MatchIdClaim = "match_id";
         private const string PlayerIdClaim = "player_id";
 
@@ -39,7 +42,15 @@ namespace Atlas.BattleServer.Auth
             }
 
             // Rust側(jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()))と同じくUTF-8の生バイト列を鍵にする。
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+            var keyBytes = Encoding.UTF8.GetBytes(secret);
+            if (keyBytes.Length < MinSecretBytes)
+            {
+                // Microsoft.IdentityModelはHS256に256bit未満の鍵を使うと検証自体を拒否する(Rust側は通る)ため、
+                // 起動後に全てのJoinAsyncがInvalidTokenになるより先に、原因が分かる形で失敗させる。
+                throw new InvalidOperationException($"{SecretConfigKey} must be at least {MinSecretBytes} bytes (UTF-8)");
+            }
+
+            var key = new SymmetricSecurityKey(keyBytes);
             _parameters = new TokenValidationParameters
             {
                 IssuerSigningKey = key,

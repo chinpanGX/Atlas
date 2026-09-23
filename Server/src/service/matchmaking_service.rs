@@ -1,12 +1,14 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Mutex;
 
 use chrono::Utc;
 use jsonwebtoken::{EncodingKey, Header};
 use serde::{Deserialize, Serialize};
+use sqlx::MySqlPool;
 use ulid::Ulid;
 
 use crate::error::AppError;
+use crate::service::battle_service;
 
 /// `battle_token`の有効期限(秒)。マッチ成立直後にBattleServerへ接続するだけなので短くてよい。
 pub const BATTLE_TOKEN_TTL_SECONDS: i64 = 30;
@@ -20,24 +22,29 @@ pub struct BattleConfig {
     pub battle_server_url: String,
     /// `battle_token`(JWT, HS256)の署名に使う共有シークレット。BattleServer側にも同じ値を配布する
     pub battle_token_secret: String,
+    /// 内部API(`/internal/battle/result`)の`X-Internal-Secret`ヘッダーと照合するサービス間シークレット
+    pub internal_api_secret: String,
 }
 
 impl BattleConfig {
     /// 環境変数(`.env`含む)から設定を読み込む。
     ///
     /// # Panics
-    /// `BATTLE_TOKEN_SECRET`が未設定の場合。
+    /// `BATTLE_TOKEN_SECRET`または`INTERNAL_API_SECRET`が未設定の場合。
     pub fn from_env() -> Self {
         dotenvy::dotenv().ok();
 
         let battle_token_secret =
             std::env::var("BATTLE_TOKEN_SECRET").expect("BATTLE_TOKEN_SECRET must be set in .env");
+        let internal_api_secret =
+            std::env::var("INTERNAL_API_SECRET").expect("INTERNAL_API_SECRET must be set in .env");
         let battle_server_url = std::env::var("BATTLE_SERVER_URL")
             .unwrap_or_else(|_| DEFAULT_BATTLE_SERVER_URL.to_string());
 
         BattleConfig {
             battle_server_url,
             battle_token_secret,
+            internal_api_secret,
         }
     }
 }
@@ -57,6 +64,9 @@ pub struct MatchmakingQueue {
     pub waiting: VecDeque<String>,
     /// `player_id` -> 未取得のマッチ成立結果
     pub matched: HashMap<String, MatchInfo>,
+    /// ペアは決まったが`battle_matches`への書き込み中(ロック外)の`player_id`。
+    /// この間に同じプレイヤーが再参加して二重にマッチしないよう、`waiting`/`matched`と同様に扱う
+    pub pairing: HashSet<String>,
 }
 
 /// `battle_token`のclaims。`exp`は有効期限(UNIX秒)。
@@ -67,42 +77,78 @@ pub struct BattleTokenClaims {
     pub exp: i64,
 }
 
-/// 待機列に参加する。他に待機者がいれば先頭の1人と即座にペアを成立させる。
+/// 待機列に参加する。他に待機者がいれば先頭の1人と即座にペアを成立させ、`battle_matches`に
+/// `in_progress`の行を作成する(先に待っていた側が`player1`)。
 ///
-/// 既に待機中、またはマッチ成立済みで結果を未取得の場合は何もしない(二重参加防止)。
+/// DB書き込み中は待機列のロックを保持しない。ペアが決まった2人は書き込みが終わるまで
+/// `pairing`に入れておき、書き込みに失敗した場合は相手を待機列の先頭へ戻す
+/// (DBに行が無い対戦をクライアントへ返さないため)。
+/// 既に待機中・ペアリング中・マッチ成立済み(結果未取得)の場合は何もしない(二重参加防止)。
 ///
 /// # Errors
-/// 待機列のロック取得・`battle_token`の発行に失敗した場合に`AppError::InternalError`を返す。
-pub fn join(
+/// 待機列のロック取得・`battle_matches`への書き込み・`battle_token`の発行に失敗した場合に
+/// `AppError::InternalError`を返す。
+pub async fn join(
+    pool: &MySqlPool,
     queue: &Mutex<MatchmakingQueue>,
     config: &BattleConfig,
     player_id: &str,
 ) -> Result<(), AppError> {
-    let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
+    let opponent_id = {
+        let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
 
-    if queue.waiting.iter().any(|id| id == player_id) || queue.matched.contains_key(player_id) {
-        return Ok(());
-    }
+        if queue.waiting.iter().any(|id| id == player_id)
+            || queue.pairing.contains(player_id)
+            || queue.matched.contains_key(player_id)
+        {
+            return Ok(());
+        }
 
-    let Some(opponent_id) = queue.waiting.pop_front() else {
-        queue.waiting.push_back(player_id.to_string());
-        return Ok(());
+        let Some(opponent_id) = queue.waiting.pop_front() else {
+            queue.waiting.push_back(player_id.to_string());
+            return Ok(());
+        };
+
+        queue.pairing.insert(opponent_id.clone());
+        queue.pairing.insert(player_id.to_string());
+        opponent_id
     };
 
     let match_id = Ulid::new().to_string();
-    for id in [opponent_id.as_str(), player_id] {
-        let battle_token = issue_battle_token(&config.battle_token_secret, &match_id, id)?;
-        queue.matched.insert(
-            id.to_string(),
-            MatchInfo {
-                match_id: match_id.clone(),
-                battle_server: config.battle_server_url.clone(),
-                battle_token,
-            },
-        );
-    }
+    let result = battle_service::create_match(pool, &match_id, &opponent_id, player_id)
+        .await
+        .and_then(|()| {
+            [opponent_id.as_str(), player_id]
+                .into_iter()
+                .map(|id| {
+                    let battle_token =
+                        issue_battle_token(&config.battle_token_secret, &match_id, id)?;
+                    Ok((
+                        id.to_string(),
+                        MatchInfo {
+                            match_id: match_id.clone(),
+                            battle_server: config.battle_server_url.clone(),
+                            battle_token,
+                        },
+                    ))
+                })
+                .collect::<Result<Vec<_>, AppError>>()
+        });
 
-    Ok(())
+    let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
+    queue.pairing.remove(&opponent_id);
+    queue.pairing.remove(player_id);
+
+    match result {
+        Ok(infos) => {
+            queue.matched.extend(infos);
+            Ok(())
+        }
+        Err(e) => {
+            queue.waiting.push_front(opponent_id);
+            Err(e)
+        }
+    }
 }
 
 /// 待機列から離脱する。待機列にいなければ何もしない。

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Shared/BattleCore(Unityのローカルパッケージ)のRuntimeソースを、BattleServer用のDLLとしてビルドする。
+       csprojをパッケージ内に置くとbin|objもパッケージ内に出力され、UnityがそのDLLを取り込んで
+       CS1704(同名アセンブリの重複)になるため、パッケージの外(ここ)に置く。
+       Unity側と同じ条件でコンパイルされるよう、LangVersionをUnityと同じ9.0に固定し、
+       ImplicitUsings(Unityには無い)は無効にする。 -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Atlas.BattleCore</AssemblyName>
+    <RootNamespace>Atlas.BattleCore</RootNamespace>
+    <LangVersion>9.0</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Tests/(Unity EditModeテスト、NUnit依存)は対象外 -->
+    <Compile Include="..\..\Shared\BattleCore\Runtime\**\*.cs" LinkBase="Runtime" />
+  </ItemGroup>
+
+</Project>

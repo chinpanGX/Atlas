@@ -52,10 +52,13 @@ Rust/Axum API Server    C#/MagicOnion Server
 Atlas/
 ├── Client/                 # Unityクライアント(プロジェクト構築・ライブラリ導入まで完了、画面/通信/ゲームロジックの実装は未着手)
 ├── Server/                 # Rustバックエンド(REST API、実装中)
+├── BattleServer/           # C#/MagicOnionのリアルタイム対戦サーバー
 ├── Shared/                 # クライアント/サーバー間の共有定義
 ├── master-data-pipeline/   # マスターデータ生成パイプライン(スプレッドシート→各プラットフォーム向け出力、自作)
 └── api-codegen/            # OpenAPI仕様書→Unity向けDTO・通信APIクライアント生成ツール(自作)
 ```
+
+開発環境の構築・起動手順は[DEVELOPMENT.md](DEVELOPMENT.md)を参照。
 
 詳細設計は以下を参照:
 

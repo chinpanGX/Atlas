@@ -56,6 +56,9 @@ tower-http = { version = "0.5", features = ["trace"] }
 # マッチ成立時にBattleServerへ渡すbattle_token(短命JWT、HS256)の発行に使用
 jsonwebtoken = "9"
 
+# 内部API(/internal/battle/result)のサービス間シークレットを定数時間で比較する(タイミング攻撃対策)
+subtle = "2"
+
 
 [dev-dependencies]
 # 結合テストでRouterに直接リクエストを送るため(oneshotメソッドを提供)

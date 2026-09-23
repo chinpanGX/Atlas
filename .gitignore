@@ -6,4 +6,8 @@ Shared/BattleCore/.idea/
 # BattleServer (.NETプロジェクトのビルド成果物・IDE設定)
 BattleServer/bin/
 BattleServer/obj/
+BattleServer/Tests/bin/
+BattleServer/Tests/obj/
+BattleServer/BattleCore/bin/
+BattleServer/BattleCore/obj/
 BattleServer/.idea/

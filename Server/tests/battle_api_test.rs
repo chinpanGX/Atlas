@@ -8,6 +8,25 @@
 // - test_battle_token_valid: battleTokenがBATTLE_TOKEN_SECRETでdecodeでき、claims・有効期限が正しいことを確認
 // - test_join_queue_empty_party: パーティ未編成での参加が400になることを確認
 // - test_join_queue_unauthenticated: 未認証での参加が401になることを確認
+// - test_match_creates_battle_match_row: ペア成立時にbattle_matchesへin_progressの行が作られ、
+//   先に待っていた側がplayer1になることを確認
+//
+// POST /internal/battle/result (BattleServerからの対戦結果報告)のテスト。
+// - test_report_result_success: battle_matchesのfinished更新・battle_turnsの保存・勝者へのgems加算を確認
+// - test_report_result_swapped_player_order: BattleServer側のplayer1/player2がマッチ成立時と逆でも、
+//   選出がIDで突き合わされて正しい列に保存されることを確認
+// - test_report_result_opponent_never_joined: 相手不参加(選出が空配列・player2Idが空文字・turnsが空)を
+//   正常に受け付けることを確認
+// - test_report_result_wrong_secret: X-Internal-Secretの不一致・欠落で401になり、何も変更されないことを確認
+// - test_report_result_unknown_match: 存在しないmatchIdで404になることを確認
+// - test_report_result_non_participant: 参加者でないwinnerId/ターンのplayerIdで400になることを確認
+// - test_report_result_twice_conflict: 二重報告が409になり、gems・ターンが二重に記録されないことを確認
+// - test_report_result_no_winner: 勝者なし(winnerIdが空文字)の報告でabortedになり、gemsが付与されないことを確認
+// - test_report_result_after_no_winner_conflict: 勝者なしで報告済みの対戦への再報告が409になることを確認
+//
+// 結果報告が届かない対戦の後始末(battle_service::abort_stale_matches)のテスト。
+// - test_abort_stale_matches: 一定時間を過ぎたin_progressだけがabortedになることを確認
+// - test_report_result_after_stale_abort: 打ち切り後に届いた結果報告は受け付け、finishedへ上書きしてgemsを付与することを確認
 use axum::{
     Router,
     body::Body,
@@ -20,6 +39,9 @@ use sqlx::MySqlPool;
 use tower::ServiceExt;
 
 use Server::routes::create_router;
+use Server::service::battle_service::{
+    BATTLE_WIN_REWARD_GEMS, STALE_MATCH_TIMEOUT, abort_stale_matches,
+};
 use Server::service::matchmaking_service::{BATTLE_TOKEN_TTL_SECONDS, BattleTokenClaims};
 use Server::state::AppState;
 
@@ -316,4 +338,495 @@ async fn test_join_queue_unauthenticated(pool: MySqlPool) {
 
     let response = send(app, "POST", "/battle/queue", None).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test]
+async fn test_match_creates_battle_match_row(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app).await;
+
+    let (player1_id, player2_id, status): (String, String, String) = sqlx::query_as(
+        "SELECT player1_id, player2_id, status FROM battle_matches WHERE match_id = ? \
+         AND started_at IS NOT NULL AND ended_at IS NULL",
+    )
+    .bind(&m.match_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(player1_id, m.player_a);
+    assert_eq!(player2_id, m.player_b);
+    assert_eq!(status, "in_progress");
+}
+
+/// マッチ成立済みの対戦。`player_a`が先に待っていた側(`battle_matches.player1_id`)。
+struct MatchedPlayers {
+    match_id: String,
+    player_a: String,
+    player_b: String,
+}
+
+/// 2人のプレイヤーを作成してA→Bの順に待機列へ参加させ、成立した対戦を返す。
+async fn create_match(app: Router) -> MatchedPlayers {
+    let (token_a, player_a) = create_player(app.clone(), "secret-a", "プレイヤーA").await;
+    let (token_b, player_b) = create_player(app.clone(), "secret-b", "プレイヤーB").await;
+
+    assert_eq!(
+        join_queue(app.clone(), &token_a).await.status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        join_queue(app.clone(), &token_b).await.status(),
+        StatusCode::OK
+    );
+
+    let status = queue_status(app.clone(), &token_a).await;
+    assert_eq!(status["status"], "matched");
+
+    MatchedPlayers {
+        match_id: status["matchId"].as_str().unwrap().to_string(),
+        player_a,
+        player_b,
+    }
+}
+
+async fn report_result(app: Router, secret: Option<&str>, body: Value) -> axum::response::Response {
+    let mut builder = Request::builder()
+        .method("POST")
+        .uri("/internal/battle/result")
+        .header("Content-Type", "application/json");
+    if let Some(secret) = secret {
+        builder = builder.header("X-Internal-Secret", secret);
+    }
+
+    app.oneshot(builder.body(Body::from(body.to_string())).unwrap())
+        .await
+        .unwrap()
+}
+
+fn internal_secret() -> String {
+    std::env::var("INTERNAL_API_SECRET").unwrap()
+}
+
+/// 結果報告のリクエストボディ(BattleServerの`BattleResultRequest`と同じ形)。
+fn result_body(
+    match_id: &str,
+    winner_id: &str,
+    player1: (&str, Value),
+    player2: (&str, Value),
+    turns: Vec<Value>,
+) -> Value {
+    json!({
+        "matchId": match_id,
+        "winnerId": winner_id,
+        "player1Id": player1.0,
+        "player2Id": player2.0,
+        "player1SelectedPachimon": player1.1,
+        "player2SelectedPachimon": player2.1,
+        "turns": turns
+    })
+}
+
+/// BattleServerの`BattleTurnRecord`と同じ形のターン1件分。
+fn turn(turn_number: i32, player_id: &str, damage: i32) -> Value {
+    json!({
+        "turnNumber": turn_number,
+        "playerId": player_id,
+        "actionData": { "type": "Move", "moveId": "19", "partySlot": null },
+        "resultData": {
+            "hit": true, "critical": false, "effectiveness": "Normal",
+            "damageDealt": damage, "targetRemainingHp": 115,
+            "targetFainted": false, "newActiveIndex": null
+        }
+    })
+}
+
+async fn gems_of(pool: &MySqlPool, player_id: &str) -> i32 {
+    sqlx::query_scalar("SELECT quantity FROM player_items WHERE player_id = ? AND item_id = 1")
+        .bind(player_id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+async fn match_status(pool: &MySqlPool, match_id: &str) -> String {
+    sqlx::query_scalar("SELECT status FROM battle_matches WHERE match_id = ?")
+        .bind(match_id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+async fn turn_count(pool: &MySqlPool, match_id: &str) -> i64 {
+    sqlx::query_scalar("SELECT COUNT(*) FROM battle_turns WHERE match_id = ?")
+        .bind(match_id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+/// 終了済み`battle_matches`の`(status, winner_id, player1_selected_pachimon, player2_selected_pachimon)`。
+async fn fetch_finished_match(pool: &MySqlPool, match_id: &str) -> (String, String, Value, Value) {
+    let (status, winner_id, selected1, selected2): (
+        String,
+        String,
+        sqlx::types::Json<Value>,
+        sqlx::types::Json<Value>,
+    ) = sqlx::query_as(
+        "SELECT status, winner_id, player1_selected_pachimon, player2_selected_pachimon \
+         FROM battle_matches WHERE match_id = ? AND ended_at IS NOT NULL",
+    )
+    .bind(match_id)
+    .fetch_one(pool)
+    .await
+    .unwrap();
+
+    (status, winner_id, selected1.0, selected2.0)
+}
+
+#[sqlx::test]
+async fn test_report_result_success(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+    let gems_a_before = gems_of(&pool, &m.player_a).await;
+    let gems_b_before = gems_of(&pool, &m.player_b).await;
+
+    let turns = vec![
+        turn(1, &m.player_a, 25),
+        turn(1, &m.player_b, 30),
+        turn(2, &m.player_a, 40),
+    ];
+    let body = result_body(
+        &m.match_id,
+        &m.player_a,
+        (&m.player_a, json!(["a1", "a2", "a3"])),
+        (&m.player_b, json!(["b1", "b2", "b3"])),
+        turns.clone(),
+    );
+    let response = report_result(app, Some(&internal_secret()), body).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let (status, winner_id, selected1, selected2) = fetch_finished_match(&pool, &m.match_id).await;
+    assert_eq!(status, "finished");
+    assert_eq!(winner_id, m.player_a);
+    assert_eq!(selected1, json!(["a1", "a2", "a3"]));
+    assert_eq!(selected2, json!(["b1", "b2", "b3"]));
+
+    // ターン番号→与ダメージの順に並べ、送った順と突き合わせる
+    let saved: Vec<(
+        i32,
+        String,
+        sqlx::types::Json<Value>,
+        sqlx::types::Json<Value>,
+    )> = sqlx::query_as(
+        "SELECT turn_number, player_id, action_data, result_data FROM battle_turns \
+             WHERE match_id = ? ORDER BY turn_number, result_data->'$.damageDealt'",
+    )
+    .bind(&m.match_id)
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(saved.len(), turns.len());
+    for (row, expected) in saved.iter().zip(&turns) {
+        assert_eq!(row.0, expected["turnNumber"]);
+        assert_eq!(row.1, expected["playerId"].as_str().unwrap());
+        assert_eq!(row.2.0, expected["actionData"]);
+        assert_eq!(row.3.0, expected["resultData"]);
+    }
+
+    assert_eq!(
+        gems_of(&pool, &m.player_a).await,
+        gems_a_before + BATTLE_WIN_REWARD_GEMS
+    );
+    assert_eq!(gems_of(&pool, &m.player_b).await, gems_b_before);
+}
+
+#[sqlx::test]
+async fn test_report_result_swapped_player_order(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+
+    // BattleServerには後から待機列に入ったBが先に接続した(player1 = B)
+    let body = result_body(
+        &m.match_id,
+        &m.player_b,
+        (&m.player_b, json!(["b1", "b2", "b3"])),
+        (&m.player_a, json!(["a1", "a2", "a3"])),
+        vec![turn(1, &m.player_b, 25)],
+    );
+    let response = report_result(app, Some(&internal_secret()), body).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // battle_matches側はマッチ成立時の順番(player1 = A)のまま、選出がIDで突き合わされる
+    let (_, winner_id, selected1, selected2) = fetch_finished_match(&pool, &m.match_id).await;
+    assert_eq!(winner_id, m.player_b);
+    assert_eq!(selected1, json!(["a1", "a2", "a3"]));
+    assert_eq!(selected2, json!(["b1", "b2", "b3"]));
+}
+
+#[sqlx::test]
+async fn test_report_result_opponent_never_joined(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+    let gems_b_before = gems_of(&pool, &m.player_b).await;
+
+    // Bだけが接続し、Aは一度も接続しなかった
+    let body = result_body(
+        &m.match_id,
+        &m.player_b,
+        (&m.player_b, json!([])),
+        ("", json!([])),
+        vec![],
+    );
+    let response = report_result(app, Some(&internal_secret()), body).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let (status, winner_id, selected1, selected2) = fetch_finished_match(&pool, &m.match_id).await;
+    assert_eq!(status, "finished");
+    assert_eq!(winner_id, m.player_b);
+    assert_eq!(selected1, json!([]));
+    assert_eq!(selected2, json!([]));
+    assert_eq!(turn_count(&pool, &m.match_id).await, 0);
+    assert_eq!(
+        gems_of(&pool, &m.player_b).await,
+        gems_b_before + BATTLE_WIN_REWARD_GEMS
+    );
+}
+
+#[sqlx::test]
+async fn test_report_result_wrong_secret(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+    let body = result_body(
+        &m.match_id,
+        &m.player_a,
+        (&m.player_a, json!([])),
+        (&m.player_b, json!([])),
+        vec![],
+    );
+
+    let response = report_result(app.clone(), Some("wrong-secret"), body.clone()).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let response = report_result(app, None, body).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    assert_eq!(match_status(&pool, &m.match_id).await, "in_progress");
+}
+
+#[sqlx::test]
+async fn test_report_result_unknown_match(pool: MySqlPool) {
+    let app = setup_app(pool).await;
+    let m = create_match(app.clone()).await;
+
+    let body = result_body(
+        &ulid::Ulid::new().to_string(),
+        &m.player_a,
+        (&m.player_a, json!([])),
+        (&m.player_b, json!([])),
+        vec![],
+    );
+    let response = report_result(app, Some(&internal_secret()), body).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test]
+async fn test_report_result_non_participant(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+    let (_, outsider) = create_player(app.clone(), "secret-c", "プレイヤーC").await;
+
+    let body_with = |winner_id: &str, turn_player_id: &str| {
+        result_body(
+            &m.match_id,
+            winner_id,
+            (&m.player_a, json!([])),
+            (&m.player_b, json!([])),
+            vec![turn(1, turn_player_id, 10)],
+        )
+    };
+
+    // 勝者が参加者でない
+    let response = report_result(
+        app.clone(),
+        Some(&internal_secret()),
+        body_with(&outsider, &m.player_a),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    // ターンの行動者が参加者でない
+    let response = report_result(
+        app,
+        Some(&internal_secret()),
+        body_with(&m.player_a, &outsider),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    assert_eq!(match_status(&pool, &m.match_id).await, "in_progress");
+}
+
+#[sqlx::test]
+async fn test_report_result_twice_conflict(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+    let gems_a_before = gems_of(&pool, &m.player_a).await;
+    let body = result_body(
+        &m.match_id,
+        &m.player_a,
+        (&m.player_a, json!(["a1"])),
+        (&m.player_b, json!(["b1"])),
+        vec![turn(1, &m.player_a, 25)],
+    );
+
+    let response = report_result(app.clone(), Some(&internal_secret()), body.clone()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let response = report_result(app, Some(&internal_secret()), body).await;
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+
+    // 2回目は何も変更しない(gemsの二重付与・ターンの二重記録が無い)
+    assert_eq!(
+        gems_of(&pool, &m.player_a).await,
+        gems_a_before + BATTLE_WIN_REWARD_GEMS
+    );
+    assert_eq!(turn_count(&pool, &m.match_id).await, 1);
+}
+
+/// `battle_matches`の`(status, winner_id)`。`winner_id`はNULLの場合`None`。
+async fn match_status_and_winner(pool: &MySqlPool, match_id: &str) -> (String, Option<String>) {
+    sqlx::query_as("SELECT status, winner_id FROM battle_matches WHERE match_id = ?")
+        .bind(match_id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+/// `started_at`を`hours`時間前にずらし、結果報告が届かないまま時間が経った対戦を再現する。
+async fn age_match(pool: &MySqlPool, match_id: &str, hours: i32) {
+    sqlx::query(
+        "UPDATE battle_matches SET started_at = NOW(3) - INTERVAL ? HOUR WHERE match_id = ?",
+    )
+    .bind(hours)
+    .bind(match_id)
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+#[sqlx::test]
+async fn test_report_result_no_winner(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+    let gems_a_before = gems_of(&pool, &m.player_a).await;
+    let gems_b_before = gems_of(&pool, &m.player_b).await;
+
+    // 両者放置で勝者なし
+    let body = result_body(
+        &m.match_id,
+        "",
+        (&m.player_a, json!(["a1"])),
+        (&m.player_b, json!(["b1"])),
+        vec![turn(1, &m.player_a, 0), turn(1, &m.player_b, 0)],
+    );
+    let response = report_result(app, Some(&internal_secret()), body).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    assert_eq!(
+        match_status_and_winner(&pool, &m.match_id).await,
+        ("aborted".to_string(), None)
+    );
+    assert_eq!(turn_count(&pool, &m.match_id).await, 2);
+    assert_eq!(gems_of(&pool, &m.player_a).await, gems_a_before);
+    assert_eq!(gems_of(&pool, &m.player_b).await, gems_b_before);
+}
+
+#[sqlx::test]
+async fn test_report_result_after_no_winner_conflict(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+    let gems_a_before = gems_of(&pool, &m.player_a).await;
+    let body_with = |winner_id: &str| {
+        result_body(
+            &m.match_id,
+            winner_id,
+            (&m.player_a, json!([])),
+            (&m.player_b, json!([])),
+            vec![],
+        )
+    };
+
+    let response = report_result(app.clone(), Some(&internal_secret()), body_with("")).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // 勝者なしで報告済みの対戦には、勝者ありでも勝者なしでも再報告できない
+    for winner_id in ["", m.player_a.as_str()] {
+        let response =
+            report_result(app.clone(), Some(&internal_secret()), body_with(winner_id)).await;
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+    }
+    assert_eq!(gems_of(&pool, &m.player_a).await, gems_a_before);
+}
+
+#[sqlx::test]
+async fn test_abort_stale_matches(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+
+    // 同じ2人で、成立したばかりの対戦をもう1つ用意する
+    let fresh_match_id = ulid::Ulid::new().to_string();
+    sqlx::query(
+        "INSERT INTO battle_matches (match_id, player1_id, player2_id, status, started_at) \
+         VALUES (?, ?, ?, 'in_progress', NOW(3))",
+    )
+    .bind(&fresh_match_id)
+    .bind(&m.player_a)
+    .bind(&m.player_b)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    age_match(&pool, &m.match_id, 2).await;
+
+    let aborted = abort_stale_matches(&pool, STALE_MATCH_TIMEOUT).await.ok().unwrap();
+    assert_eq!(aborted, 1);
+    assert_eq!(
+        match_status_and_winner(&pool, &m.match_id).await,
+        ("aborted".to_string(), None)
+    );
+    assert_eq!(match_status(&pool, &fresh_match_id).await, "in_progress");
+
+    // 打ち切り済みの対戦は再度対象にならない
+    assert_eq!(
+        abort_stale_matches(&pool, STALE_MATCH_TIMEOUT).await.ok().unwrap(),
+        0
+    );
+}
+
+#[sqlx::test]
+async fn test_report_result_after_stale_abort(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let m = create_match(app.clone()).await;
+    let gems_b_before = gems_of(&pool, &m.player_b).await;
+
+    age_match(&pool, &m.match_id, 2).await;
+    abort_stale_matches(&pool, STALE_MATCH_TIMEOUT).await.ok().unwrap();
+    assert_eq!(match_status(&pool, &m.match_id).await, "aborted");
+
+    // 1時間を超える対戦の結果が、打ち切り後に届いた
+    let body = result_body(
+        &m.match_id,
+        &m.player_b,
+        (&m.player_a, json!(["a1"])),
+        (&m.player_b, json!(["b1"])),
+        vec![turn(1, &m.player_b, 25)],
+    );
+    let response = report_result(app, Some(&internal_secret()), body).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let (status, winner_id, _, _) = fetch_finished_match(&pool, &m.match_id).await;
+    assert_eq!(status, "finished");
+    assert_eq!(winner_id, m.player_b);
+    assert_eq!(
+        gems_of(&pool, &m.player_b).await,
+        gems_b_before + BATTLE_WIN_REWARD_GEMS
+    );
 }

@@ -1,4 +1,5 @@
 use Server::routes;
+use Server::service::battle_service;
 use Server::state::AppState;
 use tracing_subscriber::EnvFilter;
 
@@ -25,6 +26,8 @@ async fn main() {
         std::env::var("SERVER_ADDR").unwrap_or_else(|_| DEFAULT_SERVER_ADDR.to_string());
 
     let state = AppState::new(&database_url).await;
+    // 結果報告が届かないまま残った対戦の後始末(battle_service::abort_stale_matches参照)
+    battle_service::spawn_stale_match_cleanup(state.pool.clone());
     let app = routes::create_router(state);
 
     let listener = tokio::net::TcpListener::bind(&server_addr).await.unwrap();

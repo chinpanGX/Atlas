@@ -30,6 +30,31 @@ pub async fn grant_initial(
     Ok(())
 }
 
+/// 指定アイテムを`amount`分加算する(`battle_service::record_result`の勝利報酬付与から利用)。
+/// 行が無ければ`amount`個で作成する(UPSERT)。呼び出し元のトランザクション内で実行する。
+///
+/// # Errors
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn add(
+    tx: &mut Transaction<'_, MySql>,
+    player_id: &str,
+    item_id: i32,
+    amount: i32,
+) -> Result<(), AppError> {
+    sqlx::query(
+        "INSERT INTO player_items (player_id, item_id, quantity) VALUES (?, ?, ?) \
+         ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)",
+    )
+    .bind(player_id)
+    .bind(item_id)
+    .bind(amount)
+    .execute(&mut **tx)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    Ok(())
+}
+
 /// 認証済みプレイヤーの所持アイテム一覧を取得する。所持数0のアイテムは行自体が存在しないため
 /// 返る件数はプレイヤーが実際に所持しているアイテム種別数分のみ。
 ///

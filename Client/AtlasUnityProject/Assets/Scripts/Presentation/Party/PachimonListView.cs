@@ -11,7 +11,8 @@ namespace Atlas.Presentation.Party
         [SerializeField] private RectTransform content;
         [SerializeField] private PachimonCellView cellTemplate;
 
-        private readonly List<PachimonCellView> cells = new();
+        // PlayerPachimonId → セル。入れ替えのたびにセルを作り直さず、フレームだけ切り替えるために持つ。
+        private readonly Dictionary<string, PachimonCellView> cells = new();
         private readonly Subject<string> onPachimonClicked = new();
         private readonly CompositeDisposable cellSubscriptions = new();
 
@@ -26,7 +27,7 @@ namespace Atlas.Presentation.Party
         public void Refresh(IReadOnlyList<PachimonDto> pachimons)
         {
             cellSubscriptions.Clear();
-            foreach (var cell in cells)
+            foreach (var cell in cells.Values)
             {
                 Destroy(cell.gameObject);
             }
@@ -37,9 +38,20 @@ namespace Atlas.Presentation.Party
                 var cell = Instantiate(cellTemplate, content);
                 cell.gameObject.SetActive(true);
                 cell.Refresh(pachimon);
+                cell.SetFrames(isInParty: false, isSelected: false);
                 var playerPachimonId = pachimon.PlayerPachimonId;
                 cell.OnClicked.Subscribe(_ => onPachimonClicked.OnNext(playerPachimonId)).AddTo(cellSubscriptions);
-                cells.Add(cell);
+                cells[playerPachimonId] = cell;
+            }
+        }
+
+        // selectedPachimonIdは一覧で選択中のもの(未選択ならnull)。
+        public void RefreshFrames(string selectedPachimonId, IReadOnlyCollection<string> partyPachimonIds)
+        {
+            var partyIds = new HashSet<string>(partyPachimonIds);
+            foreach (var pair in cells)
+            {
+                pair.Value.SetFrames(partyIds.Contains(pair.Key), pair.Key == selectedPachimonId);
             }
         }
 

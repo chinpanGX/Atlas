@@ -1,4 +1,5 @@
 pub mod auth_service;
+pub mod battle_service;
 pub mod chat_service;
 pub mod device_service;
 pub mod matchmaking_service;

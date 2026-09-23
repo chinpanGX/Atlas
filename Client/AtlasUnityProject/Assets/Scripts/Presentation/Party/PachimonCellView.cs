@@ -12,8 +12,17 @@ namespace Atlas.Presentation.Party
         [SerializeField] private CommonButton button;
         [SerializeField] private TextMeshProUGUI nameText;
         [SerializeField] private Image thumbnailImage;
+        // 編成中を示すフレームと、選択中を示すフレーム。両方同時に表示されることもある(選択中が手前)。
+        [SerializeField] private GameObject partyFrame;
+        [SerializeField] private GameObject selectedFrame;
 
         public Observable<Unit> OnClicked => button.OnClickAsObservable();
+
+        public void SetFrames(bool isInParty, bool isSelected)
+        {
+            partyFrame.SetActive(isInParty);
+            selectedFrame.SetActive(isSelected);
+        }
 
         public void Refresh(PachimonDto pachimon)
         {

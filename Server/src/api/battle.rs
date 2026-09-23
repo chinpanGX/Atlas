@@ -31,6 +31,7 @@ pub struct QueueStatusResponse {
 ///
 /// 他に待機者がいればその場でペアを成立させる。成立結果は`GET /battle/queue/status`で取得する。
 /// 既に待機中・マッチ成立済み(結果未取得)の場合は何もしない。
+/// ペア成立時は`battle_matches`に対戦行を作成する(先に待っていた側が`player1`)。
 ///
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`、
@@ -58,7 +59,13 @@ pub async fn join_queue_handler(
         return Err(AppError::BadRequest("party is empty".to_string()));
     }
 
-    matchmaking_service::join(&state.matchmaking, &state.battle, &player.player_id)
+    matchmaking_service::join(
+        &state.pool,
+        &state.matchmaking,
+        &state.battle,
+        &player.player_id,
+    )
+    .await
 }
 
 /// マッチング待機列から離脱するAPIハンドラ。待機列にいない場合も成功扱い。

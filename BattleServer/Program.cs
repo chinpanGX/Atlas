@@ -17,6 +17,7 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddMagicOnion();
 
 // BATTLE_TOKEN_SECRET等は環境変数(またはappsettings/user-secrets)からIConfiguration経由で読む。
+builder.Services.AddOptions<BattleTimingOptions>();
 builder.Services.AddSingleton<BattleTokenValidator>();
 builder.Services.AddSingleton<IParticipantDataSource, DummyParticipantDataSource>();
 builder.Services.AddSingleton<BattleCoordinator>();
@@ -34,3 +35,6 @@ app.Services.GetRequiredService<BattleTokenValidator>();
 app.MapMagicOnionService();
 
 app.Run();
+
+// 自動テスト(WebApplicationFactory<Program>)から参照するため。
+public partial class Program;

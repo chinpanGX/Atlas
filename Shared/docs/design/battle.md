@@ -60,7 +60,8 @@ Atlas.BattleCoreからは直接参照されない(呼び出し側が変換する
 
 `Shared/BattleCore/`にUnity Package(UPM)として配置する。UPMはUnity専用の仕組みで
 バトルサーバー(Unity外の通常の.NETプロジェクト)からは参照できないため、同じソース
-フォルダに対して**薄い`.csproj`を併設**し、両者が同一の`.cs`ファイル群を直接参照する形にする。
+フォルダを参照する**薄い`.csproj`をバトルサーバー側に置き**、両者が同一の`.cs`ファイル群を
+コンパイルする形にする。
 
 ```
 Shared/BattleCore/
@@ -74,12 +75,21 @@ Shared/BattleCore/
   Tests/
     Atlas.BattleCore.Tests.asmdef      -- Unity EditModeテスト
     DamageCalculatorTests.cs
-  Atlas.BattleCore.csproj              -- <Compile Include="Runtime/**/*.cs" /> のみ。バトルサーバー用
+
+BattleServer/BattleCore/
+  Atlas.BattleCore.csproj              -- ../../Shared/BattleCore/Runtime/**/*.cs をCompile Includeするのみ
 ```
 
 - Client側: `Packages/manifest.json`に`"com.atlas.battlecore": "file:../../Shared/BattleCore"`
   でローカルパッケージ参照
-- バトルサーバー側: `<ProjectReference Include="../Shared/BattleCore/Atlas.BattleCore.csproj" />`
+- バトルサーバー側: `BattleServer/BattleCore/Atlas.BattleCore.csproj`を`ProjectReference`し、
+  `Atlas.BattleCore.dll`として参照する(Unityのasmdefと同じく別アセンブリにし、`internal`の境界を
+  そろえる)。csprojは**Unityパッケージの外**に置く。パッケージ内(`Shared/BattleCore/`)に置くと
+  ビルド成果物(`bin|obj`)もパッケージ内に出力され、UnityがそのDLLを取り込んでCS1704(同名アセンブリの
+  重複)になるため。また、Unityでコンパイルできない書き方をサーバー側のビルドで検出できるよう、
+  `LangVersion`をUnityと同じ`9.0`に固定し、`ImplicitUsings`(Unityには無い)は無効にしている
+- Unity側はDLL化せずソースのローカルパッケージのまま使う(変更のたびにDLLをビルド・コピーする
+  手間が増え、EditModeテストやデバッグもしづらくなるため)
 - `Atlas.BattleCore`は`UnityEngine`・`MagicOnion`・ネットワーク関連の型に一切依存しない
   Pure C#で実装する。`IBattleHub`のDTO(`MoveRequest`等)やUnityの`Random`はこの層に
   持ち込まず、呼び出し側(Hub実装・Client側Connection層)で変換する
@@ -231,6 +241,8 @@ public enum ActionType { Move, Switch, Skip }   // Skip = タイムアウト or 
 public enum EffectivenessResult { Immune, NotVeryEffective, Normal, SuperEffective }
 
 public record BattleEndPayload(string WinnerId, BattleEndReason Reason);
+// WinnerIdが空文字の場合は勝者なし(両者とも選出しなかった・両者とも放置した等。下記「選出の制限時間」
+// 「放置」参照)。api-codegenの方針(nullableを使わない)に合わせ、nullではなく空文字で表す
 
 public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 ```
@@ -354,8 +366,8 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 
 **Stage 3(バトルサーバー移行)**
 
-- `バトルサーバー`プロジェクトを新規作成し、`Atlas.BattleCore.csproj`を
-  `ProjectReference`で参照
+- `バトルサーバー`プロジェクトを新規作成し、`BattleServer/BattleCore/Atlas.BattleCore.csproj`を
+  `ProjectReference`で参照(上記「共通モジュール」参照)
 - `IBattleHub`(既存定義、下記参照)を実装し、ダメージ計算・行動順決定は
   `Atlas.BattleCore`をそのまま呼び出す(Stage 1で書いたロジックを再実装しない)
 - Client側は`MockBattleConnection`を`RealtimeBattleConnection`(実際のMagicOnion
@@ -463,8 +475,12 @@ POST /internal/battle/result
 MagicOnionサーバーから対戦終了時に呼び出される。内部ネットワークのみ疎通、
 サービス間シークレットで保護する(エンドユーザーの`access_token`とは別軸の認証)。
 シークレットは`X-Internal-Secret`ヘッダーで送り、共有値は両サーバーとも環境変数
-`INTERNAL_API_SECRET`で配布する(BattleServer側の実装に合わせた仮決め。Rust側は未実装)。
+`INTERNAL_API_SECRET`で配布する(Rust側は必須、未設定だと起動時panic)。Rust側は
+定数時間比較で照合し、不一致・欠落なら`401`。Unity Clientからは呼ばないため、Rust側の
+OpenAPI(`ApiDoc`)には載せない(`api-codegen`の生成対象にしない)。
 
+- 通信エラー・`5xx`の場合、BattleServerは間隔を空けて再送する(既定1秒/5秒/15秒の計3回)。`409`(記録済み)は
+  成功扱い、それ以外の`4xx`は再送しない。再送し切っても失敗した場合の永続化は未対応
 - `player1`/`player2`はBattleServerに先に`JoinAsync`した側を`player1`とする。`battle_matches`の
   `player1_id`/`player2_id`(マッチ成立時の順番)とは一致するとは限らないため、`player1Id`/`player2Id`を
   同梱し、Rust側はIDで突き合わせて保存する
@@ -493,6 +509,43 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
 
 `battle_matches`のステータス更新・`winner_id`設定と、`battle_turns`への一括INSERTを行う。
 このタイミングで勝者へのgems付与も行う(詳細は下記「報酬設計(gems)」参照)。
+成功時は`200`(ボディ無し)。
+
+- `battle_matches`の行はマッチ成立時(`POST /battle/queue`でペアが決まった時点)に
+  `status = 'in_progress'`・`started_at`付きで作成する。`player1_id`は先に待機列で待っていた側
+- 選出(`player1_selected_pachimon`/`player2_selected_pachimon`)は、報告の`player1Id`/`player2Id`と
+  `battle_matches`側の参加者IDを突き合わせて正しい列へ保存する。未参加側は空配列`[]`を保存する
+- `actionData`/`resultData`は中身を解釈せず、そのままJSON列に保存する
+- 処理は1トランザクションで行い、対象の`battle_matches`行を`FOR UPDATE`でロックする
+  (二重報告が同時に届いても2件目は`409`になり、gemsは二重付与されない)
+- `winnerId`が空文字の場合は勝者なし(両者未選出・両者放置等、下記「選出の制限時間」「放置」参照)。
+  `status = 'aborted'`にし、`winner_id`はNULLのまま、gemsは付与しない。選出・ターンは通常どおり保存する
+- 報告済みかどうかは選出列(`player1_selected_pachimon`)がNULLでないかで判定する(結果報告は必ず設定し、
+  下記「結果報告が届かない対戦の後始末」は設定しないため)。後始末で`aborted`になった対戦に後から届いた
+  報告は受け付け、報告内容で上書きする(勝者ありなら`finished`にしてgemsも付与する)
+
+| 状況 | ステータス |
+|---|---|
+| `X-Internal-Secret`が不一致・欠落 | `401` |
+| `matchId`が存在しない | `404` |
+| `winnerId`(空文字は除く)・`player1Id`/`player2Id`(空文字は除く)・ターンの`playerId`がその対戦の参加者でない | `400` |
+| 既に結果報告済み(二重報告。勝者なしで報告済みの場合も含む) | `409`(何も変更しない) |
+
+### 結果報告が届かない対戦の後始末
+
+BattleServerからの結果報告が届かないまま`in_progress`で残る対戦がある。
+
+- BattleServerの再起動・クラッシュ(対戦状態はメモリにしか無い)
+- マッチ成立後、両者ともBattleServerに一度も接続しなかった(BattleServerは対戦の存在を知らない)
+- 結果報告の再送失敗
+
+APIサーバーは5分ごとに、`started_at`から**1時間**以上経った`in_progress`の対戦を`aborted`にする
+(`battle_service::spawn_stale_match_cleanup`、`main.rs`で起動)。対戦時間には上限が無いため1時間を
+超える正当な対戦も打ち切られ得るが、その後に届いた結果報告は受け付けて上書きするため、一時的に
+`aborted`と表示されるだけで実害は無い。
+
+- 検討したが採用しなかった案: BattleServer起動時にAPIサーバーへ「進行中の対戦を全て打ち切る」よう通知する。
+  再起動のケースは1時間待たずに片付くが、定期処理だけで全ケースを賄えるため見送った
 
 ## 報酬設計(gems)
 
@@ -519,7 +572,7 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
   必須のため、決着が付かない対戦は考慮しない)
 - 報酬額はマスタデータ化せず、Rust側の定数(`BATTLE_WIN_REWARD_GEMS`)として持つ
   (`scout_banners.rate_table`のように運用中に調整する想定がないため)
-- `player_items`(`item_id: 1`、gems)の`quantity`への加算は、`battle_matches`のステータス更新・
+- `player_items`(`item_id: 1`、gems)の`quantity`への加算(行が無ければ作成するUPSERT)は、`battle_matches`のステータス更新・
   `battle_turns`のINSERTと同一トランザクションで行う
 - 「いつ・いくら付与したか」を記録する専用の履歴テーブルは設けない。
   `battle_matches.winner_id`と固定額から常に再計算できるため、監査目的の別テーブルは
@@ -624,6 +677,14 @@ public enum BattlePhase
 4. 揃ったらBattlePhase.InProgressへ遷移、OnMatchStartで両者に選出内容を通知してバトル開始
 ```
 
+**選出の制限時間**
+
+- 両者の`JoinAsync`がそろった時点から**2分**以内に選出しなかった側の敗北(`BattleEndReason.Forfeit`)
+- 両者とも選出しなかった場合は勝者なし(`OnBattleEnd`の`WinnerId`は空文字)。`/internal/battle/result`にも
+  `winnerId`を空文字で報告し、`battle_matches`は`aborted`になる
+- 自動選出(クライアントが接続直後に送信)が前提なので通常は発生しない。クライアントの不具合等で
+  対戦が選出待ちのまま永久に残らないようにするための上限
+
 ## バトルコアロジック(ダメージ計算・命中率)
 
 本家ポケモンの基本式から、天候・フィールド・持ち物・特性・急所ランク変動・命中/回避ランク
@@ -702,12 +763,32 @@ HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
 - 選出済み3体全員が瀕死になった時点で敗北、`battle_end`
 - 瀕死時は次ターン開始前に強制交代を要求(未交代ならターンスキップ)
 
+クライアントUI:
+
+- 交代ボタン→`SwitchSelectModal`で選出3体(名前・HP・状態)から交代先を選ぶ。場に出ている
+  パチモンと瀕死のパチモンは選べない(`Atlas.BattleCore`は瀕死への交代は例外、場のパチモン
+  自身への交代は検証しないため、UI側で防ぐ)
+- 強制交代(`PlayersRequiringForcedSwitch`に自分が含まれる)は同じModalを「やめる」無しで出し、
+  生存が1体だけでも自動では選ばない。選択中は技を送れない
+- 行動(技・交代)を送ってから`turn_result`が届くまでは技・交代ボタンを押せない(投了は常に可能)
+- 交代先の選択中に`turn_result`(タイムアウトによるスキップ等)や`battle_end`が届いた場合、
+  Modalを閉じる。強制交代が続いていれば改めて出す
+
 ### ターンタイムアウト
 
 - 各ターンに制限時間を設ける。**30秒**で確定(仮値、定数を変えるだけで後から調整可能)
 - 制限時間内に行動(技 or 交代)が送信されなかった場合、そのプレイヤーは当該ターンの
   行動権を失う(何もしない扱いでターンスキップ)。デフォルト行動の自動送信は行わない
 - 相手側が制限時間内に行動していれば、相手の行動のみ通常通り処理される
+
+### 放置
+
+- ターンタイムアウトによる非行動が**3ターン連続**した側の敗北(`BattleEndReason.Forfeit`)。
+  1回でも行動すれば回数は0に戻る
+- 両者が同じターンに3ターン連続に達した場合は勝者なし(`WinnerId`は空文字、`battle_matches`は`aborted`。
+  「選出の制限時間」と同じ扱い)
+- 選出の制限時間・放置のどちらも、専用の`BattleEndReason`は追加せず`Forfeit`で表す
+  (`BattleEndReason`はUnityと共有する`Atlas.BattleCore`の型のため、値の追加を避けた)
 
 ### 切断・再接続
 
@@ -729,9 +810,9 @@ HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
 |---|---|---|---|
 | `match_id` | CHAR(26) | PRIMARY KEY | ULID |
 | `player1_id` / `player2_id` | CHAR(26) | NOT NULL, FOREIGN KEY → `players.player_id` | |
-| `status` | ENUM('matching','in_progress','finished') | NOT NULL | |
-| `winner_id` | CHAR(26) | NULL可, FOREIGN KEY → `players.player_id` | |
-| `player1_selected_pachimon` / `player2_selected_pachimon` | JSON | NULL可 | 選出された`player_pachimon_id`3体分(自動選出でも実データとして記録) |
+| `status` | ENUM('matching','in_progress','finished','aborted') | NOT NULL | `aborted`は勝者なしで終了(勝者なしの結果報告、または結果報告が無いまま打ち切り) |
+| `winner_id` | CHAR(26) | NULL可, FOREIGN KEY → `players.player_id` | `finished`の場合のみ設定 |
+| `player1_selected_pachimon` / `player2_selected_pachimon` | JSON | NULL可 | 選出された`player_pachimon_id`3体分(自動選出でも実データとして記録)。結果報告時に必ず設定する(未参加側は`[]`)ため、NULLなら未報告 |
 | `started_at` / `ended_at` | DATETIME(3) | NULL可 | |
 
 ### battle_turns(対戦ログ)
@@ -749,7 +830,8 @@ HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
 補足:
 
 - `battle_server_id`はサーバー1台構成のため不要と判断し省略
-- マッチング待機列(`matchmaking_queue`)はDB永続化せず、Rustプロセスのメモリ(チャネル等)で管理
+- マッチング待機列(`matchmaking_queue`)はDB永続化せず、Rustプロセスのメモリ(`AppState`の`Mutex`)で管理
+- `status`の`'matching'`は現状使わない(待機中はDBに行を作らず、ペア成立時点で`'in_progress'`として作成する)
 
 ## 将来拡張・未確定の論点
 

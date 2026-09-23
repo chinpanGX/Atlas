@@ -95,10 +95,11 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 | POST | /battle/queue |
 | DELETE | /battle/queue |
 | GET | /battle/queue/status |
+| POST | /internal/battle/result |
 
 - 認証は`argon2`でdevice_secretをハッシュ化、IDは`ulid`
-- テスト: `tests/{auth,battle,chat,device,player,master_data,scout}_api_test.rs`(計61件)
-- マイグレーション23本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
+- テスト: `tests/{auth,battle,chat,device,player,master_data,scout}_api_test.rs`(計54件)
+- マイグレーション26本(devices/access_tokens/messages/players再構成/pachimonテーブル/型サイズ最適化/
   move_groups・moves・move_group_masterテーブル作成/pachimon→move_groups外部キー追加/
   players.gemsデフォルト値をoutgame.md設計(300)に整合/player_pachimon・player_pachimon_moves/
   scout_banners・scout_rolls/move_group_master→move_group_movesへのリネーム/
@@ -106,7 +107,8 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
   starter_party_slotsテーブル作成/player_pachimon.ivs列削除/
   player_pachimon_movesへのULID主キー(player_pachimon_move_id)追加/
   itemsテーブル作成・player_itemsテーブル作成・players.gems列削除/
-  master-data-pipelineのtype: int列をBIGINT→INTへ縮小(下記「今回発見したギャップ」参照))
+  master-data-pipelineのtype: int列をBIGINT→INTへ縮小(下記「今回発見したギャップ」参照)/
+  battle_matches・battle_turnsテーブル作成)
 - パーティ編成・技の付け替え(`GET/PUT /players/me/pachimon*`, `PUT /players/me/party`)を実装
   (outgame.md #8-10)。パーティ編成は当初`player_pachimon.party_slot`(nullable INT)属性として
   設計したが、①`api-codegen`が現状OpenAPIの`nullable`(`type: [T, 'null']`)に未対応で
@@ -217,6 +219,21 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
   `BATTLE_SERVER_URL`(省略時`http://127.0.0.1:5000`)。`GET /battle/queue/status`のレスポンスは
   `api-codegen`がnullable非対応のため`Option`を使わず、待機中は`matchId`等を空文字で返す。
   Unity向けDTOの再生成(`api-codegen`)はClient側のマッチング実装着手時に行う
+- ペア成立時に`battle_matches`へ`status = 'in_progress'`の行を作成するようにした(先に待っていた側が
+  `player1_id`)。DB書き込み中は待機列のロックを保持せず、ペアが決まった2人は書き込み完了まで
+  `MatchmakingQueue.pairing`に入れて二重参加を防ぐ。書き込みに失敗した場合は相手を待機列の先頭へ戻す
+- 内部API`POST /internal/battle/result`(BattleServer→Rust)を実装(design/battle.md「4. 対戦結果記録
+  (内部API)」)。`X-Internal-Secret`ヘッダーを`.env`の`INTERNAL_API_SECRET`(必須、未設定だと起動時panic)と
+  `subtle`で定数時間比較する(extractor`InternalService`)。`battle_matches`の`finished`更新・
+  `battle_turns`の一括INSERT・勝者の`player_items`(gems)への`BATTLE_WIN_REWARD_GEMS`(50)加算(UPSERT)を
+  1トランザクションで行い、対象行を`FOR UPDATE`でロックして二重報告を`409`にする。BattleServer側の
+  `player1Id`/`player2Id`はIDで突き合わせて正しい列に選出を保存する。Unity Clientからは呼ばないため
+  OpenAPI(`ApiDoc`)には載せていない(api-codegenの生成対象外)
+- `battle_matches.status`に`aborted`(勝者なしで終了)を追加(マイグレーション`20260924010000`)。
+  `winnerId`が空文字の結果報告は`aborted`にしてgemsを付与しない。結果報告が届かないまま1時間経った
+  `in_progress`の対戦は、5分ごとの定期処理(`battle_service::spawn_stale_match_cleanup`)で`aborted`にする。
+  打ち切り後に届いた結果報告は受け付けて上書きする(design/battle.md「結果報告が届かない対戦の後始末」)。
+  結合テスト4件を追加(`battle_api_test`計18件)。既存のローカルDBには`make migrate`が必要
 - **今回発見したギャップ(Server、テスト環境)**: `sqlx::test`を使う結合テスト(`auth_api_test`等)が
   `failed to connect to setup test database: PoolTimedOut`で失敗する。上記の変更前のコードでも同じく
   失敗するため、今回の変更とは無関係。ローカル環境側の問題と思われ、原因は未調査
@@ -225,7 +242,7 @@ gamewith.jp「ポケモンチャンピオンズ」のSS環境トップ18体(rari
 
 | セクション | 内容 |
 |---|---|
-| 内部API | `/internal/battle/result` |
+| (なし) | `/battle/*`・`/internal/battle/result`まで実装済み |
 
 ## 4. クライアント / バトルサーバー / API連携
 
@@ -334,6 +351,15 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   そこからHomeへ戻る。投了ボタン→`ForfeitConfirmModal`(確認Modal)→確定で
   `IBattleConnection.ForfeitAsync`を呼ぶフローを追加。決着後(結果Modal表示中)はコマンド・投了
   ボタンの入力を`battleEnded`フラグで無視する
+- **交代UI**: 交代ボタン(`BattlePage.switchButton`、技ボタンの上)→`SwitchSelectModal`
+  (`Presentation/Battle/Switch/`、Addressablesアドレス`SwitchSelectModal`)で選出3体から交代先を選び
+  `IBattleConnection.SwitchAsync`を送る。場に出ている/瀕死のパチモンは選べない。瀕死による強制交代も
+  同じModal(やめるボタン無し)で選ばせるようにし、従来の自動交代(`AutoSwitchSelfAsync`)は廃止。
+  あわせて行動送信後〜`turn_result`受信までの入力ロック(`BattlePage.SetCommandsInteractable`)を追加し、
+  選択中にターン結果・決着が届いた場合はModalを閉じる(通信対戦のターンタイムアウト向け。Mockでは
+  発生しない)。Modal/`BattlePage`のPrefabはスクリプトで生成・追加しており(既存部分は変更なし)、
+  レイアウトはUnity上での調整前提。`BattlePagePlayModeTests`に自発的な交代のシナリオを追加
+  (強制交代は乱数次第で発生タイミングが変わるためPlayModeテスト対象外)
 - **`ScreenNavigator`のPop結果通知バグ修正**: Pop完了直後に結果(`UniTaskCompletionSource`)を
   即座に`TrySetResult`していたため、待機側が続けて別のPage/Modalを`Push`すると、USNの遷移
   アニメーションがまだ終わっていない状態で「screen is already in transition」により拒否される
@@ -403,9 +429,23 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   パチモンの詳細(名前・タイプ・ステータス6種のゲージ・技4つ、技未設定のslotはブランク、
   `PachimonInfoView`)を表示する。表示データは`PartyDto`/`PachimonDto`(一覧)/`PachimonInfoDto`に
   分割。サムネイル画像は未作成のため`PachimonDto.Thumbnail`(Sprite)がnullの間は単色の
-  プレースホルダ。現時点の`PartyPresenter`はダミーデータを表示するだけ。残りは、Repository・マスタから
-  各DTOを組み立てるService、編成の入れ替え操作、`POST /edit/party`のConnection
-  (`AccessTokenRefresher.SendAsync`で包む)
+  プレースホルダ。表示データは`IPartyService`/`IPachimonService`/`IPachimonMoveMappingService`
+  (Application、実装はInfrastructure。各Repositoryから`PartyEntity`/`PachimonEntity`/
+  `PachimonMoveMapEntity`を返すだけ)とマスタから`PartyPresenter`が組み立てる。ステータスは
+  `PachimonStatCalculator`(Atlas.MasterData、レベル50固定)で実効値を計算し、ゲージは種族値/255。
+  タイプの表示名は`PachimonTypeNames`(Presentation/Common)。同じステータス計算式が
+  `BattlePresenter.CalculateMaxHp`と`TestPartyFactory.CalculateStat`にも残っており、
+  `PachimonStatCalculator`への統一は未実施
+- **パーティ編成の入れ替え・保存**: 1体目をタップで選択し、2体目のタップで両者の「位置」(枠番号または
+  編成外)を入れ替える。枠のパチモンと一覧の同じパチモンの組み合わせは「外す」(空欄は詰めない)。
+  編成外同士は選択が移るだけ。最後の1体は外せない(クライアントでブロック、サーバーも空の編成は400)。
+  ルールはUnity非依存の`PartyEditor`(Presentation/Party)に切り出し、EditModeテスト
+  `PartyEditorTests`(Tests/Presentation/Party)で検証。一覧のセルには編成中/選択中の2種類の
+  フレーム、パーティ枠には選択中フレームを追加(スプライト未作成のため上下左右4本のImageで描画。
+  PrefabはUnity側の調整を保つため作り直さずフレームのみ追加)。保存は戻るボタンで変更があった時だけ
+  `IPartyService.SaveAsync`→`IPlayerConnection.EditPartyAsync`(`POST /edit/party`、全置き換え、
+  `playerDiff`適用)を行ってからPop。保存中は戻るボタンを無効化し、失敗時は画面に留まって編集内容を
+  残す(もう一度戻るで再送)。Server側は`test_edit_party_empty`を追加(実装は変更なし)
 - **UIPackages**: 共通UI部品`CommonButton`を`Presentation/Common`から独立アセンブリ
   `UIPackages.Runtime`(+Inspector拡張の`UIPackages.Editor`)へ移動
 - **今回発見したギャップ(Client、サインイン・`playerDiff`適用)**:
@@ -454,7 +494,7 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 
 ### バトルサーバー(C#/MagicOnion)
 
-`BattleServer/`(ASP.NET Core Empty+`MagicOnion.Server` 7.11.0、`Atlas.BattleCore`を`ProjectReference`)に
+`BattleServer/`(ASP.NET Core Empty+`MagicOnion.Server` 7.11.0、`Atlas.BattleCore`は`BattleServer/BattleCore/Atlas.BattleCore.csproj`でDLLとして参照)に
 `IBattleHub`一式を実装(design/battle.md「MagicOnion Hub設計(C#側)」)。
 
 - `Contracts/`: `IBattleHub`/`IBattleHubReceiver`・Payload(MessagePack)。`EffectivenessResult`/`BattleEndReason`は
@@ -465,20 +505,34 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 - `Battle/BattleCoordinator`(シングルトン): `ConcurrentDictionary<matchId, BattleSession>`で対戦状態を保持し、
   Join/選出/ターン解決(`BattleEngine.ProcessTurn`)/投了/切断猶予(60秒)/ターンタイムアウト(30秒)を担当。
   `Hubs/BattleHub`は1接続=1インスタンスで、この接続がどの対戦のどちら側かだけを持ち処理を委譲する
-- `Internal/BattleResultReporter`: 決着時に`/internal/battle/result`へPOST(失敗はログのみ、リトライなし)
-- 動作確認: `dotnet build`(警告0)、および2クライアントのMagicOnionテストクライアント(Rustの`jsonwebtoken`と
-  同形式のJWTを生成)で、トークン検証・選出→ターン進行→全滅決着・強制交代・投了・切断→同一トークンで再接続
-  (盤面復元)・ターンタイムアウト・期限切れトークンでの再接続・切断タイムアウト、内部APIへのPOST内容まで確認
+- `Internal/BattleResultReporter`: 決着時に`/internal/battle/result`へPOST。通信エラー・5xxは再送(1秒/5秒/15秒)、
+  409(記録済み)は成功扱い、その他の4xxは再送しない
+- 選出の制限時間(2分、未選出側の敗北)・放置(ターンタイムアウトによる非行動が3ターン連続で敗北)を追加
+  (design/battle.md「選出の制限時間」「放置」)。両者とも該当する場合は勝者なし(`WinnerId`空文字)で、Rust側へも`winnerId`空文字で報告する(`aborted`になる)
+- `Battle/BattleTimingOptions`: 選出/ターンの制限時間・放置の上限ターン数・再接続猶予・決着後の保持時間・再送間隔
+  (既定値は設計書の値)。自動テストで短くするために差し替え可能にしている
+- `BATTLE_TOKEN_SECRET`/`INTERNAL_API_SECRET`は`dotnet user-secrets`で設定する(`UserSecretsId`を設定済み)。
+  `BATTLE_TOKEN_SECRET`が32バイト未満なら起動時に失敗させる(`Microsoft.IdentityModel`がHS256で256bit未満の鍵を
+  拒否し、全ての`JoinAsync`が`InvalidToken`になるため)。ローカル起動手順はリポジトリ直下の`DEVELOPMENT.md`
+- 自動テスト(`BattleServer/Tests/`、xUnit、20件): `WebApplicationFactory`でBattleServerをインプロセス起動し、
+  MagicOnionクライアント2つから操作する結合テスト。トークン検証(Rustの`jsonwebtoken`と同形式のJWTを生成)・
+  選出→ターン進行→全滅決着・強制交代・投了・切断→再接続(盤面復元)・ターンタイムアウト・期限切れトークンでの
+  再接続・切断タイムアウト・相手未参加・選出の制限時間・放置、内部APIへのPOST内容と再送方針を検証。`dotnet test BattleServer.slnx`で実行
+- `Atlas.BattleCore.csproj`を`Shared/BattleCore/`(Unityのローカルパッケージ内)から`BattleServer/BattleCore/`へ移動。
+  パッケージ内にあるとビルド成果物(`bin|obj`)もパッケージ内に出力され、UnityがそのDLLを取り込んで
+  CS1704(同名アセンブリの重複)になるため。誤ってコミットされていた`Shared/BattleCore/bin.meta`/`obj.meta`も削除。
+  移動後のcsprojは`LangVersion 9.0`・`ImplicitUsings`無効でUnityと同じ条件でコンパイルする
 - **今回発見したギャップ(BattleServer)**:
   - `ParticipantStats`/`MoveData`/`ITypeChart`はダミー(`DummyParticipantDataSource`: 全員種族値オール80・
     ノーマル単タイプ・技19/20固定、所持チェックなし)。`Domain.MasterData`(copy-models/copy-realtime-bytes)の
     配置後に本実装へ差し替える。`player_pachimon`の努力値・習得技はMySQLにしかないため、BattleServerが
     それをどう取得するか(Rust経由の内部API等)も未決定
-  - `/internal/battle/result`はRust側未実装のため、サービス間シークレットの方式は仮決め
-    (`X-Internal-Secret`ヘッダー、共有値`INTERNAL_API_SECRET`、送信先`API_SERVER_URL`省略時
-    `http://127.0.0.1:3000`)。`INTERNAL_API_SECRET`未設定時はPOSTせず警告ログのみ
-  - Rust側は`battle_matches`行を作っていない(マッチ成立時にINSERTしていない)ため、内部APIで
-    「ステータス更新」する対象がまだ無い
+  - ~~`/internal/battle/result`はRust側未実装のため、サービス間シークレットの方式は仮決め~~ → Rust側を
+    この方式(`X-Internal-Secret`ヘッダー、共有値`INTERNAL_API_SECRET`、送信先`API_SERVER_URL`省略時
+    `http://127.0.0.1:3000`)のまま実装済み。両サーバーで`INTERNAL_API_SECRET`を同じ値にする必要がある。
+    BattleServer側は`INTERNAL_API_SECRET`未設定時はPOSTせず警告ログのみ
+  - ~~Rust側は`battle_matches`行を作っていない~~ → マッチ成立時にINSERTするよう対応済み
+    (上記「3. Server API実装状況」参照)
 
 ### APIサーバー ⇔ Unity Client 間のコード生成(API codegen)
 
@@ -511,7 +565,7 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 | ~~3~~ | ~~`player_pachimon`(所持データ)のモデル・テーブル・API実装~~ → 完了(スカウトでの入手時に作成。パーティ編成・技の付け替えAPI自体は#13で完了) | server |
 | ~~4~~ | ~~スカウトAPI(`/scout/*`)実装~~ → 完了(`GET /scout/banners`, `POST /scout/rolls`, `POST /scout/rolls/{rollId}/select`。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
 | ~~5~~ | ~~マッチングAPI(`/battle/queue*`)実装~~ → 完了(待機列は`AppState`のプロセスメモリ、`battle_token`は`jsonwebtoken`でHS256のJWT発行。結合テスト6件。詳細は上記「3. Server API実装状況」参照) | server |
-| 6 | 内部API(`/internal/battle/result`)実装。サービス間シークレットはBattleServer側で仮決めした`X-Internal-Secret`ヘッダー/`INTERNAL_API_SECRET`に合わせる(上記「バトルサーバー」参照)。マッチ成立時の`battle_matches`INSERTも必要 | server |
+| ~~6~~ | ~~内部API(`/internal/battle/result`)実装~~ → 完了(`X-Internal-Secret`/`INTERNAL_API_SECRET`方式、マッチ成立時の`battle_matches`INSERTも対応。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
 | 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体(ジェム表示含む)、バトル画面(Mock、Home⇔Battleのシーン分離・決着処理・結果Modal・投了フロー)、UICamera/横向き対応、デバイス認証〜サインイン(`playerDiff.items`適用)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |
@@ -519,6 +573,7 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
 | 15 | サインイン疎通(デバイス登録〜`POST /signup`〜`POST /sign-in`・`playerDiff`適用)のPlay Modeでの実機確認(ローカルAPIサーバー・MySQLコンテナが未起動のため今回はコンパイル確認のみ) | client |
 | 16 | `playerDiff`(コレクション差分、items・pachimon・pachimonMoveMap・partySlots)共通レスポンス形式の導入 → **Server側は完了**(`items`マスタ・`player_items`テーブル・`POST /signup`/`POST /sign-in`/`POST /edit/party`/`POST /edit/pachimon_moves`・scoutのレスポンス変更まで実装済み、結合テスト55件通過、`api-codegen`再生成済み。詳細は上記「3. Server API実装状況」参照)。Client側は`POST /signup`/`POST /sign-in`と`playerDiff.items`の適用、Home画面のgems表示、`ApiItemRepository.Upsert`の不具合修正まで完了(上記「4. Unity Client」参照)。残りは`pachimon`/`pachimonMoveMap`/`partySlots`のApplier・Repository、スカウト・`POST /edit/party`・`POST /edit/pachimon_moves`のConnection | client |
 | 17 | APIサーバーのコンテナ化(Dockerfileのマルチステージビルド+`SQLX_OFFLINE`、composeのprofileで開発時の`cargo run`と併用)。MagicOnionサーバーの着手時に行う(上記「3. Server API実装状況」の「検討したが採用しなかった案」参照) | server |
+| 18 | 通信エラー時のエラーModal。通信基盤(Infrastructure)でエラーを検知し、`IMessageBroker`(ZeroMessenger)で通知→各シーンのスコープの購読者がErrorModalをPushする構成を想定。`IScreenNavigator`がシーン単位で常駐スコープ(`RootLifetimeScope`)に無いこと、起動時のサインイン失敗はシーンのNavigatorが無い段階で起きること、認証不要の`DeviceConnection`は`AccessTokenRefresher.SendAsync`を通らないことから、設計から見直す。リトライ/タイトルへ戻す等のUXも含めて決める(現状パーティ編成の保存失敗は画面に留まってログ出力のみ) | client |
 | ~~10~~ | ~~API codegen(Rust handler→OpenAPI→Unity C#型)の導入~~ → 完了(`api-codegen`実装済み。Unity側での実コンパイル確認のみ、Unityプロジェクト本体の構築待ちで残タスク。詳細は上記「APIサーバー ⇔ Unity Client 間のコード生成」参照) | server/client連携 |
 | ~~11~~ | ~~`scout_banners`用seedスクリプト(`seed_scout_banners`)の実装・常設バナー1件の投入~~ → 完了 | server |
 | ~~12~~ | ~~`Atlas.BattleCore`(Shared/BattleCore/)の骨組み作成~~ → 完了(ダメージ計算・行動順決定・Section/Event/EventHandler本体の実装・EditModeテストまで完了。詳細は上記「Atlas.BattleCore」参照) | battle/shared |

@@ -521,6 +521,38 @@ async fn test_edit_party_too_many_slots(pool: MySqlPool) {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
+/// 空の編成(最後の1体まで外す)を指定すると400が返り、既存の編成が消えないことを確認する。
+/// クライアントも最後の1体は外せないようにブロックしているが、サーバー側でも拒否する。
+#[sqlx::test]
+async fn test_edit_party_empty(pool: MySqlPool) {
+    seed_items_master(&pool).await;
+    seed_test_master_data(&pool).await;
+    let state = AppState::from_pool(pool.clone()).await;
+    let app = create_router(state);
+
+    let access_token = register_and_authenticate(app.clone(), "party-secret-empty").await;
+    signup(app.clone(), &access_token, "パーティテスト空").await;
+    let player_id = get_player_id(app.clone(), &access_token).await;
+
+    let (before,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM player_party_slots WHERE player_id = ?")
+            .bind(&player_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+
+    let response = edit_party(app.clone(), &access_token, json!({ "partySlots": [] })).await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let (after,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM player_party_slots WHERE player_id = ?")
+            .bind(&player_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(after, before);
+}
+
 /// 同一slotへの重複指定で400が返ることを確認する。
 #[sqlx::test]
 async fn test_edit_party_duplicate_slot(pool: MySqlPool) {

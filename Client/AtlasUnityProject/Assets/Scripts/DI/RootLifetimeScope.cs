@@ -56,6 +56,9 @@ namespace Atlas.DI
             ConfigureAuthConnections(builder);
             builder.Register<IPlayerAccountService, PlayerAccountService>(Lifetime.Singleton);
             builder.Register<IItemFetchService, ItemFetchService>(Lifetime.Singleton);
+            builder.Register<IPartyService, PartyService>(Lifetime.Singleton);
+            builder.Register<IPachimonService, PachimonService>(Lifetime.Singleton);
+            builder.Register<IPachimonMoveMappingService, PachimonMoveMappingService>(Lifetime.Singleton);
             builder.Register<ISignInService, SignInService>(Lifetime.Singleton);
 
             // MasterDataServiceのDatabaseはBootstrapEntryPoint.StartAsync内のLoadAsync完了後に

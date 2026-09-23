@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Atlas.Application;
 using Cysharp.Threading.Tasks;
 
@@ -31,6 +33,18 @@ namespace Atlas.Infrastructure.Api
             var response = await accessTokenRefresher.SendAsync(() => client.SignInAsync());
             await playerDiffApplier.ApplyAsync(response.PlayerDiff);
             return new SignInResult(response.PlayerId, response.Nickname);
+        }
+
+        public async UniTask EditPartyAsync(IReadOnlyList<PartySlotInput> slots)
+        {
+            var request = new SetPartyRequest
+            {
+                PartySlots = slots
+                    .Select(s => new PartySlotRequest { Slot = s.Slot, PlayerPachimonId = s.PlayerPachimonId })
+                    .ToList(),
+            };
+            var playerDiff = await accessTokenRefresher.SendAsync(() => client.EditPartyAsync(request));
+            await playerDiffApplier.ApplyAsync(playerDiff);
         }
     }
 }

@@ -77,6 +77,37 @@ namespace Atlas.Tests.Presentation.Battle
                 $"{ClickCount}回クリックしてもHP表示が一度も変化しませんでした(UI→Presenter→Logicの伝播確認に失敗)。");
         }
 
+        // 交代ボタン→SwitchSelectModalで控えを選ぶと、場のパチモン(自分側の名前表示)が入れ替わることを確認する。
+        // 瀕死による強制交代は乱数(ダメージ)次第で発生タイミングが変わるため、ここでは自発的な交代で確認する。
+        [UnityTest]
+        public IEnumerator SwitchFromBattle_ChangesActivePachimon()
+        {
+            GameObject.Find("BattleButton").GetComponent<Button>().onClick.Invoke();
+            yield return WaitUntilOrFail(() => GameObject.Find("SwitchButton") != null,
+                "BattlePageへの遷移に時間がかかりすぎました。");
+            yield return new WaitForSeconds(0.5f);
+
+            var selfNameText = GameObject.Find("SelfNameText").GetComponent<TextMeshProUGUI>();
+            var beforeName = selfNameText.text;
+
+            GameObject.Find("SwitchButton").GetComponent<Button>().onClick.Invoke();
+            yield return WaitUntilOrFail(() => GameObject.Find("SwitchCandidate2") != null,
+                "交代Modalの表示に時間がかかりすぎました。");
+            yield return new WaitForSeconds(0.5f);
+
+            Assert.IsFalse(GameObject.Find("SwitchCandidate1").GetComponent<Button>().interactable,
+                "場に出ているパチモン(選出1体目)が交代先として選べる状態になっています。");
+            Assert.IsTrue(GameObject.Find("SwitchCancelButton").activeInHierarchy,
+                "自発的な交代でやめるボタンが表示されていません。");
+
+            GameObject.Find("SwitchCandidate2").GetComponent<Button>().onClick.Invoke();
+            yield return WaitUntilOrFail(() => selfNameText.text != beforeName,
+                "交代後も自分側の名前表示が変わりませんでした。");
+
+            // ModalのPop演出中に次のテストのSetUp(シーン破棄)が走らないよう、演出が終わるまで待つ。
+            yield return new WaitForSeconds(0.5f);
+        }
+
         // 決着後の流れ(結果Modal→Homeシーンへ戻る)を、乱数に左右されない投了で確認する。
         [UnityTest]
         public IEnumerator ForfeitFromBattle_ShowsResultAndReturnsToHome()

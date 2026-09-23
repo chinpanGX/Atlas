@@ -9,9 +9,10 @@ use crate::service::matchmaking_service::{BattleConfig, MatchmakingQueue};
 pub struct AppState {
     pub pool: MySqlPool,
     pub master: Arc<MasterData>,
-    /// マッチング待機列(プロセスメモリのみ、DB永続化しない)
+    /// マッチング待機列(プロセスメモリのみ、DB永続化しない)。ロック中にawaitしないため
+    /// `std::sync::Mutex`を使う(`battle_matches`への書き込みはロックの外で行う)
     pub matchmaking: Arc<Mutex<MatchmakingQueue>>,
-    /// BattleServerのURL・`battle_token`の署名シークレット
+    /// BattleServerのURL・`battle_token`の署名シークレット・内部APIのサービス間シークレット
     pub battle: Arc<BattleConfig>,
 }
 

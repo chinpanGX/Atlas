@@ -12,8 +12,14 @@ namespace Atlas.Presentation.Party
         [SerializeField] private CommonButton button;
         [SerializeField] private TextMeshProUGUI nameText;
         [SerializeField] private Image thumbnailImage;
+        [SerializeField] private GameObject selectedFrame;
 
         public Observable<Unit> OnClicked => button.OnClickAsObservable();
+
+        public void SetSelected(bool isSelected)
+        {
+            selectedFrame.SetActive(isSelected);
+        }
 
         public void Refresh(PachimonDto pachimon)
         {

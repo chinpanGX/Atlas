@@ -635,9 +635,9 @@ HomePresenter
 サーバーに繋いで他はMockのまま動作確認する」のような部分的な切り替えがしやすいため。
 
 - 実装済み: `IDeviceConnection`(`POST /devices`・`POST /devices/authenticate`)、
-  `IPlayerConnection`(`POST /signup`・`POST /sign-in`)
-- 未実装: Chat/Scout、およびパーティ編成・技の付け替え(`POST /edit/party`・
-  `POST /edit/pachimon_moves`)用のConnection。いずれも対応する画面の実装時に追加する
+  `IPlayerConnection`(`POST /signup`・`POST /sign-in`・`POST /edit/party`)
+- 未実装: Chat/Scout、および技の付け替え(`POST /edit/pachimon_moves`)用のConnection。
+  いずれも対応する画面の実装時に追加する
 - `IXxxRepository`は上記の通り`playerDiff`のリソース種別単位であり、Connectionの単位とは
   一致しない(1つのConnectionが複数リソースの差分を返し得るため)
 

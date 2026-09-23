@@ -12,9 +12,8 @@ using VContainer.Unity;
 
 namespace Atlas.Presentation.Battle
 {
-    // design/battle.md「Stage 1」。技はコマンドUIのボタン(View)から選ぶが、強制交代は
-    // UIを持たず自動で生存している先頭の枠に交代する(design/battle.mdの簡易AIと同じ方針を
-    // 自分側にも適用したもの。バトル全体を自動進行させる用途で使うための簡略化)。
+    // design/battle.md「Stage 1」。技はコマンドUIのボタン、交代は交代ボタン→SwitchSelectModalで選ぶ。
+    // 瀕死による強制交代も同じModal(やめるボタン無し)で選ばせる。
     // 決着(OnBattleEnd)後はBattleResultModalを出し、そこからHomeシーンへ戻る。
     public sealed class BattlePresenter : IAsyncStartable, IDisposable
     {
@@ -24,9 +23,17 @@ namespace Atlas.Presentation.Battle
         private readonly BattleViewDto initialDto;
         private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
+        private readonly CancellationTokenSource lifetimeCancellation = new();
 
+        private bool matchStarted;
         // 決着後(結果Modal表示中)にコマンドや投了ボタンが押されても何もしないようにする。
         private bool battleEnded;
+        // 行動(技・交代)を送ってからターン結果が届くまで。この間は次の行動を受け付けない。
+        private bool awaitingTurnResult;
+        // 瀕死による強制交代が必要な状態。技は送れず(送ってもサーバー側でスキップ扱い)、交代先の選択待ちになる。
+        private bool forcedSwitchRequired;
+        // 表示中のSwitchSelectModal。ターン結果や決着が届いた時に閉じるために持つ。
+        private SwitchSelectModal openSwitchModal;
 
         private string selfPlayerId;
         private string opponentPlayerId;
@@ -56,11 +63,18 @@ namespace Atlas.Presentation.Battle
             connection.OnTurnResult += HandleTurnResult;
             connection.OnBattleEnd += HandleBattleEnd;
 
+            // OnMatchStartが届くまでは行動できない。
+            RefreshCommandsInteractable();
+
             for (var slot = 0; slot < view.OnCommandButtonClicked.Count; slot++)
             {
                 var capturedSlot = slot;
                 view.OnCommandButtonClicked[slot].Subscribe(_ => SubmitMove(capturedSlot)).AddTo(disposables);
             }
+
+            view.OnSwitchButtonClicked
+                .SubscribeAwait(async (_, ct) => await SelectAndSwitchAsync(isForced: false, ct), AwaitOperation.Drop)
+                .AddTo(disposables);
 
             view.OnForfeitButtonClicked
                 .SubscribeAwait(async (_, ct) => await ConfirmForfeitAsync(ct), AwaitOperation.Drop)
@@ -75,19 +89,120 @@ namespace Atlas.Presentation.Battle
             connection.OnMatchStart -= HandleMatchStart;
             connection.OnTurnResult -= HandleTurnResult;
             connection.OnBattleEnd -= HandleBattleEnd;
+            lifetimeCancellation.Cancel();
+            lifetimeCancellation.Dispose();
             disposables.Dispose();
+        }
+
+        private bool CanAct => matchStarted && !battleEnded && !awaitingTurnResult && !forcedSwitchRequired;
+
+        private void RefreshCommandsInteractable()
+        {
+            view.SetCommandsInteractable(CanAct);
         }
 
         private void SubmitMove(int index)
         {
-            if (battleEnded || index >= selfMoves.Length)
+            if (!CanAct || index >= selfMoves.Length)
             {
                 return;
             }
 
-            // Presenterは結果を待たない。結果はOnTurnResultイベント経由でHandleTurnResultに届く
-            // (design/client-architecture.mdのイベント駆動更新に合わせる)。
-            connection.SubmitMoveAsync(new MoveRequest(selfMoves[index].MoveId.ToString())).Forget();
+            var moveId = selfMoves[index].MoveId.ToString();
+            SendActionAsync(() => connection.SubmitMoveAsync(new MoveRequest(moveId))).Forget();
+        }
+
+        // Presenterはターン結果を待たない。結果はOnTurnResultイベント経由でHandleTurnResultに届き、
+        // そこで入力ロックを解除する(design/client-architecture.mdのイベント駆動更新に合わせる)。
+        // MockBattleConnectionは送信処理の中で同期的にOnTurnResultを発火するため、ロックは送信前に掛ける。
+        private async UniTask SendActionAsync(Func<UniTask> send)
+        {
+            awaitingTurnResult = true;
+            RefreshCommandsInteractable();
+            try
+            {
+                await send();
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // 送れなかった場合はターン結果が届かないため、ロックを戻して再入力できるようにする。
+                UnityEngine.Debug.LogError($"[Battle] 行動の送信に失敗しました: {e.Message}");
+                awaitingTurnResult = false;
+                RefreshCommandsInteractable();
+            }
+        }
+
+        // 交代先をSwitchSelectModalで選ばせて送る。isForced=trueは瀕死による強制交代で、やめられない。
+        private async UniTask SelectAndSwitchAsync(bool isForced, CancellationToken cancellation)
+        {
+            if (battleEnded || (!isForced && !CanAct))
+            {
+                return;
+            }
+
+            var modal = await screenNavigator.PushModalAsync<SwitchSelectModal, SwitchSelectViewDto>(
+                BuildSwitchSelectDto(isForced));
+            openSwitchModal = modal;
+            SwitchSelectResult result;
+            try
+            {
+                result = await screenNavigator.WaitForPopModalAsync<SwitchSelectResult>(modal, cancellation);
+            }
+            finally
+            {
+                if (openSwitchModal == modal)
+                {
+                    openSwitchModal = null;
+                }
+            }
+
+            // やめた、またはターンの進行・決着でこちらから閉じた(CloseSwitchModalAsync)場合。
+            if (result.IsCanceled || battleEnded)
+            {
+                return;
+            }
+
+            if (isForced)
+            {
+                forcedSwitchRequired = false;
+            }
+            else if (!CanAct)
+            {
+                return;
+            }
+
+            await SendActionAsync(() => connection.SwitchAsync(result.PartySlot));
+        }
+
+        // 表示中のSwitchSelectModalをCanceledで閉じる。通信対戦ではターンの制限時間切れ(スキップ)で
+        // 選択中にターンが進むことがあるため、ターン結果・決着の受信時に呼ぶ。
+        private async UniTask CloseSwitchModalAsync()
+        {
+            if (openSwitchModal is null)
+            {
+                return;
+            }
+
+            openSwitchModal = null;
+            await screenNavigator.PopModalAsync<SwitchSelectResult>(SwitchSelectResult.Canceled);
+        }
+
+        private SwitchSelectViewDto BuildSwitchSelectDto(bool isForced)
+        {
+            return new SwitchSelectViewDto
+            {
+                IsForced = isForced,
+                Candidates = initialDto.SelfPachimonIds
+                    .Select((id, slot) => new SwitchCandidateDto
+                    {
+                        PartySlot = slot,
+                        Name = masterDataService.Database.PachimonDataTable.FindByPachimonId(int.Parse(id)).Name,
+                        HpPercent = selfHpPercentBySlot[slot],
+                        IsActive = slot == selfActiveIndex,
+                        IsFainted = selfFaintedBySlot[slot],
+                    })
+                    .ToList(),
+            };
         }
 
         private void HandleMatchStart(BattleStartPayload payload)
@@ -103,7 +218,9 @@ namespace Atlas.Presentation.Battle
             opponentActivePachimonId = payload.Opponent.SelectedPachimon[payload.Opponent.ActivePachimonIndex].State?.PachimonId;
             opponentHpPercent = payload.Opponent.SelectedPachimon[payload.Opponent.ActivePachimonIndex].State?.HpPercent ?? 100;
 
+            matchStarted = true;
             view.Refresh(BuildUiState());
+            RefreshCommandsInteractable();
         }
 
         // 投了確認Modalの結果(投了する=true)を待ち、投了する場合だけIBattleConnectionへ送る。
@@ -126,12 +243,20 @@ namespace Atlas.Presentation.Battle
         private void HandleBattleEnd(BattleEndPayload payload)
         {
             battleEnded = true;
+            RefreshCommandsInteractable();
+            ShowBattleResultAsync(payload).Forget();
+        }
+
+        private async UniTaskVoid ShowBattleResultAsync(BattleEndPayload payload)
+        {
+            await CloseSwitchModalAsync();
+
             var isWin = payload.WinnerId == selfPlayerId;
-            screenNavigator.PushModalAsync<BattleResultModal, BattleResultViewDto>(new BattleResultViewDto
+            await screenNavigator.PushModalAsync<BattleResultModal, BattleResultViewDto>(new BattleResultViewDto
             {
                 ResultText = isWin ? "勝利!" : "敗北…",
                 ReasonText = ToReasonText(payload.Reason, isWin),
-            }).Forget();
+            });
         }
 
         private static string ToReasonText(BattleEndReason reason, bool isWin) => reason switch
@@ -151,9 +276,24 @@ namespace Atlas.Presentation.Battle
 
             view.Refresh(BuildUiState());
 
-            if (payload.PlayersRequiringForcedSwitch.Contains(selfPlayerId))
+            awaitingTurnResult = false;
+            forcedSwitchRequired = payload.PlayersRequiringForcedSwitch.Contains(selfPlayerId);
+            RefreshCommandsInteractable();
+
+            if (openSwitchModal is not null || forcedSwitchRequired)
             {
-                AutoSwitchSelfAsync().Forget();
+                HandleSwitchPhaseAsync(forcedSwitchRequired).Forget();
+            }
+        }
+
+        // 選択中にターンが進んだ(制限時間切れ等)ModalはCanceledで閉じてから、強制交代が必要なら
+        // 改めて(やめられない)Modalを出す。USNは遷移中のPushを拒否するため、Popを待ってからPushする。
+        private async UniTaskVoid HandleSwitchPhaseAsync(bool forced)
+        {
+            await CloseSwitchModalAsync();
+            if (forced)
+            {
+                await SelectAndSwitchAsync(isForced: true, lifetimeCancellation.Token);
             }
         }
 
@@ -196,18 +336,6 @@ namespace Atlas.Presentation.Battle
             {
                 selfHpPercentBySlot[selfActiveIndex] = action.TargetRemainingHpPercent;
                 selfFaintedBySlot[selfActiveIndex] = action.TargetFainted;
-            }
-        }
-
-        private async UniTaskVoid AutoSwitchSelfAsync()
-        {
-            for (var slot = 0; slot < selfFaintedBySlot.Length; slot++)
-            {
-                if (!selfFaintedBySlot[slot])
-                {
-                    await connection.SwitchAsync(slot);
-                    return;
-                }
             }
         }
 

@@ -7,6 +7,7 @@ using Cysharp.Runtime.Multicast;
 using Grpc.Core;
 using MagicOnion;
 using MagicOnion.Server.Hubs;
+using Microsoft.Extensions.Options;
 
 namespace Atlas.BattleServer.Battle
 {
@@ -18,17 +19,15 @@ namespace Atlas.BattleServer.Battle
     public sealed class BattleCoordinator(
         IParticipantDataSource dataSource,
         BattleResultReporter reporter,
+        IOptions<BattleTimingOptions> timingOptions,
         ILogger<BattleCoordinator> logger)
     {
-        // docs/design/battle.md「ターンタイムアウト」「切断・再接続」の仮値。
-        public const int TurnTimeLimitSeconds = 30;
-        private static readonly TimeSpan ReconnectGracePeriod = TimeSpan.FromSeconds(60);
-
-        // 決着後もしばらく残し、遅れて来たJoinAsyncにMatchNotFoundを返せるようにする
-        // (battle_tokenの有効期限30秒+ClockSkewより長ければよい)。
-        private static readonly TimeSpan FinishedSessionRetention = TimeSpan.FromSeconds(60);
-
         private const int MaxSelectionCount = 3;
+
+        // BattleEndPayload.WinnerIdで「勝者なし」を表す値(api-codegenの方針に合わせ、nullではなく空文字で表す)。
+        public const string NoWinnerId = "";
+
+        private readonly BattleTimingOptions _timing = timingOptions.Value;
 
         private readonly ConcurrentDictionary<string, BattleSession> _sessions = new();
 
@@ -127,6 +126,7 @@ namespace Atlas.BattleServer.Battle
                     else if (session.Phase == BattlePhase.WaitingForJoin)
                     {
                         session.Phase = BattlePhase.Selecting;
+                        StartSelectionTimer(session);
                     }
                 }
 
@@ -310,6 +310,8 @@ namespace Atlas.BattleServer.Battle
                 p!.Loadouts!.Select(l => new PachimonState(l.Stats, l.Moves.Select(m => m.Data).ToList())).ToList())).ToArray();
             session.Core = new BattleState(sides[0], sides[1]);
             session.Phase = BattlePhase.InProgress;
+            CancelTimer(session.SelectionTimer);
+            session.SelectionTimer = null;
 
             foreach (var participant in session.Participants)
             {
@@ -342,7 +344,9 @@ namespace Atlas.BattleServer.Battle
             var pending = session.Participants.Select(p => p!.Pending).ToArray();
             foreach (var participant in session.Participants)
             {
-                participant!.Pending = null;
+                // 両者の行動が揃うまでターンは解決しないため、未提出(null)はタイムアウトによる非行動を意味する。
+                participant!.ConsecutiveIdleTurns = participant.Pending is null ? participant.ConsecutiveIdleTurns + 1 : 0;
+                participant.Pending = null;
             }
 
             var core = session.Core!;
@@ -365,11 +369,19 @@ namespace Atlas.BattleServer.Battle
             if (result.BattleEnd is { } end)
             {
                 Finish(session, ToSlot(end.Winner), end.Reason);
+                return;
             }
-            else
+
+            // 放置: 連続で行動しなかったターンが上限に達した側の敗北。両者同時に達した場合は勝者なし。
+            var idle = session.Participants.Select(p => p!.ConsecutiveIdleTurns >= _timing.MaxConsecutiveIdleTurns).ToArray();
+            if (idle[0] || idle[1])
             {
-                StartTurnTimer(session);
+                logger.LogInformation("Player idled out. matchId={MatchId} idle={Idle}", session.MatchId, string.Join(",", idle));
+                Finish(session, idle[0] && idle[1] ? null : (idle[0] ? 1 : 0), BattleEndReason.Forfeit);
+                return;
             }
+
+            StartTurnTimer(session);
         }
 
         private ActionResult ToActionResult(BattleSession session, BattleActionOutcome outcome, string? moveId)
@@ -425,9 +437,13 @@ namespace Atlas.BattleServer.Battle
             return new BattleTurnRecord(turnNumber, session.Participants[ToSlot(outcome.Side)]!.PlayerId, actionData, resultData);
         }
 
-        private void Finish(BattleSession session, int winnerSlot, BattleEndReason reason)
+        // winnerSlotがnullの場合は勝者なし(両者とも未選出・両者とも放置・開始前に両者不在)。
+        // OnBattleEnd・結果報告ともWinnerId=""で送り、Rust側はbattle_matchesをabortedにする。
+        private void Finish(BattleSession session, int? winnerSlot, BattleEndReason reason)
         {
             session.Phase = BattlePhase.Finished;
+            CancelTimer(session.SelectionTimer);
+            session.SelectionTimer = null;
             CancelTimer(session.TurnTimer);
             session.TurnTimer = null;
             for (int i = 0; i < session.AbsenceTimers.Length; i++)
@@ -436,7 +452,9 @@ namespace Atlas.BattleServer.Battle
                 session.AbsenceTimers[i] = null;
             }
 
-            string winnerId = session.Participants[winnerSlot]!.PlayerId;
+            ScheduleRemoval(session);
+
+            string winnerId = winnerSlot is { } winner ? session.Participants[winner]!.PlayerId : NoWinnerId;
             logger.LogInformation("Battle finished. matchId={MatchId} winnerId={WinnerId} reason={Reason}", session.MatchId, winnerId, reason);
             session.Group?.All.OnBattleEnd(new BattleEndPayload(winnerId, reason));
 
@@ -451,7 +469,32 @@ namespace Atlas.BattleServer.Battle
 
             // ReportAsyncは内部で例外を握りつぶしてログに残すため、完了を待たずにGateを解放してよい。
             _ = reporter.ReportAsync(request);
-            ScheduleRemoval(session);
+        }
+
+        private void StartSelectionTimer(BattleSession session)
+        {
+            var cts = new CancellationTokenSource();
+            session.SelectionTimer = cts;
+            _ = RunTimerAsync(_timing.SelectionTimeLimit, cts.Token, async () =>
+            {
+                await session.Gate.WaitAsync();
+                try
+                {
+                    if (cts.IsCancellationRequested || session.Phase != BattlePhase.Selecting)
+                    {
+                        return;
+                    }
+
+                    // 選出しなかった側の敗北。両者とも未選出なら勝者なし。
+                    var unselected = session.Participants.Select(p => p!.SelectedIds is null).ToArray();
+                    logger.LogInformation("Selection timed out. matchId={MatchId}", session.MatchId);
+                    Finish(session, unselected[0] && unselected[1] ? null : (unselected[0] ? 1 : 0), BattleEndReason.Forfeit);
+                }
+                finally
+                {
+                    session.Gate.Release();
+                }
+            });
         }
 
         private void StartTurnTimer(BattleSession session)
@@ -459,7 +502,7 @@ namespace Atlas.BattleServer.Battle
             CancelTimer(session.TurnTimer);
             var cts = new CancellationTokenSource();
             session.TurnTimer = cts;
-            _ = RunTimerAsync(TimeSpan.FromSeconds(TurnTimeLimitSeconds), cts.Token, async () =>
+            _ = RunTimerAsync(_timing.TurnTimeLimit, cts.Token, async () =>
             {
                 await session.Gate.WaitAsync();
                 try
@@ -486,7 +529,7 @@ namespace Atlas.BattleServer.Battle
             var cts = new CancellationTokenSource();
             session.AbsenceTimers[slot] = cts;
 
-            _ = RunTimerAsync(ReconnectGracePeriod, cts.Token, async () =>
+            _ = RunTimerAsync(_timing.ReconnectGracePeriod, cts.Token, async () =>
             {
                 await session.Gate.WaitAsync();
                 try
@@ -502,17 +545,10 @@ namespace Atlas.BattleServer.Battle
                         return;
                     }
 
+                    // 対戦開始前に両者とも不在になった場合は勝者を決められない。
                     var other = session.Participants[1 - slot];
-                    if (other is null || (session.Phase != BattlePhase.InProgress && other.ConnectionId is null))
-                    {
-                        // 対戦開始前に両者とも不在になった: 勝者を決められないため結果報告せず破棄する。
-                        logger.LogInformation("Battle discarded before start. matchId={MatchId}", session.MatchId);
-                        session.Phase = BattlePhase.Finished;
-                        ScheduleRemoval(session);
-                        return;
-                    }
-
-                    Finish(session, 1 - slot, BattleEndReason.DisconnectTimeout);
+                    bool noWinner = other is null || (session.Phase != BattlePhase.InProgress && other.ConnectionId is null);
+                    Finish(session, noWinner ? null : 1 - slot, BattleEndReason.DisconnectTimeout);
                 }
                 finally
                 {
@@ -523,7 +559,7 @@ namespace Atlas.BattleServer.Battle
 
         private void ScheduleRemoval(BattleSession session)
         {
-            _ = RunTimerAsync(FinishedSessionRetention, CancellationToken.None, () =>
+            _ = RunTimerAsync(_timing.FinishedSessionRetention, CancellationToken.None, () =>
             {
                 _sessions.TryRemove(new KeyValuePair<string, BattleSession>(session.MatchId, session));
                 return Task.CompletedTask;
@@ -553,13 +589,13 @@ namespace Atlas.BattleServer.Battle
 
         private static void CancelTimer(CancellationTokenSource? timer) => timer?.Cancel();
 
-        private static BattleStartPayload BuildStartPayload(BattleSession session, int selfSlot)
+        private BattleStartPayload BuildStartPayload(BattleSession session, int selfSlot)
         {
             var core = session.Core!;
             return new BattleStartPayload(
                 BuildSnapshot(session.Participants[selfSlot]!, core.GetSide(ToSideId(selfSlot)), revealAll: true),
                 BuildSnapshot(session.Participants[1 - selfSlot]!, core.GetSide(ToSideId(1 - selfSlot)), revealAll: false),
-                TurnTimeLimitSeconds);
+                (int)Math.Ceiling(_timing.TurnTimeLimit.TotalSeconds));
         }
 
         private static ParticipantSnapshot BuildSnapshot(BattleParticipant participant, BattleSide side, bool revealAll)

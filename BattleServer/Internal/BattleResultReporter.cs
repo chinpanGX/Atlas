@@ -1,4 +1,7 @@
+using System.Net;
 using System.Net.Http.Json;
+using Atlas.BattleServer.Battle;
+using Microsoft.Extensions.Options;
 
 namespace Atlas.BattleServer.Internal
 {
@@ -25,10 +28,9 @@ namespace Atlas.BattleServer.Internal
     public sealed record TurnResultData(
         bool Hit, bool Critical, string Effectiveness, int DamageDealt, int TargetRemainingHp, bool TargetFainted, int? NewActiveIndex);
 
-    // 対戦結果をRust APIサーバーの内部APIへ報告する。
-    // Rust側(/internal/battle/result)はまだ未実装のため、サービス間シークレットの受け渡し方式は
-    // ここで仮決めしている(X-Internal-Secretヘッダー、共有値はINTERNAL_API_SECRET)。
-    // Rust側を実装する際はこの方式に合わせるか、どちらかを変更して揃えること。
+    // 対戦結果をRust APIサーバーの内部API(Server/src/api/internal.rs)へ報告する。
+    // サービス間シークレットはX-Internal-Secretヘッダーで送り、共有値は両サーバーとも
+    // 環境変数INTERNAL_API_SECRETで配布する。
     public sealed class BattleResultReporter
     {
         public const string BaseUrlConfigKey = "API_SERVER_URL";
@@ -45,17 +47,27 @@ namespace Atlas.BattleServer.Internal
         // シングルトン(BattleCoordinator)から使うため、HttpClientは都度IHttpClientFactoryから取得する。
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly string? _secret;
+        private readonly TimeSpan[] _retryDelays;
         private readonly ILogger<BattleResultReporter> _logger;
 
-        public BattleResultReporter(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<BattleResultReporter> logger)
+        public BattleResultReporter(
+            IHttpClientFactory httpClientFactory,
+            IConfiguration configuration,
+            IOptions<BattleTimingOptions> timingOptions,
+            ILogger<BattleResultReporter> logger)
         {
             _httpClientFactory = httpClientFactory;
             _secret = configuration[SecretConfigKey];
+            _retryDelays = timingOptions.Value.ResultReportRetryDelays;
             _logger = logger;
         }
 
         // 失敗してもバトル自体(クライアントへのOnBattleEnd)には影響させず、ログに残すのみ。
-        // TODO: リトライ・永続化は未対応。報告に失敗した対戦はRust側で終了扱いにならない。
+        // 通信エラー・5xxは一時的な失敗としてResultReportRetryDelaysの間隔で再送する。
+        // 409(記録済み)は再送で先に届いていた等の二重報告なので成功扱い、それ以外の4xxは
+        // 再送しても結果が変わらないため即座に諦める。
+        // TODO: 再送し切っても失敗した場合の永続化は未対応(プロセス内のメモリにしか無いため、
+        // その対戦はRust側で終了扱いにならない)。
         public async Task ReportAsync(BattleResultRequest request)
         {
             if (string.IsNullOrEmpty(_secret))
@@ -66,6 +78,26 @@ namespace Atlas.BattleServer.Internal
                 return;
             }
 
+            for (int attempt = 0; ; attempt++)
+            {
+                if (await TrySendAsync(request, attempt))
+                {
+                    return;
+                }
+
+                if (attempt >= _retryDelays.Length)
+                {
+                    _logger.LogError("Gave up reporting battle result. matchId={MatchId}", request.MatchId);
+                    return;
+                }
+
+                await Task.Delay(_retryDelays[attempt]);
+            }
+        }
+
+        // 戻り値: true=完了(成功または再送不要な失敗)、false=再送すべき一時的な失敗。
+        private async Task<bool> TrySendAsync(BattleResultRequest request, int attempt)
+        {
             try
             {
                 using var message = new HttpRequestMessage(HttpMethod.Post, ResultPath)
@@ -75,19 +107,42 @@ namespace Atlas.BattleServer.Internal
                 message.Headers.Add(SecretHeaderName, _secret);
 
                 using var response = await _httpClientFactory.CreateClient(HttpClientName).SendAsync(message);
-                if (!response.IsSuccessStatusCode)
+                int status = (int)response.StatusCode;
+                if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogError(
-                        "Failed to report battle result. matchId={MatchId} status={StatusCode}",
-                        request.MatchId, (int)response.StatusCode);
-                    return;
+                    _logger.LogInformation("Reported battle result. matchId={MatchId}", request.MatchId);
+                    return true;
                 }
 
-                _logger.LogInformation("Reported battle result. matchId={MatchId}", request.MatchId);
+                if (response.StatusCode == HttpStatusCode.Conflict)
+                {
+                    _logger.LogInformation("Battle result was already recorded. matchId={MatchId}", request.MatchId);
+                    return true;
+                }
+
+                if (status is >= 400 and < 500)
+                {
+                    _logger.LogError(
+                        "Battle result was rejected. matchId={MatchId} status={StatusCode} body={Body}",
+                        request.MatchId, status, await response.Content.ReadAsStringAsync());
+                    return true;
+                }
+
+                _logger.LogWarning(
+                    "Failed to report battle result. matchId={MatchId} status={StatusCode} attempt={Attempt}",
+                    request.MatchId, status, attempt + 1);
+                return false;
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+            {
+                _logger.LogWarning(e, "Failed to report battle result. matchId={MatchId} attempt={Attempt}", request.MatchId, attempt + 1);
+                return false;
             }
             catch (Exception e)
             {
+                // 呼び出し元は完了を待たない(fire-and-forget)ため、想定外の例外もここで止めてログに残す。
                 _logger.LogError(e, "Failed to report battle result. matchId={MatchId}", request.MatchId);
+                return true;
             }
         }
     }

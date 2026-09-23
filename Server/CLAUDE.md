@@ -8,7 +8,8 @@ Rust/Axum製のREST APIサーバー。全体像は [ルートのCLAUDE.md](../CL
 
 MySQL Dockerコンテナの起動・マイグレーション・リセットなどは `server-dev-env` スキルを使う
 (`make setup` / `make up` / `make db-reset` 等)。DB接続情報は`.env`の`DATABASE_URL`(`dotenvy`)。
-`.env`には`battle_token`署名用の`BATTLE_TOKEN_SECRET`も必須(未設定だと起動・テストがpanicする)。
+`.env`には`battle_token`署名用の`BATTLE_TOKEN_SECRET`と、内部API(BattleServer→Rust)用の
+`INTERNAL_API_SECRET`も必須(未設定だと起動・テストがpanicする)。
 `sqlx`はコンパイル時クエリチェックを行うため、**MySQLコンテナが起動していないと`cargo build`/
 `cargo check`自体が失敗する**。
 
@@ -54,7 +55,8 @@ extractor  要認証エンドポイント共通の認証チェック(axumのFrom
 - OpenAPI仕様は`openapi.rs`の`ApiDoc`(utoipa)から生成され、`/swagger-ui`で確認可能。
   `cargo run --bin export_openapi`で`api.yaml`として出力する(Unity向けコード生成`api-codegen`の入力)
 
-現在実装済みの機能領域: `auth` / `battle`(マッチング) / `chat` / `device` / `player` / `scout`
+現在実装済みの機能領域: `auth` / `battle`(マッチング) / `chat` / `device` / `internal`(BattleServerからの
+内部API、OpenAPIには載せない) / `player` / `scout`
 (`src/api/*.rs` / `src/service/*.rs` に対応)。
 
 ## マスターデータ

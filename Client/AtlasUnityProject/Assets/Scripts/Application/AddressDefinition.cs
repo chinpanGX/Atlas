@@ -21,6 +21,7 @@ namespace Atlas.Application.Address
         public const string Home = "Home";
         public const string HomePage = "HomePage";
         public const string PartyPage = "PartyPage";
+        public const string SwitchSelectModal = "SwitchSelectModal";
         public const string TitlePage = "TitlePage";
     }
 }

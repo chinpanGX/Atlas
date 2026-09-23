@@ -31,6 +31,9 @@ namespace Atlas.BattleServer.Battle
         public bool[] Revealed { get; set; } = [];
 
         public PendingAction? Pending { get; set; }
+
+        // ターンタイムアウトで行動しなかったターンの連続回数(行動すれば0に戻る)。
+        public int ConsecutiveIdleTurns { get; set; }
     }
 
     // 1対戦分のサーバー側の状態(docs/design/battle.mdでBattleStateと呼んでいるもの)。
@@ -51,6 +54,7 @@ namespace Atlas.BattleServer.Battle
         // InProgressになった時点で生成される。
         public BattleState? Core { get; set; }
 
+        public CancellationTokenSource? SelectionTimer { get; set; }
         public CancellationTokenSource? TurnTimer { get; set; }
 
         // 切断(または未参加)の猶予タイマー。未参加の枠にも張るため、BattleParticipantではなく枠ごとに持つ。

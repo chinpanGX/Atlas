@@ -4,6 +4,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- BATTLE_TOKEN_SECRET/INTERNAL_API_SECRETはdotnet user-secretsで設定する(Development環境で自動的に読み込まれる)。
+         手順はリポジトリ直下のDEVELOPMENT.md参照 -->
+    <UserSecretsId>atlas-battleserver</UserSecretsId>
+    <!-- Tests/・BattleCore/は別プロジェクトのため取り込まない -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**;BattleCore/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,7 +17,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Shared\BattleCore\Atlas.BattleCore.csproj" />
+    <!-- Shared/BattleCoreはBattleCore/Atlas.BattleCore.csproj(Unityパッケージの外に置いたcsproj)で
+         DLLとしてビルドして参照する(Unityのasmdefと同じくinternalの境界を保つため)。 -->
+    <ProjectReference Include="BattleCore\Atlas.BattleCore.csproj" />
   </ItemGroup>
 
   <ItemGroup>
