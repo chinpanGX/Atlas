@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../Shared/BattleCore/Atlas.BattleCore.csproj" />
+  <Project Path="BattleServer.csproj" />
+</Solution>

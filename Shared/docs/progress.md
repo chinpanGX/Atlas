@@ -396,12 +396,16 @@ Unityプロジェクトの体裁(`ProjectSettings/`, `Packages/`等)は作成済
   `SignInService`の初回認証も`AccessTokenRefresher.RefreshAsync`経由に統一し、
   `PlayerConnection`の各APIは`SendAsync`で包んだ。今後追加するChat/Scout等のConnectionも
   同じように`SendAsync`で包む必要がある
-- **パーティ編成画面(ひな形)**: `PartyEditPage`(Presentation/PartyEdit、Addressablesアドレス
-  `PartyEditPage`)を追加し、Homeのパーティボタンから`PushPageAsync<PartyEditPage>`で開くようにした。
-  スロット6枠(3列x2段、`slot`は1始まり)・保存・戻るボタンを持つ。現時点では初期表示が空の編成で、
-  スロット選択・保存はログ出力のみ(戻るはPop)。残りは、所持パチモン・現在の編成
-  (`IPachimonRepository`/`IPartyRepository`)を読み出すService、パチモン選択UI、`POST /edit/party`の
-  Connection(`AccessTokenRefresher.SendAsync`で包む)
+- **パーティ編成画面(View)**: `PartyPage`(Presentation/Party、Addressablesアドレス`PartyPage`)を
+  追加し、Homeのパーティボタンから`PushPageAsync<PartyPage>`で開くようにした。ポケモンチャンピオンズの
+  ボックス画面に倣い、左に編成中のパーティ(上からslot1〜6、`PartySlotView`)、中央に所持パチモン一覧
+  (ScrollRect+GridLayoutGroup、`PachimonListView`がテンプレートセルを複製)、右にタップした
+  パチモンの詳細(名前・タイプ・ステータス6種のゲージ・技4つ、技未設定のslotはブランク、
+  `PachimonInfoView`)を表示する。表示データは`PartyDto`/`PachimonDto`(一覧)/`PachimonInfoDto`に
+  分割。サムネイル画像は未作成のため`PachimonDto.Thumbnail`(Sprite)がnullの間は単色の
+  プレースホルダ。現時点の`PartyPresenter`はダミーデータを表示するだけ。残りは、Repository・マスタから
+  各DTOを組み立てるService、編成の入れ替え操作、`POST /edit/party`のConnection
+  (`AccessTokenRefresher.SendAsync`で包む)
 - **UIPackages**: 共通UI部品`CommonButton`を`Presentation/Common`から独立アセンブリ
   `UIPackages.Runtime`(+Inspector拡張の`UIPackages.Editor`)へ移動
 - **今回発見したギャップ(Client、サインイン・`playerDiff`適用)**:
@@ -446,15 +450,35 @@ EventHandler)」に対応する共通ロジック本体を実装済み(Stage 0�
   行動順序・強制交代の強制/解消・全滅による決着等)。dotnet CLIでのビルド確認は行ったが、
   Unity Editor上での実行(EditModeテストランナー)自体は未実施(Unityプロジェクトが未構築のため)
 
-呼び出し側(Client側`MockBattleConnection`、バトルサーバー側`IBattleHub`実装)は両方ともまだ
-存在しないため、Atlas.BattleCoreは単体では動くが実際のバトル画面・通信からはまだ呼ばれていない。
+バトルサーバー側`IBattleHub`実装から呼ばれている(下記「バトルサーバー」参照、ただし入力はダミーデータ)。
 
 ### バトルサーバー(C#/MagicOnion)
 
-design/battle.mdで「対戦中の判定をメモリ上で行う」役割として設計されているが、プロジェクト自体が
-まだ存在しない(`BattleServer/`は`.gitkeep`のみ)。`IBattleHub`等のHub定義、選出フェーズは未着手。
-ダメージ計算・行動順決定のロジック自体は`Atlas.BattleCore`側に実装済みのため、Hub実装時は
-そちらを呼び出すだけで済む(上記「Atlas.BattleCore」参照)。
+`BattleServer/`(ASP.NET Core Empty+`MagicOnion.Server` 7.11.0、`Atlas.BattleCore`を`ProjectReference`)に
+`IBattleHub`一式を実装(design/battle.md「MagicOnion Hub設計(C#側)」)。
+
+- `Contracts/`: `IBattleHub`/`IBattleHubReceiver`・Payload(MessagePack)。`EffectivenessResult`/`BattleEndReason`は
+  `Atlas.BattleCore`の同名enumをそのまま使う。Client共有用パッケージへの切り出しはClient側
+  `RealtimeBattleConnection`実装時に行う
+- `Auth/BattleTokenValidator`: `battle_token`(HS256)を`Microsoft.IdentityModel.JsonWebTokens`で検証。
+  `BATTLE_TOKEN_SECRET`未設定なら起動時に失敗、`ClockSkew`は5秒
+- `Battle/BattleCoordinator`(シングルトン): `ConcurrentDictionary<matchId, BattleSession>`で対戦状態を保持し、
+  Join/選出/ターン解決(`BattleEngine.ProcessTurn`)/投了/切断猶予(60秒)/ターンタイムアウト(30秒)を担当。
+  `Hubs/BattleHub`は1接続=1インスタンスで、この接続がどの対戦のどちら側かだけを持ち処理を委譲する
+- `Internal/BattleResultReporter`: 決着時に`/internal/battle/result`へPOST(失敗はログのみ、リトライなし)
+- 動作確認: `dotnet build`(警告0)、および2クライアントのMagicOnionテストクライアント(Rustの`jsonwebtoken`と
+  同形式のJWTを生成)で、トークン検証・選出→ターン進行→全滅決着・強制交代・投了・切断→同一トークンで再接続
+  (盤面復元)・ターンタイムアウト・期限切れトークンでの再接続・切断タイムアウト、内部APIへのPOST内容まで確認
+- **今回発見したギャップ(BattleServer)**:
+  - `ParticipantStats`/`MoveData`/`ITypeChart`はダミー(`DummyParticipantDataSource`: 全員種族値オール80・
+    ノーマル単タイプ・技19/20固定、所持チェックなし)。`Domain.MasterData`(copy-models/copy-realtime-bytes)の
+    配置後に本実装へ差し替える。`player_pachimon`の努力値・習得技はMySQLにしかないため、BattleServerが
+    それをどう取得するか(Rust経由の内部API等)も未決定
+  - `/internal/battle/result`はRust側未実装のため、サービス間シークレットの方式は仮決め
+    (`X-Internal-Secret`ヘッダー、共有値`INTERNAL_API_SECRET`、送信先`API_SERVER_URL`省略時
+    `http://127.0.0.1:3000`)。`INTERNAL_API_SECRET`未設定時はPOSTせず警告ログのみ
+  - Rust側は`battle_matches`行を作っていない(マッチ成立時にINSERTしていない)ため、内部APIで
+    「ステータス更新」する対象がまだ無い
 
 ### APIサーバー ⇔ Unity Client 間のコード生成(API codegen)
 
@@ -482,12 +506,12 @@ design/battle.mdで「対戦中の判定をメモリ上で行う」役割とし�
 
 | # | 内容 | 領域 |
 |---|---|---|
-| 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 | バトルサーバー |
+| 1 | バトルサーバー(MagicOnion)プロジェクトの新規作成・`IBattleHub`等の実装一式 → 一部完了(Hub・トークン検証・切断/再接続・内部API送信まで実装。マスタデータを使うステータス/技変換は`Domain.MasterData`配置待ちでダミー、上記「バトルサーバー」参照) | バトルサーバー |
 | ~~2~~ | ~~`moves`/`move_groups`/`move_group_master`のDBテーブル作成・`cache.rs`/`seed_master_data.rs`対応~~ → 完了(マイグレーション追加・`cache.rs`で`move_group_master`をキャッシュ・`seed_master_data`で3テーブルとも投入。詳細は上記「3. Server API実装状況」参照) | server/master-data |
 | ~~3~~ | ~~`player_pachimon`(所持データ)のモデル・テーブル・API実装~~ → 完了(スカウトでの入手時に作成。パーティ編成・技の付け替えAPI自体は#13で完了) | server |
 | ~~4~~ | ~~スカウトAPI(`/scout/*`)実装~~ → 完了(`GET /scout/banners`, `POST /scout/rolls`, `POST /scout/rolls/{rollId}/select`。結合テスト8件、詳細は上記「3. Server API実装状況」参照) | server |
 | ~~5~~ | ~~マッチングAPI(`/battle/queue*`)実装~~ → 完了(待機列は`AppState`のプロセスメモリ、`battle_token`は`jsonwebtoken`でHS256のJWT発行。結合テスト6件。詳細は上記「3. Server API実装状況」参照) | server |
-| 6 | 内部API(`/internal/battle/result`)実装 | server |
+| 6 | 内部API(`/internal/battle/result`)実装。サービス間シークレットはBattleServer側で仮決めした`X-Internal-Secret`ヘッダー/`INTERNAL_API_SECRET`に合わせる(上記「バトルサーバー」参照)。マッチ成立時の`battle_matches`INSERTも必要 | server |
 | ~~7~~ | ~~`type_chart`(タイプ相性)の設計・実装~~ → 完了(schema/CSV投入・全ツールでの検証済み) | master-data/pipeline |
 | 8 | 技の拡充(状態技、候補技の追加) | master-data |
 | 9 | Unityクライアント側の実装一式 → 一部完了(プロジェクト構築・利用ライブラリ導入・コンパイル確認、画面遷移/DI/Connection抽象の設計、Bootstrap→Home→TitlePageの最小実装、ホーム画面本体(ジェム表示含む)、バトル画面(Mock、Home⇔Battleのシーン分離・決着処理・結果Modal・投了フロー)、UICamera/横向き対応、デバイス認証〜サインイン(`playerDiff.items`適用)まで完了。Scout/Party/Chat各画面の実装、MagicOnion StreamingHubクライアントは未着手、上記「Unity Client」「クライアントアーキテクチャ設計」参照) | client |

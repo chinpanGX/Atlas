@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MagicOnion.Server" Version="7.11.0" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\BattleCore\Atlas.BattleCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MasterData/{AesCrypto,MasterDataLoader}.csはmaster-data-pipelineの
+         copy-loaderで配置済みだが、MasterMemoryResolver等を生成するModels/Enums
+         (copy-models)がまだ配置されておらずビルドできないため、それらを配置するまで
+         コンパイル対象から除外する(Shared/docs/progress.md参照)。 -->
+    <Compile Remove="MasterData/**/*.cs" />
+  </ItemGroup>
+
+</Project>

@@ -462,6 +462,16 @@ POST /internal/battle/result
 
 MagicOnionサーバーから対戦終了時に呼び出される。内部ネットワークのみ疎通、
 サービス間シークレットで保護する(エンドユーザーの`access_token`とは別軸の認証)。
+シークレットは`X-Internal-Secret`ヘッダーで送り、共有値は両サーバーとも環境変数
+`INTERNAL_API_SECRET`で配布する(BattleServer側の実装に合わせた仮決め。Rust側は未実装)。
+
+- `player1`/`player2`はBattleServerに先に`JoinAsync`した側を`player1`とする
+- `turns`は1ターン内の行動ごとに1要素(`battle_turns`の1行)。`actionData`は
+  `{ "type": "Move"|"Switch"|"Skip", "moveId", "partySlot" }`、`resultData`は
+  `{ "hit", "critical", "effectiveness", "damageDealt", "targetRemainingHp", "targetFainted", "newActiveIndex" }`
+  (内部記録用のため、クライアントへは送らないHPの生値も含める)
+- 対戦開始前に相手が一度も`JoinAsync`しなかった場合も、猶予時間経過で参加済み側の勝利
+  (`DisconnectTimeout`)として報告する。未参加側の`player2SelectedPachimon`は空配列になる
 
 リクエスト
 
@@ -554,6 +564,10 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
   変更は不要)
 - 猶予時間内に再接続できなければタイマー発火でforfeit処理(`OnBattleEnd`+
   `/internal/battle/result`)を行う
+- `battleToken`の有効期限(30秒)は猶予時間(60秒)より短いため、**再接続に限り**期限切れ
+  (署名・claimsは正当)のトークンを受け付ける。新規参加には有効期限内のトークンを要求する
+- 猶予中は切断中の側のターンタイマーも止め、再接続時に30秒からやり直す(再接続者には
+  `OnMatchStart`で`TurnTimeLimitSeconds`が届くが、相手側のローカル表示タイマーとはずれ得る)
 
 ```csharp
 public interface IBattleHub : IStreamingHub<IBattleHub, IBattleHubReceiver>
@@ -570,6 +584,8 @@ public interface IBattleHubReceiver
     void OnMatchStart(BattleStartPayload payload);   // 選出が揃ってから発火
     void OnTurnResult(TurnResultPayload payload);
     void OnBattleEnd(BattleEndPayload payload);
+    void OnOpponentDisconnected();   // IBattleConnectionの同名イベントに対応
+    void OnOpponentReconnected();
 }
 ```
 
