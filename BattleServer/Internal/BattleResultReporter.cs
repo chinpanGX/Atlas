@@ -4,9 +4,14 @@ namespace Atlas.BattleServer.Internal
 {
     // POST /internal/battle/result のリクエストボディ(docs/design/battle.md「4. 対戦結果記録(内部API)」)。
     // JsonContent.Createのデフォルト(JsonSerializerDefaults.Web)でcamelCaseになる。
+    // Player1Id/Player2IdはBattleServer側の順番(先にJoinAsyncした側がPlayer1)で、Rust側の
+    // battle_matches.player1_id/player2_idとは一致するとは限らないため、Rust側はIDで突き合わせる。
+    // 相手が一度も参加しなかった場合、その側のIDは空文字・選出は空配列になる。
     public sealed record BattleResultRequest(
         string MatchId,
         string WinnerId,
+        string Player1Id,
+        string Player2Id,
         string[] Player1SelectedPachimon,
         string[] Player2SelectedPachimon,
         IReadOnlyList<BattleTurnRecord> Turns);

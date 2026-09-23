@@ -465,13 +465,15 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
 シークレットは`X-Internal-Secret`ヘッダーで送り、共有値は両サーバーとも環境変数
 `INTERNAL_API_SECRET`で配布する(BattleServer側の実装に合わせた仮決め。Rust側は未実装)。
 
-- `player1`/`player2`はBattleServerに先に`JoinAsync`した側を`player1`とする
+- `player1`/`player2`はBattleServerに先に`JoinAsync`した側を`player1`とする。`battle_matches`の
+  `player1_id`/`player2_id`(マッチ成立時の順番)とは一致するとは限らないため、`player1Id`/`player2Id`を
+  同梱し、Rust側はIDで突き合わせて保存する
 - `turns`は1ターン内の行動ごとに1要素(`battle_turns`の1行)。`actionData`は
   `{ "type": "Move"|"Switch"|"Skip", "moveId", "partySlot" }`、`resultData`は
   `{ "hit", "critical", "effectiveness", "damageDealt", "targetRemainingHp", "targetFainted", "newActiveIndex" }`
   (内部記録用のため、クライアントへは送らないHPの生値も含める)
 - 対戦開始前に相手が一度も`JoinAsync`しなかった場合も、猶予時間経過で参加済み側の勝利
-  (`DisconnectTimeout`)として報告する。未参加側の`player2SelectedPachimon`は空配列になる
+  (`DisconnectTimeout`)として報告する。未参加側の`player2Id`は空文字、`player2SelectedPachimon`は空配列になる
 
 リクエスト
 
@@ -479,6 +481,8 @@ MagicOnionサーバーから対戦終了時に呼び出される。内部ネッ�
 {
   "matchId": "...",
   "winnerId": "...",
+  "player1Id": "...",
+  "player2Id": "...",
   "player1SelectedPachimon": ["...", "...", "..."],
   "player2SelectedPachimon": ["...", "...", "..."],
   "turns": [

@@ -443,6 +443,8 @@ namespace Atlas.BattleServer.Battle
             var request = new BattleResultRequest(
                 session.MatchId,
                 winnerId,
+                session.Participants[0]?.PlayerId ?? "",
+                session.Participants[1]?.PlayerId ?? "",
                 session.Participants[0]?.SelectedIds ?? [],
                 session.Participants[1]?.SelectedIds ?? [],
                 session.TurnLog.ToList());
