@@ -90,7 +90,10 @@
 - [x] `PartyPage`: 左に編成(slot1〜6)、中央に所持パチモン一覧、右に詳細(タイプ・ステータス・技)
 - [x] 入れ替え・外す・最後の1体は外せない、のルールを`PartyEditor`に分離(EditModeテスト`PartyEditorTests`)
 - [x] 戻る時に変更があれば`POST /edit/party`で保存、失敗時は画面に留まる
-- [x] ステータス計算を`PachimonStatCalculator`(レベル50固定)に統一(`TestPartyFactory`は除く、C-12参照)
+- [x] ステータス計算を`PachimonStatCalculator`(レベル50固定)に統一
+- [x] 技の付け替え(`POST /edit/pachimon_moves`)の通信・Service層。`IPlayerConnection.EditPachimonMoveAsync`
+  (Real実装、`playerDiff`適用込み。Mockはno-op)と`IPachimonMoveMappingService.EditAsync`
+  (`IPlayerConnection`へ委譲、`PartyService`と同じ構成)を追加。View/Presenterは未着手(C-9)
 
 #### スカウト
 
@@ -146,8 +149,11 @@
   - リトライ/タイトルへ戻す等のUXも合わせて決める(現状、パーティ編成の保存失敗はログ出力のみ)
 - [ ] **C-8 チャット画面**
   - `IChatConnection`(`POST /chat/send`・`GET /chat/poll`)と画面を作る。Connectionは`SendAsync`で包む
-- [ ] **C-9 技の付け替え画面**
-  - `IPlayerConnection`に`POST /edit/pachimon_moves`の呼び出しを追加し、パーティ編成の詳細などから開ける画面を作る
+- [ ] **C-9 技の付け替え画面(View)**
+  - 通信・Service層は実装済み(下記「パーティ編成」参照)。残っているのは画面(View/Presenter)のみ。
+    パーティ編成の詳細パネル(`PachimonInfoView`)などから開けるようにする
+  - Service層には「付け替え候補の技一覧」を返す口がまだ無い(`move_group_moves`のうち
+    `is_initial=false`のもの)。画面実装時に`PachimonMoveLookup`同様のマスタ参照ヘルパーとして追加する
 - [ ] **C-10 ニックネーム入力画面**
   - 新規作成時のニックネームが固定文字列「プレイヤー」になっている。入力画面を作って`POST /signup`へ渡す
   - Homeは開発中の識別用にPlayerIdを表示しているので、ニックネーム表示へ戻すかも合わせて決める

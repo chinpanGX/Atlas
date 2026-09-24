@@ -20,5 +20,10 @@ namespace Atlas.Infrastructure.Mock
         {
             return UniTask.CompletedTask;
         }
+
+        public UniTask EditPachimonMoveAsync(string playerPachimonId, int slot, int moveId)
+        {
+            return UniTask.CompletedTask;
+        }
     }
 }

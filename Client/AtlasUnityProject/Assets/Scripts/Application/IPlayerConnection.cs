@@ -14,6 +14,10 @@ namespace Atlas.Application
 
         // 編成の全置き換え。slotsに含まれない枠は解除される(1〜6枠、同じパチモンの重複不可)。
         UniTask EditPartyAsync(IReadOnlyList<PartySlotInput> slots);
+
+        // 技の付け替え(1回の呼び出しで1スロット分、slotは1〜4)。moveIdはmove_group_movesの
+        // 候補技のみ許可され、範囲外のslot・候補にない技はサーバー側で400になる。
+        UniTask EditPachimonMoveAsync(string playerPachimonId, int slot, int moveId);
     }
 
     public sealed class SignInResult

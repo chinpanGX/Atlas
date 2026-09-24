@@ -46,5 +46,17 @@ namespace Atlas.Infrastructure.Api
             var playerDiff = await accessTokenRefresher.SendAsync(() => client.EditPartyAsync(request));
             await playerDiffApplier.ApplyAsync(playerDiff);
         }
+
+        public async UniTask EditPachimonMoveAsync(string playerPachimonId, int slot, int moveId)
+        {
+            var request = new EditPachimonMoveRequest
+            {
+                PlayerPachimonId = playerPachimonId,
+                Slot = slot,
+                MoveId = moveId,
+            };
+            var playerDiff = await accessTokenRefresher.SendAsync(() => client.EditPachimonMoveAsync(request));
+            await playerDiffApplier.ApplyAsync(playerDiff);
+        }
     }
 }
