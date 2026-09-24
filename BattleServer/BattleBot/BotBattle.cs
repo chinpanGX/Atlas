@@ -54,7 +54,12 @@ namespace Atlas.BattleBot
                             break;
                         case TurnResultPayload turn:
                             HandleTurn(turn);
-                            await ActAsync(forcedSwitch: turn.PlayersRequiringForcedSwitch.Contains(selfId));
+                            // 相手の強制交代ターンは、相手が交代するまで何も送れない(次のターン結果を待つ)。
+                            if (turn.PlayersRequiringForcedSwitch.Length == 0 || turn.PlayersRequiringForcedSwitch.Contains(selfId))
+                            {
+                                await ActAsync(forcedSwitch: turn.PlayersRequiringForcedSwitch.Contains(selfId));
+                            }
+
                             break;
                         case BattleEndPayload end:
                             Log($"決着: {(end.WinnerId == selfId ? "勝ち" : "負け")} ({end.Reason})");

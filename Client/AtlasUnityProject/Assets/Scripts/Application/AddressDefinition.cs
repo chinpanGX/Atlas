@@ -23,6 +23,7 @@ namespace Atlas.Application.Address
         public const string HomePage = "HomePage";
         public const string MatchmakingModal = "MatchmakingModal";
         public const string OpponentCanvas = "OpponentCanvas";
+        public const string OpponentSwitchingModal = "OpponentSwitchingModal";
         public const string PartyStatRow1prefab = "Party/StatRow1.prefab";
         public const string PartyPage = "PartyPage";
         public const string ScoutConfirmModal = "ScoutConfirmModal";

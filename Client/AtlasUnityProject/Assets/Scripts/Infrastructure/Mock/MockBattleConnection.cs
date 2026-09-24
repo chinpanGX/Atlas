@@ -90,9 +90,22 @@ namespace Atlas.Infrastructure.Mock
             return UniTask.CompletedTask;
         }
 
+        // 強制交代ターンはBattleServerと同じく、倒れた側の交代だけを処理する(相手は行動しない)。
+        // プレイヤーの強制交代ターンでは簡易AIは行動せず、簡易AIの強制交代はプレイヤーの行動を待たずに続けて処理する。
         private UniTask ProcessTurnAsync(PlayerAction selfAction)
         {
-            var opponentAction = ChooseOpponentAction();
+            PlayerAction? opponentAction = state.Player1.RequiresForcedSwitch ? null : ChooseOpponentAction();
+            if (ResolveTurn(selfAction, opponentAction) && state.Player2.RequiresForcedSwitch)
+            {
+                ResolveTurn(null, ChooseOpponentAction());
+            }
+
+            return UniTask.CompletedTask;
+        }
+
+        // 決着が付いていなければtrue。
+        private bool ResolveTurn(PlayerAction? selfAction, PlayerAction? opponentAction)
+        {
             var turnResult = BattleEngine.ProcessTurn(state, selfAction, opponentAction, typeChart, random);
 
             OnTurnResult?.Invoke(ToPayload(turnResult));
@@ -101,9 +114,10 @@ namespace Atlas.Infrastructure.Mock
             {
                 var winnerId = end.Winner == BattleSideId.Player1 ? SelfPlayerId : OpponentPlayerId;
                 OnBattleEnd?.Invoke(new BattleEndPayload(winnerId, ToDomainReason(end.Reason)));
+                return false;
             }
 
-            return UniTask.CompletedTask;
+            return true;
         }
 
         // design/battle.md「Stage 1」の簡易AI: 使用可能な技からランダムに1つ選ぶ。強さ・タイプ

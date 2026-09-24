@@ -36,6 +36,7 @@ namespace Atlas.Infrastructure.Mock.Tests
             string selfPlayerId = null;
             string opponentPlayerId = null;
             TurnResultPayload lastTurn = null;
+            var turnResults = new List<TurnResultPayload>();
             BattleEndPayload battleEnd = null;
 
             connection.OnMatchStart += payload =>
@@ -47,6 +48,7 @@ namespace Atlas.Infrastructure.Mock.Tests
             {
                 driver.ApplyTurn(selfPlayerId, opponentPlayerId, payload);
                 lastTurn = payload;
+                turnResults.Add(payload);
             };
             connection.OnBattleEnd += payload => battleEnd = payload;
 
@@ -59,6 +61,10 @@ namespace Atlas.Infrastructure.Mock.Tests
             var turns = 0;
             while (battleEnd == null && turns < MaxTurns)
             {
+                // 簡易AIの強制交代はプレイヤーの行動を待たずに続けて処理されるため、送信時点で相手待ちにはならない。
+                Assert.IsFalse(lastTurn != null && lastTurn.PlayersRequiringForcedSwitch.Contains(opponentPlayerId),
+                    "簡易AIの強制交代ターンが処理されずに残っています。");
+
                 if (lastTurn != null && lastTurn.PlayersRequiringForcedSwitch.Contains(selfPlayerId))
                 {
                     await connection.SwitchAsync(driver.NextAliveSlot());
@@ -73,6 +79,26 @@ namespace Atlas.Infrastructure.Mock.Tests
 
             Assert.IsNotNull(battleEnd, $"{MaxTurns}ターン以内にバトルが終了しませんでした。");
             Assert.IsTrue(battleEnd.WinnerId == selfPlayerId || battleEnd.WinnerId == opponentPlayerId);
+
+            // 強制交代ターンは、倒れた側の交代だけが処理され、もう一方は行動しない(Skip)。
+            var forcedSwitchTurns = 0;
+            for (var i = 1; i < turnResults.Count; i++)
+            {
+                var switching = turnResults[i - 1].PlayersRequiringForcedSwitch;
+                if (switching.Length == 0)
+                {
+                    continue;
+                }
+
+                forcedSwitchTurns++;
+                foreach (var action in turnResults[i].Actions)
+                {
+                    var expected = switching.Contains(action.PlayerId) ? ActionType.Switch : ActionType.Skip;
+                    Assert.AreEqual(expected, action.Type, $"ターン{turnResults[i].TurnNumber}: {action.PlayerId}");
+                }
+            }
+
+            Assert.Greater(forcedSwitchTurns, 0, "強制交代ターンが一度も発生しませんでした。");
         }
 
         // テスト用の簡易「自分側」進行役。OnTurnResultのActionResultだけから自パーティの

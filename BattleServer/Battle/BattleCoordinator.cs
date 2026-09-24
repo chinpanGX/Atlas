@@ -296,6 +296,11 @@ namespace Atlas.BattleServer.Battle
                     throw new ReturnStatusException(StatusCode.FailedPrecondition, "waiting for opponent to reconnect");
                 }
 
+                if (!IsExpectedToAct(session, slot))
+                {
+                    throw new ReturnStatusException(StatusCode.FailedPrecondition, "opponent is choosing a pachimon to switch in");
+                }
+
                 var participant = session.Participants[slot]!;
                 if (participant.Pending is not null)
                 {
@@ -304,7 +309,9 @@ namespace Atlas.BattleServer.Battle
 
                 participant.Pending = createAction(session.Core!.GetSide(ToSideId(slot)));
 
-                if (session.Participants.All(p => p!.Pending is not null))
+                if (Enumerable.Range(0, session.Participants.Length)
+                    .Where(i => IsExpectedToAct(session, i))
+                    .All(i => session.Participants[i]!.Pending is not null))
                 {
                     ResolveTurn(session);
                 }
@@ -346,17 +353,31 @@ namespace Atlas.BattleServer.Battle
             }
         }
 
-        // 両者の行動が揃った、またはターンタイムアウトした時点で呼ぶ。未提出の側は非行動(null)として扱う。
+        // 強制交代ターン: 前のターンで瀕死になった側が交代先を選ぶ間、相手は待つ(行動を受け付けない)。
+        private static bool IsForcedSwitchTurn(BattleSession session) =>
+            session.Core!.Player1.RequiresForcedSwitch || session.Core.Player2.RequiresForcedSwitch;
+
+        private static bool IsExpectedToAct(BattleSession session, int slot) =>
+            !IsForcedSwitchTurn(session) || session.Core!.GetSide(ToSideId(slot)).RequiresForcedSwitch;
+
+        // 行動すべき側の行動が揃った、またはターンタイムアウトした時点で呼ぶ。未提出の側は非行動(null)として扱う。
+        // 強制交代ターンの時間切れはここに来ない(StartTurnTimerで倒れた側の敗北にする)。
         private void ResolveTurn(BattleSession session)
         {
             CancelTimer(session.TurnTimer);
             session.TurnTimer = null;
 
             var pending = session.Participants.Select(p => p!.Pending).ToArray();
-            foreach (var participant in session.Participants)
+            for (int slot = 0; slot < session.Participants.Length; slot++)
             {
-                // 両者の行動が揃うまでターンは解決しないため、未提出(null)はタイムアウトによる非行動を意味する。
-                participant!.ConsecutiveIdleTurns = participant.Pending is null ? participant.ConsecutiveIdleTurns + 1 : 0;
+                var participant = session.Participants[slot]!;
+                // 行動すべき側の行動が揃うまでターンは解決しないため、未提出(null)はタイムアウトによる非行動を意味する。
+                // 強制交代ターンで待っていた側は行動できないため、放置の回数に数えない。
+                if (IsExpectedToAct(session, slot))
+                {
+                    participant.ConsecutiveIdleTurns = participant.Pending is null ? participant.ConsecutiveIdleTurns + 1 : 0;
+                }
+
                 participant.Pending = null;
             }
 
@@ -521,6 +542,17 @@ namespace Atlas.BattleServer.Battle
                     // Gate待ちの間に行動が揃った・切断された等でキャンセル済みなら何もしない。
                     if (cts.IsCancellationRequested || session.Phase != BattlePhase.InProgress)
                     {
+                        return;
+                    }
+
+                    if (IsForcedSwitchTurn(session))
+                    {
+                        // 交代しなかった側の敗北(待っている相手の番が来ないため、スキップにはしない)。
+                        var notSwitched = Enumerable.Range(0, session.Participants.Length)
+                            .Select(i => IsExpectedToAct(session, i) && session.Participants[i]!.Pending is null)
+                            .ToArray();
+                        logger.LogInformation("Forced switch timed out. matchId={MatchId}", session.MatchId);
+                        Finish(session, notSwitched[0] && notSwitched[1] ? null : (notSwitched[0] ? 1 : 0), BattleEndReason.Forfeit);
                         return;
                     }
 

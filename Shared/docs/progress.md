@@ -14,18 +14,18 @@
 
 | 領域 | 状況 |
 |---|---|
-| クライアント(Unity) | 認証〜サインイン、Home、パーティ編成、スカウト、マッチング〜対戦〜結果までは実装済み。サインインとスカウトは実サーバーにつないだPlay Modeで確認済み。チャット・技の付け替え・ニックネーム入力の画面は未着手 |
+| クライアント(Unity) | 認証〜サインイン、Home、パーティ編成、スカウト、マッチング〜対戦〜結果までは実装済み。サインイン・スカウト・Unity同士の対戦(Multiplayer Play Mode)は実サーバーにつないで確認済み。チャット・技の付け替え・ニックネーム入力の画面は未着手 |
 | APIサーバー(Rust/Axum) | 設計書にあるAPIはすべて実装済み(結合テスト62件)。残りはコンテナ化とテスト環境の不具合 |
-| バトルサーバー(C#/MagicOnion) | Hub一式・切断と再接続・制限時間・結果報告・選出個体の実データ化まで実装済み(xUnit約30件)。ボット同士の実サーバー対戦で確認済み |
+| バトルサーバー(C#/MagicOnion) | Hub一式・切断と再接続・制限時間・結果報告・選出個体の実データ化まで実装済み(xUnit約30件)。ボット同士・Unity Client同士の実サーバー対戦で確認済み |
 | 共通(マスターデータ・コード生成) | パイプラインはClient/Server/BattleServerの3か所へ配置済み。技の種類が少ない |
 
 ## 次に進める順番
 
-対戦まわり(C-1・C-3〜C-5)は手動テストまで進めたところでいったん止め、クライアント側だけで
+対戦まわり(C-3〜C-5)は手動テストまで進めたところでいったん止め、クライアント側だけで
 完結する画面の実装を優先する。
 
 1. C-8 チャット画面、C-9 技の付け替え画面、C-10 ニックネーム入力画面
-2. その後、対戦まわり(C-1 実サーバー対戦確認、C-3 再接続、C-4 エラーModal、C-5 制限時間表示)に戻る
+2. その後、対戦まわり(C-3 再接続、C-4 エラーModal、C-5 制限時間表示)に戻る
 3. C-11 IL2CPP対応、M-3 `.meta`が消える問題
 
 ---
@@ -47,6 +47,11 @@
 - [x] 開発用の通信ログ(`UnityApiRequestLogger`、`[API] --> / <--`形式、`secretKey`/`accessToken`は伏字。開発ビルドのみ)
 - [x] `uloop`(uLoopMCP)でEditor操作・コンパイル確認を自動化
 - [x] 共通UI部品`CommonButton`を独立アセンブリ`UIPackages.Runtime`へ分離
+- [x] フォント(`NotoSansJP-Medium SDF`)をDynamicからStaticに変更。Dynamicだと、Play中にアセットが書き換わり、
+  Assetsを共有しているMultiplayer Play Modeの追加インスタンスで文字化けしていた。
+  `Tools > Bake Static Font`(`Scripts/Editor/FontBaking/StaticFontBaker.cs`)で焼き込む。
+  対象はJIS第1水準・ASCII・マスターデータCSV・プレハブ/シーン/C#に出てくる文字で、合計3583文字、
+  40pt、2048のアトラス2枚。第1水準に無い文字を追加したら焼き直す(DEVELOPMENT.md「Client」)
 - [x] 小さなコード整理(旧C-12): `PlayerProfile.cs`の廃止済みAPI参照コメントを修正、
   `PlayerAccountService`の未使用フィールド`playerData`を削除、`TestPartyFactory`独自の
   ステータス計算を`PachimonStatCalculator`(MasterData)に統一
@@ -121,14 +126,18 @@
 - [x] `RealtimeBattleConnection`(MagicOnion)でBattleServerへ接続。`RootLifetimeScope`の`Use Battle Server`でMockと切り替え
 - [x] Multiplayer Play Mode(`com.unity.multiplayer.playmode` 3.0.0)の導入
 - [x] PlayModeテスト`BattlePagePlayModeTests`(Mock接続: 対戦・交代・投了 → 結果 → Home復帰)
+- [x] Multiplayer Play Modeで、Unity Client同士の実サーバー(Server + BattleServer)対戦を確認(旧C-1)。
+  マッチング → BattleServerへの接続 → 決着まで通った
+- [x] 相手の場のパチモン名が、プレイヤー間で食い違う問題を修正。相手が既に公開済みの枠へ交代し直すと
+  (`RevealedPachimon`がnull)、前に出ていたパチモンの名前のままになっていた。`BattlePresenter`で相手の
+  選出各枠(PachimonId・HP)と場の枠番号を持ち、`NewActiveIndex`で引き直すようにした
+- [x] 強制交代ターン: 相手が強制交代中は`OpponentSwitchingModal`(「相手がパチモンを選んでいます」)を出し、
+  入力を止める。次のターン結果か決着で閉じる。`MockBattleConnection`も同じルールにした
+  (プレイヤーの強制交代ターンでは簡易AIは行動せず、簡易AIの強制交代は続けて処理する)。
+  EditModeテスト`MockBattleConnectionTests`で強制交代ターンの行動(交代とSkip)を確認
 
 ### TODO
 
-- [ ] **C-1 Multiplayer Play Modeでの実サーバー対戦確認**
-  - Unity Client同士で、実際のServer + BattleServerを通して対戦できるかを確認する(これまではボット同士でのみ確認)
-  - 事前準備: BattleServerのuser-secrets設定(DEVELOPMENT.md「3.」)、両サーバーを最新のコードで起動
-  - 初期技4つの変更前に作ったアカウントは、セーブデータ(`SaveData`/`SaveData_VP_<id>`)を消して作り直す
-  - 確認すること: マッチング → 選出 → 技4つの表示と送信 → 交代 → 決着 → 結果Modal → Home復帰、相手パチモンの名前・タイプ表示
 - [ ] **C-2 `AccessTokenRefresher`の実サーバー確認**
   - サインインまでの疎通は確認済み。期限前の再認証・401時のリトライはまだコンパイル確認しかしていない
   - DBをリセットした後は、端末に残った古いデバイス情報(`SaveData`)を消す必要がある。
@@ -137,6 +146,8 @@
   - 現状は一瞬切れただけで`DisconnectTimeout`負けになる
   - `RealtimeBattleConnection`で切断を検知し(`WaitForDisconnect`)、同じ`battleToken`/`matchId`で`JoinAsync`を再実行する(猶予60秒以内に数回)
   - 再送される`OnMatchStart`で盤面を戻す。再接続中は入力を止めて、その旨を表示する
+  - `BattleStartPayload`には強制交代の状態が無いため、強制交代ターンの途中で再接続すると、自分の交代先の
+    選択や`OpponentSwitchingModal`が出ない。契約(`Shared/BattleContracts/`)に状態を足すか、別の方法で伝える
 - [ ] **C-4 対戦まわりの失敗時のエラーModal**
   - エラーModalを作り、BattleServerへの参加失敗・マッチング失敗・行動の送信失敗の3か所で表示する(現状はログのみ)
   - 通信エラー全体の仕組み(C-6)は後回しにし、まず対戦の3か所に絞る
@@ -163,6 +174,11 @@
   - 実機・モバイル向けにはGeneratorの導入かResolverの事前生成が必要
 - [ ] **C-13 パチモンのサムネイル画像**
   - `PachimonDto.Thumbnail`がnullのため、単色のプレースホルダで表示している
+- [ ] **C-17 PlayModeテストが動かない**
+  - `BattlePagePlayModeTests`の3件が、SetUpで「Bootstrap起動からHome表示までに時間がかかりすぎました」で失敗する
+  - 原因は`Scene 'BootstrapTest' couldn't be loaded because it has not been added to the active build profile`。
+    テスト用の`BootstrapTest`シーンを、有効なビルドプロファイルのシーン一覧に入れる必要がある
+    (出荷ビルドに入れない方法も合わせて決める)
 - [ ] **C-16 `AddressDefinition.cs`の再生成**
   - AddressDefinitionGeneratorで生成した定数に`ScoutPage`/`ScoutConfirmModal`が無い(画面は型名で読み込むため動作には影響しない)
 
@@ -253,12 +269,16 @@
 - [x] 対戦相手ボット`BattleServer/BattleBot/`(REST + MagicOnionで自動対戦、`--loop`/`--count`)
 - [x] 自動テスト(xUnit、`dotnet test BattleServer.slnx`): インプロセス起動した結合テスト、`LoadoutBuilderTests`、`ApiParticipantDataSourceTests`、`MasterDatabaseFactoryTests`
 - [x] ボット2体で実サーバーを通した対戦(マッチング → 強制交代 → 全滅決着 → 結果記録)を確認
+- [x] 強制交代ターン: 前のターンで瀕死になった側の交代だけを受け付け、相手の行動は`FailedPrecondition`で拒否する。
+  交代が届いた時点でターンを解決し、時間切れは倒れた側の敗北(`Forfeit`)。放置の回数には数えない。
+  `Atlas.BattleCore`は変更なし(design/battle.md「瀕死・交代」)。BattleBotも相手の強制交代中は待つようにした。
+  結合テストに`ForcedSwitchTimeout_PlayerWhoDidNotSwitchLoses`・`ForcedSwitchTurn_DoesNotCountAsIdleForWaitingPlayer`を追加
+- [x] ローカル一括起動`make dev`(リポジトリ直下の`Makefile`): MySQL起動+マイグレーション → Server・BattleServerを並列起動。
+  BattleServerの共有シークレットは`Server/.env`の値を環境変数で渡すため、user-secretsの設定は不要になった(旧B-1)。
+  BattleServerは.NET 10 SDKを明示して起動する(Git BashのPATHではUnity付属の.NET 8 SDKが先に見つかるため)
 
 ### TODO
 
-- [ ] **B-1 このPCでのuser-secrets設定**
-  - `BATTLE_TOKEN_SECRET`/`INTERNAL_API_SECRET`が`dotnet user-secrets`に未設定(前回の確認は環境変数で渡して起動した)
-  - DEVELOPMENT.md「3.」の手順を実施する。C-1の事前準備を兼ねる
 - [ ] **B-2 技の追加効果の実装**
   - `IMoveHitEventHandler`を実装するHandlerが0個のため、状態異常・能力変化などの追加効果は動かない
   - 状態技をマスタに追加する(M-1)のと合わせて実装する

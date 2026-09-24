@@ -106,7 +106,7 @@ namespace Atlas.BattleServer.Tests
             Assert.Equal("b2", switchAction.RevealedPachimon?.PlayerPachimonId);
             Assert.Equal(ActionType.Move, ra.Turns[0].Actions[1].Type);
 
-            // 決着まで殴り合う。強制交代が必要な側は生存している枠へ交代する
+            // 決着まで殴り合う。強制交代ターンは、倒れた側だけが生存している枠へ交代する(相手は待つ)
             var active = new Dictionary<string, int> { ["pA"] = 0, ["pB"] = 1 };
             var fainted = new Dictionary<string, bool[]> { ["pA"] = new bool[3], ["pB"] = new bool[3] };
             while (ra.Ends.Count == 0)
@@ -119,20 +119,38 @@ namespace Atlas.BattleServer.Tests
                     fainted[target][active[target]] = true;
                 }
 
-                Task Act(IBattleHub hub, string playerId, string moveId)
+                bool forcedSwitchTurn = last.PlayersRequiringForcedSwitch.Length > 0;
+                int before = ra.Turns.Count;
+                if (forcedSwitchTurn)
                 {
-                    if (!last.PlayersRequiringForcedSwitch.Contains(playerId))
+                    // 待っている側は何も送れない。交代が届くとターンが進むため、先に確かめてから交代させる
+                    foreach (var (hub, playerId) in new[] { (a, "pA"), (b, "pB") }.Where(x => !last.PlayersRequiringForcedSwitch.Contains(x.Item2)))
                     {
-                        return hub.SubmitMoveAsync(new MoveRequest(moveId));
+                        await AssertRpcStatus(StatusCode.FailedPrecondition, () => hub.SubmitMoveAsync(new MoveRequest("19")));
                     }
 
-                    active[playerId] = Array.FindIndex(fainted[playerId], f => !f);
-                    return hub.SwitchAsync(active[playerId]);
+                    foreach (var (hub, playerId) in new[] { (a, "pA"), (b, "pB") }.Where(x => last.PlayersRequiringForcedSwitch.Contains(x.Item2)))
+                    {
+                        active[playerId] = Array.FindIndex(fainted[playerId], f => !f);
+                        await hub.SwitchAsync(active[playerId]);
+                    }
+                }
+                else
+                {
+                    await Task.WhenAll(a.SubmitMoveAsync(new MoveRequest("19")), b.SubmitMoveAsync(new MoveRequest("20")));
                 }
 
-                int before = ra.Turns.Count;
-                await Task.WhenAll(Act(a, "pA", "19"), Act(b, "pB", "20"));
                 await ra.WaitForAsync(r => r.Turns.Count > before);
+
+                if (forcedSwitchTurn)
+                {
+                    // 倒れた側の交代だけが処理され、待っていた側はSkipになる
+                    var forcedActions = ra.Turns[before].Actions;
+                    Assert.All(forcedActions.Where(x => last.PlayersRequiringForcedSwitch.Contains(x.PlayerId)),
+                        x => Assert.Equal(ActionType.Switch, x.Type));
+                    Assert.All(forcedActions.Where(x => !last.PlayersRequiringForcedSwitch.Contains(x.PlayerId)),
+                        x => Assert.Equal(ActionType.Skip, x.Type));
+                }
             }
 
             await rb.WaitForAsync(r => r.Ends.Count == 1);
@@ -232,6 +250,40 @@ namespace Atlas.BattleServer.Tests
             var actions = ra.Turns[0].Actions;
             Assert.Contains(actions, x => x.PlayerId == "pA" && x.Type == ActionType.Move);
             Assert.Contains(actions, x => x.PlayerId == "pB" && x.Type == ActionType.Skip);
+        }
+
+        [Fact]
+        public async Task ForcedSwitchTimeout_PlayerWhoDidNotSwitchLoses()
+        {
+            await using var host = new BattleServerTestHost(o => o.TurnTimeLimit = TimeSpan.FromSeconds(1));
+            var (a, ra, b, rb) = await host.StartBattleAsync("m", ["a1", "a2"], ["b1", "b2"]);
+
+            // どちらかが倒れるまで殴り合い、強制交代ターンで交代しないまま時間切れにする
+            await HitUntilForcedSwitchAsync(a, ra, b);
+            var loser = ra.Turns[^1].PlayersRequiringForcedSwitch.Single();
+
+            await ra.WaitForAsync(r => r.Ends.Count == 1);
+            await rb.WaitForAsync(r => r.Ends.Count == 1);
+            Assert.Equal(new BattleEndPayload(loser == "pA" ? "pB" : "pA", BattleEndReason.Forfeit), ra.Ends[0]);
+            await host.ApiServer.WaitForCountAsync(1);
+        }
+
+        [Fact]
+        public async Task ForcedSwitchTurn_DoesNotCountAsIdleForWaitingPlayer()
+        {
+            await using var host = new BattleServerTestHost(o => o.MaxConsecutiveIdleTurns = 1);
+            var (a, ra, b, _) = await host.StartBattleAsync("m", ["a1", "a2"], ["b1", "b2"]);
+
+            await HitUntilForcedSwitchAsync(a, ra, b);
+            var switching = ra.Turns[^1].PlayersRequiringForcedSwitch.Single();
+
+            int before = ra.Turns.Count;
+            await (switching == "pA" ? a : b).SwitchAsync(1);
+            await ra.WaitForAsync(r => r.Turns.Count > before);
+
+            // 待っていた側は行動していないが、放置1回で負けになる設定でも対戦は続く
+            await Task.Delay(100);
+            Assert.Empty(ra.Ends);
         }
 
         [Fact]
@@ -380,6 +432,17 @@ namespace Atlas.BattleServer.Tests
             Assert.True(host.ApiServer.Received.TryPeek(out var request));
             using var json = JsonDocument.Parse(request.Body);
             Assert.Equal("", json.RootElement.GetProperty("winnerId").GetString());
+        }
+
+        private static async Task HitUntilForcedSwitchAsync(IBattleHub a, TestReceiver ra, IBattleHub b)
+        {
+            while (ra.Turns.Count == 0 || ra.Turns[^1].PlayersRequiringForcedSwitch.Length == 0)
+            {
+                Assert.True(ra.Turns.Count < 100, "no pachimon fainted");
+                int before = ra.Turns.Count;
+                await Task.WhenAll(a.SubmitMoveAsync(new MoveRequest("19")), b.SubmitMoveAsync(new MoveRequest("19")));
+                await ra.WaitForAsync(r => r.Turns.Count > before);
+            }
         }
 
         private static async Task AssertRpcStatus(StatusCode expected, Func<Task> action)

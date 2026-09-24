@@ -16,7 +16,7 @@ using VContainer.Unity;
 namespace Atlas.Presentation.Battle
 {
     // design/battle.md「Stage 1」。技はコマンドUIのボタン、交代は交代ボタン→SwitchSelectModalで選ぶ。
-    // 瀕死による強制交代も同じModal(やめるボタン無し)で選ばせる。
+    // 瀕死による強制交代も同じModal(やめるボタン無し)で選ばせる。相手が強制交代中はOpponentSwitchingModalを出して待つ。
     // 決着(OnBattleEnd)後はBattleResultModalを出し、そこからHomeシーンへ戻る。
     public sealed class BattlePresenter : IAsyncStartable, IDisposable
     {
@@ -38,6 +38,10 @@ namespace Atlas.Presentation.Battle
         private bool forcedSwitchRequired;
         // 表示中のSwitchSelectModal。ターン結果や決着が届いた時に閉じるために持つ。
         private SwitchSelectModal openSwitchModal;
+        // 相手が強制交代で交代先を選んでいる状態(強制交代ターン)。相手の交代が済むまで何も送れない。
+        private bool opponentSwitching;
+        private OpponentSwitchingModal openOpponentSwitchingModal;
+        private bool pushingOpponentSwitchingModal;
 
         private string selfPlayerId;
         private string opponentPlayerId;
@@ -52,8 +56,11 @@ namespace Atlas.Presentation.Battle
         private bool[] selfFaintedBySlot;
         private MovesData[] selfMoves = Array.Empty<MovesData>();
 
-        private int? opponentActivePachimonId;
-        private int opponentHpPercent = 100;
+        // 相手の選出各枠。種族は場に出て公開されるまで分からない(null)。交代で既に公開済みの枠へ戻る場合、
+        // サーバーはRevealedPachimonを送らないため、枠ごとに覚えておいてNewActiveIndexで引き直す。
+        private int opponentActiveIndex;
+        private int?[] opponentPachimonIdBySlot;
+        private int[] opponentHpPercentBySlot;
 
         public BattlePresenter(
             BattlePage view, IBattleConnection connection, IMasterDataService masterDataService, BattleViewDto initialDto,
@@ -108,7 +115,7 @@ namespace Atlas.Presentation.Battle
             disposables.Dispose();
         }
 
-        private bool CanAct => matchStarted && !battleEnded && !awaitingTurnResult && !forcedSwitchRequired;
+        private bool CanAct => matchStarted && !battleEnded && !awaitingTurnResult && !forcedSwitchRequired && !opponentSwitching;
 
         private void RefreshCommandsInteractable()
         {
@@ -243,8 +250,9 @@ namespace Atlas.Presentation.Battle
             selfFaintedBySlot = payload.Self.SelectedPachimon.Select(s => s.State?.IsFainted ?? false).ToArray();
             RefreshSelfMoves();
 
-            opponentActivePachimonId = payload.Opponent.SelectedPachimon[payload.Opponent.ActivePachimonIndex].State?.PachimonId;
-            opponentHpPercent = payload.Opponent.SelectedPachimon[payload.Opponent.ActivePachimonIndex].State?.HpPercent ?? 100;
+            opponentActiveIndex = payload.Opponent.ActivePachimonIndex;
+            opponentPachimonIdBySlot = payload.Opponent.SelectedPachimon.Select(s => s.State?.PachimonId).ToArray();
+            opponentHpPercentBySlot = payload.Opponent.SelectedPachimon.Select(s => s.State?.HpPercent ?? 100).ToArray();
 
             matchStarted = true;
             view.Refresh(BuildUiState());
@@ -271,6 +279,7 @@ namespace Atlas.Presentation.Battle
         private void HandleBattleEnd(BattleEndPayload payload)
         {
             battleEnded = true;
+            opponentSwitching = false;
             RefreshCommandsInteractable();
             ShowBattleResultAsync(payload).Forget();
         }
@@ -278,6 +287,7 @@ namespace Atlas.Presentation.Battle
         private async UniTaskVoid ShowBattleResultAsync(BattleEndPayload payload)
         {
             await CloseSwitchModalAsync();
+            await CloseOpponentSwitchingModalAsync();
 
             var isWin = payload.WinnerId == selfPlayerId;
             await screenNavigator.PushModalAsync<BattleResultModal, BattleResultViewDto>(new BattleResultViewDto
@@ -306,6 +316,7 @@ namespace Atlas.Presentation.Battle
 
             awaitingTurnResult = false;
             forcedSwitchRequired = payload.PlayersRequiringForcedSwitch.Contains(selfPlayerId);
+            opponentSwitching = payload.PlayersRequiringForcedSwitch.Contains(opponentPlayerId);
             view.ShowCommandPanel();
             RefreshCommandsInteractable();
 
@@ -313,6 +324,43 @@ namespace Atlas.Presentation.Battle
             {
                 HandleSwitchPhaseAsync(forcedSwitchRequired).Forget();
             }
+
+            SyncOpponentSwitchingModalAsync().Forget();
+        }
+
+        // opponentSwitchingに合わせてOpponentSwitchingModalを出し入れする。MockBattleConnectionは相手の交代を
+        // 同期的に続けて送ってくるため、Pushの途中で相手の交代が済むことがある。その場合はPushが終わってから閉じる。
+        private async UniTaskVoid SyncOpponentSwitchingModalAsync()
+        {
+            if (opponentSwitching && openOpponentSwitchingModal is null && !pushingOpponentSwitchingModal)
+            {
+                pushingOpponentSwitchingModal = true;
+                try
+                {
+                    openOpponentSwitchingModal = await screenNavigator.PushModalAsync<OpponentSwitchingModal>();
+                }
+                finally
+                {
+                    pushingOpponentSwitchingModal = false;
+                }
+            }
+
+            if (!opponentSwitching)
+            {
+                await CloseOpponentSwitchingModalAsync();
+            }
+        }
+
+        private async UniTask CloseOpponentSwitchingModalAsync()
+        {
+            if (openOpponentSwitchingModal is null)
+            {
+                return;
+            }
+
+            var modal = openOpponentSwitchingModal;
+            openOpponentSwitchingModal = null;
+            await modal.CompleteAsync(Unit.Default);
         }
 
         // 選択中にターンが進んだ(制限時間切れ等)ModalはCanceledで閉じてから、強制交代が必要なら
@@ -342,10 +390,11 @@ namespace Atlas.Presentation.Battle
                 }
                 else
                 {
-                    opponentHpPercent = action.TargetRemainingHpPercent;
+                    opponentActiveIndex = newIndex;
+                    opponentHpPercentBySlot[newIndex] = action.TargetRemainingHpPercent;
                     if (action.RevealedPachimon is { } revealed)
                     {
-                        opponentActivePachimonId = revealed.PachimonId;
+                        opponentPachimonIdBySlot[newIndex] = revealed.PachimonId;
                     }
                 }
 
@@ -359,7 +408,7 @@ namespace Atlas.Presentation.Battle
 
             if (actorIsSelf)
             {
-                opponentHpPercent = action.TargetRemainingHpPercent;
+                opponentHpPercentBySlot[opponentActiveIndex] = action.TargetRemainingHpPercent;
                 ConsumeSelfPp(action.MoveId);
             }
             else
@@ -393,7 +442,8 @@ namespace Atlas.Presentation.Battle
             var selfHpPercent = selfHpPercentBySlot[selfActiveIndex];
             var selfMaxHp = PachimonStatCalculator.CalculateHp(selfPachimon.BaseHp);
 
-            var opponentName = opponentActivePachimonId is { } id
+            var opponentHpPercent = opponentHpPercentBySlot[opponentActiveIndex];
+            var opponentName = opponentPachimonIdBySlot[opponentActiveIndex] is { } id
                 ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).Name
                 : "???";
 

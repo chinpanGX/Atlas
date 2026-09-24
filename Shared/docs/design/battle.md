@@ -241,7 +241,7 @@ public record ActionResult(
 // 場に出た(初公開)場合のみRevealedPachimonに種族等を入れる。既知の枠への
 // 再出し・自分自身の交代の場合はnullでよい(Presenter側で既に保持している情報を使う)
 
-public enum ActionType { Move, Switch, Skip }   // Skip = タイムアウト or 強制交代未対応
+public enum ActionType { Move, Switch, Skip }   // Skip = タイムアウト or 強制交代未対応 or 強制交代ターンで待っていた側
 
 // type_chartマスタのeffectiveness(ENUM)とは別物。Atlas.BattleCoreが結果を表現するための型
 public enum EffectivenessResult { Immune, NotVeryEffective, Normal, SuperEffective }
@@ -253,8 +253,9 @@ public record BattleEndPayload(string WinnerId, BattleEndReason Reason);
 public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
 ```
 
-- `TurnResultPayload.PlayersRequiringForcedSwitch`に含まれるプレイヤーは、次ターンは
-  `SwitchAsync`以外のアクションを受け付けない(`SubmitMoveAsync`は無視 or 拒否する)
+- `TurnResultPayload.PlayersRequiringForcedSwitch`が空でなければ、次のターンは**強制交代ターン**になる
+  (下記「瀕死・交代」参照)。含まれるプレイヤーは`SwitchAsync`しか送れず、含まれないプレイヤー(相手)は
+  何も送れない。どちらも拒否は`FailedPrecondition`で返す
 
 ### UI層との連携(View / Presenter)
 
@@ -353,7 +354,9 @@ public enum BattleEndReason { AllFainted, Forfeit, DisconnectTimeout }
   そのまま呼び出して両プレイヤー分の行動を解決する(対戦相手は簡易AIで代替)
 - 簡易AIの挙動: 場に出ているパチモンの使用可能な技から`IRandomSource`でランダムに
   1つ選ぶ(強さ・タイプ相性は考慮しない)。自発的な交代は行わず、強制交代(瀕死)の
-  場合のみ選出3体のうち生存している先頭のパチモンに交代する。タイムアウト/投了は
+  場合のみ選出3体のうち生存している先頭のパチモンに交代する。強制交代ターンの扱いはBattleServerと
+  同じで、プレイヤーが強制交代中のターンは簡易AIは行動しない。簡易AI側の強制交代は、プレイヤーの
+  行動を待たず、瀕死になったターンの結果を送った直後に処理する。タイムアウト/投了は
   意図的に発生させず、毎ターン必ず有効な行動を返す(Anjin等での結合テストを安定
   させることが目的のため)
 - `battleToken`/`matchId`もこの段階ではダミー値で構わない
@@ -825,7 +828,21 @@ HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
 
 - HPが0になったら瀕死、行動不能
 - 選出済み3体全員が瀕死になった時点で敗北、`battle_end`
-- 瀕死時は次ターン開始前に強制交代を要求(未交代ならターンスキップ)
+- 瀕死になったら、次のターンを**強制交代ターン**にする。本家ポケモンと同じく、倒れた側が交代先を選ぶ間、
+  相手は待つ
+  - 強制交代ターンでは、倒れた側の交代だけを受け付ける。相手の技・交代は受け付けない
+  - 倒れた側の交代が届いた時点でターンを解決する(相手の行動は待たない)。`BattleEngine.ProcessTurn`には
+    相手の行動を`null`(非行動)として渡すため、結果には相手の`Skip`が入り、ターン番号も1つ進む
+  - 制限時間は通常のターンと同じ(30秒)。時間内に交代しなかった場合は、倒れた側の敗北
+    (`BattleEndReason.Forfeit`)。通常のターンのような「スキップ」はしない(待っている相手の番が来ないため)
+  - 「放置」の回数には、強制交代ターンを数えない(相手は行動できず、倒れた側は時間切れで即敗北のため)
+  - `Atlas.BattleCore`は変更しない(「強制交代チェックSection」はそのまま)。強制交代ターンの進め方
+    (誰の行動を待つか・時間切れの扱い)は、呼び出し側のBattleServer・`MockBattleConnection`の責務とする
+  - 現在のルールでは、1ターンで両者が同時に瀕死になることは無い(反動・追加効果が無いため)。
+    それでもBattleServerは、`PlayersRequiringForcedSwitch`の全員の交代が届いた時点で解決する形にしておく
+  - 以前は、強制交代を次のターンの一部として扱い、相手も同じターンに技を送れた(交代が先に処理されるため、
+    技は交代で出てきたパチモンに当たる)。倒れた側だけが不利になるうえ、相手の画面では交代を待たずに
+    コマンドを選べてしまうため、本家と同じ方式に変更した
 
 クライアントUI:
 
@@ -834,6 +851,9 @@ HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
   自身への交代は検証しないため、UI側で防ぐ)
 - 強制交代(`PlayersRequiringForcedSwitch`に自分が含まれる)は同じModalを「やめる」無しで出し、
   生存が1体だけでも自動では選ばない。選択中は技を送れない
+- 相手が強制交代中(`PlayersRequiringForcedSwitch`に相手が含まれる)は、`OpponentSwitchingModal`
+  (「相手がパチモンを選んでいます」、ボタン無し)を出して技・交代を押せないようにする。次の`turn_result`
+  または`battle_end`で閉じる。このModalの表示中(最大30秒)は投了ボタンも押せない
 - 行動(技・交代)を送ってから`turn_result`が届くまでは技・交代ボタンを押せない(投了は常に可能)
 - 交代先の選択中に`turn_result`(タイムアウトによるスキップ等)や`battle_end`が届いた場合、
   Modalを閉じる。強制交代が続いていれば改めて出す
@@ -844,11 +864,12 @@ HP     = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
 - 制限時間内に行動(技 or 交代)が送信されなかった場合、そのプレイヤーは当該ターンの
   行動権を失う(何もしない扱いでターンスキップ)。デフォルト行動の自動送信は行わない
 - 相手側が制限時間内に行動していれば、相手の行動のみ通常通り処理される
+- 強制交代ターンの時間切れはスキップではなく、倒れた側の敗北とする(「瀕死・交代」参照)
 
 ### 放置
 
 - ターンタイムアウトによる非行動が**3ターン連続**した側の敗北(`BattleEndReason.Forfeit`)。
-  1回でも行動すれば回数は0に戻る
+  1回でも行動すれば回数は0に戻る。強制交代ターンは数えない(「瀕死・交代」参照)
 - 両者が同じターンに3ターン連続に達した場合は勝者なし(`WinnerId`は空文字、`battle_matches`は`aborted`。
   「選出の制限時間」と同じ扱い)
 - 選出の制限時間・放置のどちらも、専用の`BattleEndReason`は追加せず`Forfeit`で表す
