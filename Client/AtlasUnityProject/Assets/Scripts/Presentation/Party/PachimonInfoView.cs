@@ -1,6 +1,6 @@
-using System.Linq;
 using TMPro;
 using UnityEngine;
+using ZLinq;
 
 namespace Atlas.Presentation.Party
 {

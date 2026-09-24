@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Navigation;
@@ -8,6 +7,7 @@ using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
 using VContainer.Unity;
+using ZLinq;
 
 namespace Atlas.Presentation.Scout
 {
@@ -178,7 +178,8 @@ namespace Atlas.Presentation.Scout
         {
             var database = masterDataService.Database;
             var moves = candidate.MoveIds.Select((moveId, index) =>
-                new PachimonInfoDtoBuilder.MoveInput(index + 1, moveId, database.MovesDataTable.FindByMoveId(moveId).MaxPp));
+                new PachimonInfoDtoBuilder.MoveInput(index + 1, moveId, database.MovesDataTable.FindByMoveId(moveId).MaxPp))
+                .ToArray();
             return PachimonInfoDtoBuilder.Build(database, candidate.PachimonId, moves);
         }
 

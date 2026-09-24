@@ -1,7 +1,9 @@
 {
     "name": "Atlas.MasterData",
     "rootNamespace": "Atlas.MasterData",
-    "references": [],
+    "references": [
+        "GUID:1fe3656cf8380224fa23ec72e2b12cff"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -10,7 +12,8 @@
         "MessagePack.dll",
         "MessagePack.Annotations.dll",
         "MasterMemory.dll",
-        "MasterMemory.Annotations.dll"
+        "MasterMemory.Annotations.dll",
+        "ZLinq.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [],

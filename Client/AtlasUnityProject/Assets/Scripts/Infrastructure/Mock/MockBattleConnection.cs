@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Atlas.BattleCore;
 using Atlas.Domain;
 using Cysharp.Threading.Tasks;
 using MasterMemory;
+using ZLinq;
 
 namespace Atlas.Infrastructure.Mock
 {
@@ -139,7 +139,7 @@ namespace Atlas.Infrastructure.Mock
                 throw new InvalidOperationException("生存しているパチモンがいない状態で強制交代が要求されました。");
             }
 
-            var usableMoveIndexes = Enumerable.Range(0, side.Active.Moves.Count)
+            var usableMoveIndexes = ValueEnumerable.Range(0, side.Active.Moves.Count)
                 .Where(i => side.Active.CurrentPp[i] > 0)
                 .ToList();
             var chosen = usableMoveIndexes[random.NextInt(0, usableMoveIndexes.Count - 1)];

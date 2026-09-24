@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
@@ -12,6 +11,7 @@ using Atlas.Presentation.Party;
 using Cysharp.Threading.Tasks;
 using R3;
 using VContainer.Unity;
+using ZLinq;
 
 namespace Atlas.Presentation.Battle
 {
@@ -221,7 +221,8 @@ namespace Atlas.Presentation.Battle
                         var master = masterDataService.Database.PachimonDataTable.FindByPachimonId(pachimonId);
                         var maxHp = PachimonStatCalculator.CalculateHp(master.BaseHp);
                         var moves = selfMoveSets[slot].Moves.Select((m, i) =>
-                            new PachimonInfoDtoBuilder.MoveInput(i + 1, int.Parse(m.MoveId), selfCurrentPp[slot][i]));
+                            new PachimonInfoDtoBuilder.MoveInput(i + 1, int.Parse(m.MoveId), selfCurrentPp[slot][i]))
+                            .ToArray();
                         return new SwitchCandidateDto
                         {
                             PartySlot = slot,

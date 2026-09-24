@@ -1,8 +1,8 @@
 using System;
-using System.Linq;
 using Cysharp.Threading.Tasks;
 using R3;
 using VContainer.Unity;
+using ZLinq;
 
 namespace Atlas.Presentation.Battle
 {

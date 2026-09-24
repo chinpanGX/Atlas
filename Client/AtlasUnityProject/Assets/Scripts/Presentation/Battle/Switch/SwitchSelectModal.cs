@@ -1,11 +1,11 @@
 using System.Collections.Generic;
-using System.Linq;
 using Atlas.Navigation;
 using Atlas.Presentation.Party;
 using R3;
 using TMPro;
 using UIPackages.Runtime;
 using UnityEngine;
+using ZLinq;
 
 namespace Atlas.Presentation.Battle
 {

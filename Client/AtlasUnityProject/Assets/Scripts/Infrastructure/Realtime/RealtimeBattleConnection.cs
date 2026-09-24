@@ -1,10 +1,10 @@
 using System;
-using System.Linq;
 using Atlas.Domain;
 using Cysharp.Net.Http;
 using Cysharp.Threading.Tasks;
 using Grpc.Net.Client;
 using MagicOnion.Client;
+using ZLinq;
 using Contracts = Atlas.BattleContracts;
 using BattleCore = Atlas.BattleCore;
 
