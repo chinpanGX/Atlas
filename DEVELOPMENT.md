@@ -218,7 +218,6 @@ cd master-data-pipeline
 
 - Server向けを更新したら、`cargo run --bin seed_master_data`でDBへ投入してServerを再起動する
 - BattleServer向けを更新したら、`dotnet test BattleServer/Tests/BattleServer.Tests.csproj`で読み込めることを確認してBattleServerを再起動する
-- `copy-client-bytes`はUnity側の`masterdata.bytes.meta`も消すため、`git checkout`で復元する
 - ツール本体を変更したときだけ`./build.sh tools`が必要
 
 ### API(api-codegen) — ServerのAPI(handler/DTO)を変えたとき

@@ -53,12 +53,14 @@ cd master-data-pipeline
 
 ### コピー先ディレクトリは丸ごと作り直される(注意)
 
-Models/Enums/bytesのコピー(`copy_dir_contents`)は、配置先ディレクトリを削除してから書き込む。
-そのため:
-- 配置先に手書きのファイルを置かない(BattleServerの `MasterData/Models` 等も同様)
-- Unity側の `Assets/Addressables/MasterData/masterdata.bytes.meta` も消えるため、`copy-client-bytes`
-  の後は `git checkout -- Client/AtlasUnityProject/Assets/Addressables/MasterData/masterdata.bytes.meta`
-  で復元する(GUIDが変わるとAddressablesの参照が切れる)
+Models/Enums/bytesのコピー(`copy_dir_contents`)は、配置先ディレクトリを一度クリーンアップしてから
+書き込む。そのため配置先に手書きのファイルを置かないこと(BattleServerの `MasterData/Models` 等も同様)。
+
+Unity向け(`copy-models`/`copy-client-bytes`)は`preserve_meta=True`で呼んでおり、実体ファイルが
+今回も引き続きコピーされる`.meta`サイドカーファイルは消さない(GUIDが維持されるので
+Addressables等の参照は壊れない)。実体が無くなった(テーブル削除・リネーム等の)孤児`.meta`は
+従来どおり削除される。BattleServer向け(`copy-realtime-*`)はUnityプロジェクトではないため
+このオプションは使っていない。
 
 ## 全体一括(`./run.sh all`)は避ける
 

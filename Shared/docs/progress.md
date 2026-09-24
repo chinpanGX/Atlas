@@ -268,6 +268,11 @@
 - [x] Enumの`key`(コード上の識別子)と`name`(表示名)の分離、テーブル単位の`targets`フラグ
 - [x] 生成物の配置: Client(`Scripts/MasterData/` + Addressablesの`masterdata.bytes`)、Server(`src/master/generated/` + `master_data/*.json`)、BattleServer(`BattleServer/MasterData/`)
 - [x] `type: int`を32bitに統一し、64bit用に`type: long`を追加。enumのシリアライズも`i32`に統一
+- [x] `copy-models`/`copy-client-bytes`でUnity側の`.meta`が消える問題を修正(旧M-3)。
+  `copy_dir_contents`に`preserve_meta`引数を追加し、対応する実体ファイルが引き続きコピーされる
+  `.meta`はGUIDを維持したまま残す(実体が無くなった孤児`.meta`は従来どおり削除)。
+  Unity向け(client)の呼び出しのみ有効化。BattleServer向け(realtime)はUnityプロジェクトでは
+  ないため未使用
 
 #### マスターデータ内容
 
@@ -295,10 +300,6 @@
   - 状態技を入れる場合はB-2(追加効果)と合わせて行う
 - [ ] **M-2 `base_power`のNULL代替(0埋め)の検証**
   - 状態技が無いため、`base_power = 0`の運用を実データで確かめていない。M-1のときに確認する
-- [ ] **M-3 `copy-client-bytes`でUnity側の`.meta`が消える問題**
-  - 現状は`master-data-pipeline`スキルの復元手順で対処している。pipeline側で`.meta`を残すよう直す
 - [ ] **M-4 api-codegenの未対応機能**
   - 列挙型・クエリパラメータに未対応(今のAPIには無いため後回し)
   - `nullable`は対応しない方針。必要になったらAPI/スキーマ側の設計で回避する
-- [ ] **M-5 Supplementの`AssetLoader`機能追加**
-  - Addressables実装にラベル指定ロード・進捗通知が無い。Supplement側に追加を依頼中
