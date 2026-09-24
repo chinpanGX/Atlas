@@ -23,10 +23,15 @@ namespace Atlas.Application.Address
         public const string HomePage = "HomePage";
         public const string MatchmakingModal = "MatchmakingModal";
         public const string OpponentCanvas = "OpponentCanvas";
+        public const string PartyStatRow1prefab = "Party/StatRow1.prefab";
         public const string PartyPage = "PartyPage";
+        public const string ScoutConfirmModal = "ScoutConfirmModal";
+        public const string ScoutPage = "ScoutPage";
         public const string SelfCanvas = "SelfCanvas";
         public const string SwitchSelectModal = "SwitchSelectModal";
         public const string TitlePage = "TitlePage";
+        public const string ViewsPartsCellTemplateprefab = "Views/Parts/CellTemplate.prefab";
+        public const string ViewsPartsPachimonInfoPanelprefab = "Views/Parts/PachimonInfoPanel.prefab";
         public const string white_2x2 = "white_2x2";
     }
 }
