@@ -60,6 +60,7 @@
 - [x] 画面をまたぐ通知に`IMessageBroker`(ZeroMessenger)を導入
 - [x] `ScreenNavigator`のPop結果通知タイミングの不具合を修正(遷移アニメーション完了後に通知)
 - [x] `SceneNavigator`のシーン破棄タイミングを調整(Page/Modalの遷移完了を待ってからUnload)
+- [x] Pop結果を`ResultModal<TResult>`/`ResultPage<TResult>`に移行(結果の型を画面の型に持たせてコンパイル時に検査、最上位ではなく自分を閉じる、Complete以外の閉じ方でも待機が終わる)
 - [x] UIをScreen Space - Camera(UICamera)に統一、1920x1080基準、横向き固定
 - [x] VContainerが新規`*LifetimeScope.cs`を空テンプレートで上書きする問題に対応(旧C-15)。
   `VContainerSettings.DisableScriptModifier`はEditモードでは効かないことを実機検証で確認

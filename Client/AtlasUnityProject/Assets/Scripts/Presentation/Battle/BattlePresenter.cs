@@ -160,7 +160,7 @@ namespace Atlas.Presentation.Battle
             SwitchSelectResult result;
             try
             {
-                result = await screenNavigator.WaitForPopModalAsync<SwitchSelectResult>(modal, cancellation);
+                result = await modal.WaitForResultAsync(cancellation);
             }
             finally
             {
@@ -197,8 +197,10 @@ namespace Atlas.Presentation.Battle
                 return;
             }
 
+            var modal = openSwitchModal;
             openSwitchModal = null;
-            await screenNavigator.PopModalAsync<SwitchSelectResult>(SwitchSelectResult.Canceled);
+            // 既に交代先が選ばれて閉じている途中なら、その結果が優先され、閉じ終わるのを待つだけになる。
+            await modal.CompleteAsync(SwitchSelectResult.Canceled);
         }
 
         private SwitchSelectViewDto BuildSwitchSelectDto(bool isForced)
@@ -259,7 +261,7 @@ namespace Atlas.Presentation.Battle
             }
 
             var modal = await screenNavigator.PushModalAsync<ForfeitConfirmModal>();
-            var forfeit = await screenNavigator.WaitForPopModalAsync<bool>(modal, cancellation);
+            var forfeit = await modal.WaitForResultAsync(cancellation);
             if (forfeit && !battleEnded)
             {
                 await connection.ForfeitAsync();

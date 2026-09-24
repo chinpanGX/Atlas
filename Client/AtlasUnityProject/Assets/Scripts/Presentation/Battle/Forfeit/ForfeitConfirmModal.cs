@@ -1,11 +1,12 @@
+using Atlas.Navigation;
 using R3;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityScreenNavigator.Runtime.Core.Modal;
 
 namespace Atlas.Presentation.Battle
 {
-    public sealed class ForfeitConfirmModal : Modal
+    // 投了する=true。キャンセル以外の閉じ方も投了しない扱い(CanceledResult=false)。
+    public sealed class ForfeitConfirmModal : ResultModal<bool>
     {
         [SerializeField] private Button forfeitButton;
         [SerializeField] private Button cancelButton;

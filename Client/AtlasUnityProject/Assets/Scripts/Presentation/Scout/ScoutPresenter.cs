@@ -136,7 +136,7 @@ namespace Atlas.Presentation.Scout
             var pachimonName = FindPachimonName(candidate.PachimonId);
             var modal = await screenNavigator.PushModalAsync<ScoutConfirmModal, ScoutConfirmViewDto>(
                 new ScoutConfirmViewDto { PachimonName = pachimonName });
-            var confirmed = await screenNavigator.WaitForPopModalAsync<bool>(modal, cancellation);
+            var confirmed = await modal.WaitForResultAsync(cancellation);
             if (!confirmed)
             {
                 return;

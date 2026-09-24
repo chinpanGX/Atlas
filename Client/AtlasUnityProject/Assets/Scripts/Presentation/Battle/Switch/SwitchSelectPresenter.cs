@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using Atlas.Navigation;
 using Cysharp.Threading.Tasks;
 using R3;
 using VContainer.Unity;
@@ -8,21 +7,19 @@ using VContainer.Unity;
 namespace Atlas.Presentation.Battle
 {
     // 選ばれた交代先(またはやめた)をPop結果として返すだけで、交代の送信はPush元
-    // (BattlePresenter)がWaitForPopModalAsyncの結果を見て行う(ForfeitConfirmPresenterと同じ方針)。
+    // (BattlePresenter)がWaitForResultAsyncの結果を見て行う(ForfeitConfirmPresenterと同じ方針)。
     public sealed class SwitchSelectPresenter : IInitializable, IDisposable
     {
         private readonly SwitchSelectModal view;
         private readonly SwitchSelectViewDto initialDto;
-        private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
 
         private SwitchCandidateDto selected;
 
-        public SwitchSelectPresenter(SwitchSelectModal view, SwitchSelectViewDto initialDto, IScreenNavigator screenNavigator)
+        public SwitchSelectPresenter(SwitchSelectModal view, SwitchSelectViewDto initialDto)
         {
             this.view = view;
             this.initialDto = initialDto;
-            this.screenNavigator = screenNavigator;
         }
 
         public void Initialize()
@@ -42,7 +39,7 @@ namespace Atlas.Presentation.Battle
             view.OnConfirmButtonClicked.Select(_ => SwitchSelectResult.Selected(selected.PartySlot))
                 .Merge(view.OnCancelButtonClicked.Select(_ => SwitchSelectResult.Canceled))
                 .Take(1)
-                .Subscribe(result => screenNavigator.PopModalAsync<SwitchSelectResult>(result).Forget())
+                .Subscribe(result => view.CompleteAsync(result).Forget())
                 .AddTo(disposables);
         }
 

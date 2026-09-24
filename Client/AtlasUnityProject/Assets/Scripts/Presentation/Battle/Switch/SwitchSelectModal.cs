@@ -1,17 +1,17 @@
 using System.Collections.Generic;
 using System.Linq;
+using Atlas.Navigation;
 using Atlas.Presentation.Party;
 using R3;
 using TMPro;
 using UIPackages.Runtime;
 using UnityEngine;
-using UnityScreenNavigator.Runtime.Core.Modal;
 
 namespace Atlas.Presentation.Battle
 {
     // 交代画面。左に選出3体、中央に選択中のパチモンの詳細(パーティ編成画面と同じPachimonInfoView)、
     // 下に「こうたいする」「もどる」。
-    public sealed class SwitchSelectModal : Modal
+    public sealed class SwitchSelectModal : ResultModal<SwitchSelectResult>
     {
         [SerializeField] private TextMeshProUGUI messageText;
         // 要素番号がSwitchCandidateDto.PartySlotに対応する。
@@ -24,6 +24,8 @@ namespace Atlas.Presentation.Battle
         public Observable<int> OnCandidateClicked { get; private set; }
         public Observable<Unit> OnConfirmButtonClicked => confirmButton.OnClickAsObservable();
         public Observable<Unit> OnCancelButtonClicked => cancelButton.OnClickAsObservable();
+
+        protected override SwitchSelectResult CanceledResult => SwitchSelectResult.Canceled;
 
         private void Awake()
         {

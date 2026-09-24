@@ -1,12 +1,13 @@
+using Atlas.Navigation;
 using R3;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityScreenNavigator.Runtime.Core.Modal;
 
 namespace Atlas.Presentation.Scout
 {
-    public sealed class ScoutConfirmModal : Modal
+    // 確定する=true。「いいえ」以外の閉じ方(背景タップ等)も確定しない扱い(CanceledResult=false)。
+    public sealed class ScoutConfirmModal : ResultModal<bool>
     {
         [SerializeField] private TextMeshProUGUI messageText;
         [SerializeField] private Button yesButton;

@@ -108,6 +108,21 @@ user-secretsは`dotnet run`(launchSettingsの`http`プロファイル、Developm
 
 ## 4. ローカルで全体を動かす(起動順)
 
+リポジトリ直下の`Makefile`で、下記1)〜3)(MySQL起動+マイグレーション、Server、BattleServer)を1コマンドで行える。
+
+```bash
+make dev    # MySQL起動+マイグレーション → Server・BattleServerを並列起動(Ctrl+Cで停止)
+make stop   # Ctrl+Cで止まりきらなかったServer・BattleServerのプロセスを強制終了
+make seed   # マスタデータをDBへ投入(投入後はServerを再起動)
+make bot    # 対戦相手ボット(別ターミナル)
+```
+
+- BattleServerの共有シークレット(`BATTLE_TOKEN_SECRET`・`INTERNAL_API_SECRET`)は`Server/.env`の値を環境変数で渡すため、
+  `make dev`ではBattleServerのuser-secrets設定は不要
+- BattleServerは.NET 10 SDK(既定`C:/Program Files/dotnet/dotnet.exe`)で起動する。別の場所なら`make dev DOTNET=<パス>`
+
+個別に起動する場合:
+
 ```bash
 # 1) MySQL起動+マイグレーション(初回・DBを作り直したとき)
 cd Server
@@ -197,6 +212,10 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 - 通信ログはUnity Consoleの`[API] --> ...` / `[API] <-- ...`(Editor・開発ビルドのみ)
 - `Atlas.BattleCore`は`Packages/manifest.json`から`Shared/BattleCore`を、`Atlas.BattleContracts`は
   `Shared/BattleContracts`をローカルパッケージとして参照している
+- フォント(`Assets/Addressables/Fonts/NotoSansJP-Medium SDF.asset`)は文字を焼き込んだStaticアセット。
+  Dynamicにすると、Play中にアセットが書き換わり、Multiplayer Play Modeの追加インスタンスで文字化けする。
+  焼き込むのは、JIS第1水準・ASCII・マスターデータCSV・`Assets`内のプレハブ/シーン/C#に出てくる文字。
+  **新しい文字(第2水準漢字等)をUIやマスターデータに追加したら、`Tools > Bake Static Font`で焼き直す**(焼き直さないと□になる)
 - 対戦のMock/実サーバー切り替えはBootstrapシーンの`RootLifetimeScope`の`Use Battle Server`
   (PlayModeテストは`TestRootLifetimeScope`で常にMock)
 

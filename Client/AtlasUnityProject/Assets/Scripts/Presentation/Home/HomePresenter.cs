@@ -77,7 +77,7 @@ namespace Atlas.Presentation.Home
         private async UniTask OpenScoutAsync(CancellationToken cancellation)
         {
             var page = await screenNavigator.PushPageAsync<ScoutPage>();
-            await screenNavigator.WaitForPopAsync<object>(page, cancellation);
+            await screenNavigator.WaitForPopAsync(page, cancellation);
             view.Refresh(CreateDto());
         }
 

@@ -295,7 +295,7 @@ namespace Supplement.Core
     限定されない**もの
   - 該当しない例: あるボタンを押したら同じ画面のPresenterが処理する、というような
     1画面内で完結する通知(直接Observable購読を使う)。Pushした画面から結果を受け取る
-    ケースも該当しない(「Pop結果の受け渡し」の`WaitForPopAsync`で既に解決済み)
+    ケースも該当しない(「Pop結果の受け渡し」の`ResultModal`/`ResultPage`で既に解決済み)
 - **スコープ管理を意識する必要がない**: `GlobalMessageBroker`は内部で
   `MessageBroker<T>.Default`(ZeroMessengerの型ごとの静的インスタンス)に委譲するだけの
   ステートレスな実装なので、VContainerのどのスコープで`IMessageBroker`を解決しても
@@ -355,8 +355,8 @@ public interface IScreenNavigator
         bool stack = true, string resourceKey = null) where TPage : Page;
 
     UniTask PopPageAsync(bool playAnimation = true, int popCount = 1);
-    UniTask PopPageAsync<TResult>(TResult result, bool playAnimation = true);
-    UniTask<TResult> WaitForPopAsync<TResult>(Page target, CancellationToken token);
+    // 結果を返さないPageが閉じる(破棄される)まで待つ。結果を返す画面は下記「Pop結果の受け渡し」参照
+    UniTask WaitForPopAsync(Page target, CancellationToken token);
 
     UniTask<TModal> PushModalAsync<TModal>(bool playAnimation = true, string resourceKey = null)
         where TModal : Modal;
@@ -364,8 +364,6 @@ public interface IScreenNavigator
         string resourceKey = null) where TModal : Modal;
 
     UniTask PopModalAsync(bool playAnimation = true, int popCount = 1);
-    UniTask PopModalAsync<TResult>(TResult result, bool playAnimation = true);
-    UniTask<TResult> WaitForPopModalAsync<TResult>(Modal target, CancellationToken token);
 }
 ```
 
@@ -452,28 +450,45 @@ public sealed class PartyEditPresenter : IInitializable, IDisposable
 ### Pop結果の受け渡し
 
 Push元が「Pushした画面が閉じたときの結果」を型付きで受け取れるようにする。ScreenServiceの
-`IPresenter.CompleteAsync()`+`WaitForPopAsync<T>`と同じ考え方を、USNのPage単位で実装する。
+`IPresenter.CompleteAsync()`+`WaitForPopAsync<T>`と同じ考え方だが、**結果の型を画面の型に
+持たせる**点が異なる。結果を返す画面は`ResultModal<TResult>`/`ResultPage<TResult>`
+(`Atlas.Navigation`)を継承する。
 
 ```csharp
-// Push元(呼び出し側)
-var partyEditPage = await screenNavigator.PushPageAsync<PartyEditPage, PartyEditViewDto>(dto);
-var updatedParty = await screenNavigator.WaitForPopAsync<PartyEditResult>(partyEditPage, ct);
+// 画面(View): 結果の型を宣言する。Complete以外の閉じ方をした時の値も画面側で決める
+public sealed class PartyEditPage : ResultPage<PartyEditResult>
+{
+    protected override PartyEditResult CanceledResult => PartyEditResult.Canceled;  // 省略時はdefault
+}
 
-// PartyEditPresenter側(保存ボタン押下時)
-await screenNavigator.PopPageAsync(new PartyEditResult(...));
+// Push元(呼び出し側): TResultはPageの型から推論される
+var partyEditPage = await screenNavigator.PushPageAsync<PartyEditPage, PartyEditViewDto>(dto);
+var result = await partyEditPage.WaitForResultAsync(ct);
+
+// PartyEditPresenter側(保存ボタン押下時): 自分自身を閉じて結果を返す
+await view.CompleteAsync(new PartyEditResult(...));
 ```
 
-- `IScreenNavigator`の実装は、Push済みの`Page`インスタンスをキーにした
-  `Dictionary<Page, UniTaskCompletionSource<object>>`を内部に持つ
-- `WaitForPopAsync<TResult>(target, token)`は該当`target`の`UniTaskCompletionSource`を
-  (無ければ生成して)待つ。同じ`target`に対して二重に呼ばれた場合は例外にする
-  (ScreenServiceの`WaitForPop`と同じ制約)
-- `PopPageAsync<TResult>(result, ...)`は、実際に`PageContainer.Pop`する前に該当する
-  `UniTaskCompletionSource`があれば`result`で完了させる
-- 結果を渡さない通常の`PopPageAsync()`(戻る・キャンセル等)でも、保留中の
-  `UniTaskCompletionSource`があれば`default(TResult)`で完了させ、`WaitForPopAsync`側が
-  ハングしないようにする
-- Modal側(`WaitForPopModalAsync`)も同じ仕組みを`Modal`インスタンスキーで持つ
+- **型の食い違いがコンパイルエラーになる**: 返す側(`CompleteAsync`)と受け取る側
+  (`WaitForResultAsync`)の型はどちらも画面の`TResult`で決まる。以前の
+  `WaitForPopModalAsync<TResult>`/`PopModalAsync<TResult>`(内部で`object`にキャスト)は、
+  呼び出し側ごとに型引数を書くため食い違いが実行時の`InvalidCastException`になっていた
+- **最上位ではなく自分を閉じる**: `CompleteAsync`はコンテナ内の自分の位置を探し、自分と
+  その上に積まれた画面をまとめてPopする(`Modal.Identifier`は既定でプレハブ名で、コンテナ内の
+  IDとは一致しないため、インスタンスで探す)。Push中(開くアニメーション中)に呼ばれた場合は
+  遷移の終了を待ってからPopする
+- **結果の通知は画面の破棄時(`destroyCancellationToken`)**: USNはPopの遷移完了後に画面を
+  破棄するため、結果を受けた側が続けてPush/Popしても"screen is already in transition"に
+  ならない。また、`CompleteAsync`を経由しない閉じ方(背景タップで閉じる、`PopModalAsync`で
+  上からまとめて閉じる、`stack=false`のPageが次のPushで消える、シーンごと破棄)でも待機が
+  終わらなくなることはなく、`CanceledResult`が返る
+- `CompleteAsync`の2回目以降(連打、画面側と呼び出し側の両方から完了した場合)は最初の結果を
+  優先し、進行中のPopの完了だけを待つ。呼び出し側から閉じたい場合(例: 対戦のターン進行で
+  交代選択Modalを閉じる)も、保持しておいた画面に対して`CompleteAsync(キャンセル値)`を呼ぶ
+- `WaitForResultAsync`の`CancellationToken`は**待つのをやめるだけ**で、画面は閉じない
+  (シーン破棄中にPopを始めると破棄済みのRectTransformを触るため)。複数回呼んでもよい
+- 結果を返さない画面の終了を待つだけなら`IScreenNavigator.WaitForPopAsync(page, ct)`
+  (同じく破棄を待つ)を使う
 
 ### データ受け渡し型の命名規則
 
