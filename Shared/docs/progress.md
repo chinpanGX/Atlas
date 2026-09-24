@@ -47,6 +47,9 @@
 - [x] 開発用の通信ログ(`UnityApiRequestLogger`、`[API] --> / <--`形式、`secretKey`/`accessToken`は伏字。開発ビルドのみ)
 - [x] `uloop`(uLoopMCP)でEditor操作・コンパイル確認を自動化
 - [x] 共通UI部品`CommonButton`を独立アセンブリ`UIPackages.Runtime`へ分離
+- [x] 小さなコード整理(旧C-12): `PlayerProfile.cs`の廃止済みAPI参照コメントを修正、
+  `PlayerAccountService`の未使用フィールド`playerData`を削除、`TestPartyFactory`独自の
+  ステータス計算を`PachimonStatCalculator`(MasterData)に統一
 
 #### 画面遷移・DI・アーキテクチャ
 
@@ -58,6 +61,13 @@
 - [x] `ScreenNavigator`のPop結果通知タイミングの不具合を修正(遷移アニメーション完了後に通知)
 - [x] `SceneNavigator`のシーン破棄タイミングを調整(Page/Modalの遷移完了を待ってからUnload)
 - [x] UIをScreen Space - Camera(UICamera)に統一、1920x1080基準、横向き固定
+- [x] VContainerが新規`*LifetimeScope.cs`を空テンプレートで上書きする問題に対応(旧C-15)。
+  `VContainerSettings.DisableScriptModifier`はEditモードでは効かないことを実機検証で確認
+  (`VContainerSettings.Instance`が`Application.isPlaying`時しか設定されないため)。実効性のある対策は
+  「`.cs`作成と同時に`.meta`も自分で用意する(`.meta`が無い状態でUnityに検知させない)」で、これも
+  実機検証済み。`CLAUDE.md`(Client/AtlasUnityProject)に手順を明記した。`VContainerSettings.asset`
+  (`Assets/Settings/`、`DisableScriptModifier=true`)はPreloadedAssetsに登録済み(Playモードでの
+  スクリプト生成には効くが、今回の主因であるEditモードには効かないため、あくまで補助的なもの)
 
 #### 認証・サインイン
 
@@ -144,16 +154,8 @@
 - [ ] **C-11 IL2CPPビルド対応**
   - UnityにMessagePackのSource Generatorが入っておらず、`Atlas.BattleContracts`のPayloadは動的シリアライズ(Editor/Monoでのみ動作)
   - 実機・モバイル向けにはGeneratorの導入かResolverの事前生成が必要
-- [ ] **C-12 小さなコード整理**
-  - `Domain/PlayerProfile.cs`のコメントが廃止済みの`IPlayerRepository.SignInAsync`を参照している
-  - `Infrastructure/PlayerAccountService.cs`に未使用フィールド`playerData`が残っている
-  - `TestPartyFactory.CalculateStat`(Mock用)が独自のステータス計算を持っている。`PachimonStatCalculator`へ統一する
 - [ ] **C-13 パチモンのサムネイル画像**
   - `PachimonDto.Thumbnail`がnullのため、単色のプレースホルダで表示している
-- [ ] **C-15 VContainerが新規の`*LifetimeScope.cs`を空テンプレートで上書きする**
-  - VContainerの`ScriptTemplateProcessor`が、`XxxLifetimeScope.cs`の`.meta`作成時に中身を空のテンプレートへ書き換える
-    (Unityのメニューから作る時用の機能だが、エディタ外で書いたファイルにも効く)。スカウト実装時に2ファイルが上書きされ、書き直した
-  - `VContainerSettings`の`DisableScriptModifier`を有効にするか検討する
 - [ ] **C-16 `AddressDefinition.cs`の再生成**
   - AddressDefinitionGeneratorで生成した定数に`ScoutPage`/`ScoutConfirmModal`が無い(画面は型名で読み込むため動作には影響しない)
 

@@ -17,10 +17,6 @@ namespace Atlas.Infrastructure.Mock
     // 「Stage 1」参照)。
     public static class TestPartyFactory
     {
-        // design/battle.md「実効ステータス計算」: 経験値によるレベルアップを持たないため
-        // 全パチモン固定レベル50。
-        private const int FixedLevel = 50;
-
         public static IReadOnlyList<PartyMember> BuildParty(MemoryDatabase database, IReadOnlyList<int> pachimonIds)
         {
             var members = new List<PartyMember>(pachimonIds.Count);
@@ -30,13 +26,13 @@ namespace Atlas.Infrastructure.Mock
                 var moves = PachimonMoveLookup.GetInitialMoves(database, pachimonId);
 
                 var stats = new ParticipantStats(
-                    Level: FixedLevel,
-                    Hp: CalculateStat(pachimon.BaseHp, isHp: true),
-                    Atk: CalculateStat(pachimon.BaseAtk, isHp: false),
-                    Def: CalculateStat(pachimon.BaseDef, isHp: false),
-                    SpAtk: CalculateStat(pachimon.BaseSpatk, isHp: false),
-                    SpDef: CalculateStat(pachimon.BaseSpdef, isHp: false),
-                    Speed: CalculateStat(pachimon.BaseSpeed, isHp: false),
+                    Level: PachimonStatCalculator.FixedLevel,
+                    Hp: PachimonStatCalculator.CalculateHp(pachimon.BaseHp),
+                    Atk: PachimonStatCalculator.CalculateOther(pachimon.BaseAtk),
+                    Def: PachimonStatCalculator.CalculateOther(pachimon.BaseDef),
+                    SpAtk: PachimonStatCalculator.CalculateOther(pachimon.BaseSpatk),
+                    SpDef: PachimonStatCalculator.CalculateOther(pachimon.BaseSpdef),
+                    Speed: PachimonStatCalculator.CalculateOther(pachimon.BaseSpeed),
                     PrimaryType: MasterDataConversions.ToElementType(pachimon.PrimaryType),
                     SecondaryType: MasterDataConversions.ToSecondaryElementType(pachimon.SecondaryType));
 
@@ -55,14 +51,6 @@ namespace Atlas.Infrastructure.Mock
             }
 
             return members;
-        }
-
-        // floor((2*base + floor(EV/4)) * level / 100) + 5 (HPのみ + level + 10)。
-        // player_pachimonが未実装のため努力値(EV)は常に0として扱う。
-        private static int CalculateStat(int baseStat, bool isHp)
-        {
-            var value = 2 * baseStat * FixedLevel / 100;
-            return isHp ? value + FixedLevel + 10 : value + 5;
         }
     }
 }

@@ -71,3 +71,35 @@
       return UniTask.FromResult(new PlayerData("mock-player-id", "プレイヤー", 300));
   }
   ```
+
+## `*LifetimeScope.cs`を新規作成するとき(エディタ外からの作成)
+
+VContainerの`ScriptTemplateProcessor`(`Editor/ScriptTemplateModifier.cs`)は、`.meta`がまだ無い
+`*LifetimeScope.cs`をUnityが検知するたびに、中身を空のテンプレート(`Configure`が空の
+`LifetimeScope`派生クラス)へ強制的に上書きする。「Unityのメニューから新規作成したときだけ」用の
+機能だが、判定条件は`.meta`の有無だけなので、エディタ外(Write等)で書いた`*LifetimeScope.cs`にも
+無条件で効いてしまう。
+
+`VContainerSettings.DisableScriptModifier`で無効化できるように見えるが、**Editモードでは効かない**
+(`VContainerSettings.Instance`は`OnEnable`内の`Application.isPlaying`ガードのせいでPlayモード中しか
+設定されない。実機検証済み)。この設定を有効にしても、新規スクリプト作成が起きるEditモードでは
+意味が無い。
+
+**対策**: `*LifetimeScope.cs`を新規作成するときは、`.cs`本体と同時に`.meta`も自分で作成する
+(Unityにまだ存在しない`.meta`を生成させない)。`.meta`が既にある状態でインポートされる場合、
+Unityは「新規アセット」とみなさず`OnWillCreateAsset`自体を呼ばないため、上書きは発生しない
+(実機検証済み)。
+
+```yaml
+fileFormatVersion: 2
+guid: <32桁の16進数、例: uuidのhexで生成>
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+```

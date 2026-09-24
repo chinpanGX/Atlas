@@ -6,7 +6,6 @@ namespace Atlas.Infrastructure
     public sealed class PlayerAccountService : IPlayerAccountService
     {
         private readonly IPlayerProfileRepository profileRepository;
-        private PlayerData playerData;
 
         public PlayerAccountService(IPlayerProfileRepository profileRepository)
         {
