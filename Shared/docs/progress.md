@@ -16,7 +16,7 @@
 |---|---|
 | クライアント(Unity) | 認証〜サインイン、Home、パーティ編成、スカウト、マッチング〜対戦〜結果までは実装済み。サインイン・スカウト・Unity同士の対戦(Multiplayer Play Mode)は実サーバーにつないで確認済み。チャット・技の付け替え・ニックネーム入力の画面は未着手 |
 | APIサーバー(Rust/Axum) | 設計書にあるAPIはすべて実装済み(結合テスト62件)。残りはコンテナ化とテスト環境の不具合 |
-| バトルサーバー(C#/MagicOnion) | Hub一式・切断と再接続・制限時間・結果報告・選出個体の実データ化まで実装済み(xUnit約30件)。ボット同士・Unity Client同士の実サーバー対戦で確認済み |
+| バトルサーバー(C#/MagicOnion) | Hub一式・切断と再接続・制限時間・結果報告・選出個体の実データ化・強制交代ターンまで実装済み(xUnit 33件)。ボット同士・Unity Client同士の実サーバー対戦で確認済み |
 | 共通(マスターデータ・コード生成) | パイプラインはClient/Server/BattleServerの3か所へ配置済み。技の種類が少ない |
 
 ## 次に進める順番
@@ -66,6 +66,11 @@
 - [x] `ScreenNavigator`のPop結果通知タイミングの不具合を修正(遷移アニメーション完了後に通知)
 - [x] `SceneNavigator`のシーン破棄タイミングを調整(Page/Modalの遷移完了を待ってからUnload)
 - [x] Pop結果を`ResultModal<TResult>`/`ResultPage<TResult>`に移行(結果の型を画面の型に持たせてコンパイル時に検査、最上位ではなく自分を閉じる、Complete以外の閉じ方でも待機が終わる)
+- [x] 遷移の直列化(`TransitionQueue`): コンテナごとに、Navigatorの Push/Pop と`ResultModal`/`ResultPage`の
+  自分を閉じるPopを要求順に1つずつ実行する(遷移中の遷移要求が例外で失敗しなくなった)。
+  EditModeテスト`TransitionQueueTests`(順番・失敗後も続く・コンテナ破棄でキャンセル)。Play Modeで、
+  Pushの完了を待たずにPopを重ねる/自分を閉じるPopとPush・Popを重ねる、の2通りを確認。
+  連打は対象外(遷移中はUSNが入力を止め、遷移前の連打はPresenterで捨てる。design/client-architecture.md「遷移の直列化」)
 - [x] UIをScreen Space - Camera(UICamera)に統一、1920x1080基準、横向き固定
 - [x] VContainerが新規`*LifetimeScope.cs`を空テンプレートで上書きする問題に対応(旧C-15)。
   `VContainerSettings.DisableScriptModifier`はEditモードでは効かないことを実機検証で確認
@@ -150,15 +155,20 @@
     選択や`OpponentSwitchingModal`が出ない。契約(`Shared/BattleContracts/`)に状態を足すか、別の方法で伝える
 - [ ] **C-4 対戦まわりの失敗時のエラーModal**
   - エラーModalを作り、BattleServerへの参加失敗・マッチング失敗・行動の送信失敗の3か所で表示する(現状はログのみ)
-  - 通信エラー全体の仕組み(C-6)は後回しにし、まず対戦の3か所に絞る
+  - C-6の段階5(Bootstrap常駐の`ISystemDialog`)ができてから、それを使って出す(C-6の段階7に含む)
 - [ ] **C-5 ターン制限時間と相手の切断中表示**
   - `TurnTimeLimitSeconds`をもとに残り秒数をカウントダウン表示する
   - `OnOpponentDisconnected`/`OnOpponentReconnected`を購読して「相手の接続を待っています」を表示する(イベントは`IBattleConnection`にあるが、Presenterでは未購読)
-- [ ] **C-6 通信エラー共通の仕組み**
-  - 通信基盤(Infrastructure)でエラーを検知 → `IMessageBroker`で通知 → 各シーンの購読者がErrorModalを出す構成を想定
-  - 設計から見直す点: `IScreenNavigator`がシーン単位で`RootLifetimeScope`に無い、起動時のサインイン失敗はNavigatorが無い段階で起きる、
-    認証不要の`DeviceConnection`は`AccessTokenRefresher.SendAsync`を通らない
-  - リトライ/タイトルへ戻す等のUXも合わせて決める(現状、パーティ編成の保存失敗はログ出力のみ)
+- [ ] **C-6 通信エラー共通の仕組み(通信基盤と合わせて実装)**
+  - 実装案は design/client-architecture.md「通信エラーダイアログ・Loading(設計案、未実装)」の「実装案」。
+    段階1 api-codegen(タイムアウト・キャンセル) → 段階2 Server(`/scout/rolls`の二重送信防止) →
+    段階3 `ApiCallExecutor` → 段階4〜5 システムレイヤー(Bootstrap常駐のダイアログ・Loading、EventSystemの移動) →
+    段階6 捕まえ漏れの通知 → 段階7 各画面への適用
+  - 「決めること」(タイトルへの意味・リトライ上限・Loadingの自動表示・捕まえ漏れの通知・タイムアウト秒数)の確定待ち
+  - 現状の問題: リトライが無く通信の失敗はほぼログのみ、タイムアウトが無い、`/scout/rolls`は送り直すとジェムが二重に引かれる
+- [ ] **C-18 画面遷移フレームワークの残り**
+  - Toast、戻るボタンの一元管理、まとめて行う遷移(Rebase・PopOrReplace等)。Atlasで必要になった時点で追加する
+  - 共通パッケージとしての切り出しは、APIが固まってから行う
 - [ ] **C-8 チャット画面**
   - `IChatConnection`(`POST /chat/send`・`GET /chat/poll`)と画面を作る。Connectionは`SendAsync`で包む
 - [ ] **C-9 技の付け替え画面(View)**
@@ -180,7 +190,7 @@
     テスト用の`BootstrapTest`シーンを、有効なビルドプロファイルのシーン一覧に入れる必要がある
     (出荷ビルドに入れない方法も合わせて決める)
 - [ ] **C-16 `AddressDefinition.cs`の再生成**
-  - AddressDefinitionGeneratorで生成した定数に`ScoutPage`/`ScoutConfirmModal`が無い(画面は型名で読み込むため動作には影響しない)
+  - AddressDefinitionGeneratorで生成した定数に`ScoutPage`/`ScoutConfirmModal`/`OpponentSwitchingModal`が無い(画面は型名で読み込むため動作には影響しない)
 
 ---
 

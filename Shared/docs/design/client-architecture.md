@@ -475,8 +475,8 @@ await view.CompleteAsync(new PartyEditResult(...));
   呼び出し側ごとに型引数を書くため食い違いが実行時の`InvalidCastException`になっていた
 - **最上位ではなく自分を閉じる**: `CompleteAsync`はコンテナ内の自分の位置を探し、自分と
   その上に積まれた画面をまとめてPopする(`Modal.Identifier`は既定でプレハブ名で、コンテナ内の
-  IDとは一致しないため、インスタンスで探す)。Push中(開くアニメーション中)に呼ばれた場合は
-  遷移の終了を待ってからPopする
+  IDとは一致しないため、インスタンスで探す)。Popは他の遷移と同じ順番待ちに並べ(下記「遷移の直列化」)、
+  順番が来た時点の位置から閉じる。Push中(開くアニメーション中)に呼ばれた場合も、Pushが終わってからPopする
 - **結果の通知は画面の破棄時(`destroyCancellationToken`)**: USNはPopの遷移完了後に画面を
   破棄するため、結果を受けた側が続けてPush/Popしても"screen is already in transition"に
   ならない。また、`CompleteAsync`を経由しない閉じ方(背景タップで閉じる、`PopModalAsync`で
@@ -489,6 +489,32 @@ await view.CompleteAsync(new PartyEditResult(...));
   (シーン破棄中にPopを始めると破棄済みのRectTransformを触るため)。複数回呼んでもよい
 - 結果を返さない画面の終了を待つだけなら`IScreenNavigator.WaitForPopAsync(page, ct)`
   (同じく破棄を待つ)を使う
+
+### 遷移の直列化
+
+1つのコンテナ(`PageContainer`/`ModalContainer`)への遷移は、要求された順に1つずつ実行する
+(`TransitionQueue`、`Atlas.Navigation`内部)。USNは遷移中のPush/Popを`InvalidOperationException`で
+拒否するため、別々の場所から来た遷移が重なると、後の方が失敗する。例えば次のようなケースがある。
+
+- ページを開くアニメーションの途中で、通信エラーのダイアログを出す
+- 交代選択Modalを閉じている途中に、決着の結果Modalを出す
+
+これらを捨てずに順番待ちにする。
+
+- 対象は`ScreenNavigator`のPush/Popと、`ResultModal`/`ResultPage`が自分を閉じるPop。後者は
+  Navigatorを持たないため、キューは`ScreenNavigator`ではなくコンテナにひも付けて持つ
+  (`ConditionalWeakTable`)。どちらから来た遷移も同じキューに並ぶ
+- キューはコンテナごと。PageとModalはUSNでも別々に遷移できるため、互いを待たせない
+- 前の遷移が失敗しても、次の遷移は実行する(失敗は、その遷移を要求した呼び出し側にだけ例外で返る)
+- 順番が来た時点でコンテナが破棄されていれば(シーンの切り替え等)、実行せずに
+  `OperationCanceledException`で返す
+- **ユーザーの連打は対象外**。直列化すると、連打した回数だけ同じ画面が順番に開いてしまう。連打は次の2つで防ぐ
+  - 遷移中: USNの設定(`EnableInteractionInTransition: false`、`ControlInteractionsOfAllContainers: true`)で、
+    どれかのコンテナが遷移している間は全コンテナの`CanvasGroup.interactable`がfalseになり、ボタンを押せない
+  - 遷移を始める前(通信を待っている間など): Presenter側で`SubscribeAwait(..., AwaitOperation.Drop)`や
+    `Take(1)`を使い、2回目以降の押下を捨てる
+- シーンの切り替え(`SceneNavigator`)はキューに入れず、今までどおり遷移中でなくなるのを待ってから
+  Unloadする。Unload後に残った順番待ちは、上記のとおりキャンセルになる
 
 ### データ受け渡し型の命名規則
 
@@ -809,6 +835,7 @@ Assets/Scripts/Presentation/
     ...
     Views/                        -- BattlePageの部品(CommandView/SelfInfoView等)
     Forfeit/
+    OpponentSwitching/            -- 相手の強制交代待ちModal(Presenterは持たない)
     Result/
     Switch/
 ```
@@ -848,6 +875,240 @@ Assets/Scripts/Presentation/
 - Supplementの`RegisterAddressablesLoader()`等VContainer統合拡張、USNのAddressablesアセット
   ローダー(`AddressableAssetLoaderObject`)は、それぞれ`USE_VCONTAINER`/`USN_USE_ADDRESSABLES`
   スクリプティング定義シンボルの有効化が必要だった(共に有効化済み)
+
+## 通信エラーダイアログ・Loading(設計案、未実装)
+
+> **状態: 設計案**。progress.mdのC-4/C-6に対応する。下記「決めること」を確定してから実装する。
+
+どの画面を開いていても(起動時のサインイン中、シーンの切り替え中を含む)出せる、通信エラーの
+ダイアログとLoading表示の設計。
+
+### 現状の問題
+
+- `IScreenNavigator`はシーン(Home/Battle)ごとにしか無い。Root(常駐)側には画面を出す手段が無い
+- 起動時のサインイン(`BootstrapEntryPoint`)は、Homeシーンを読み込む前に行う。この時点では
+  `PageContainer`/`ModalContainer`も`IScreenNavigator`も存在しない
+- `EventSystem`がHome/Battleシーンにしか無い。Bootstrapにダイアログを出しても、Homeを読み込む前や
+  シーンの切り替え中はボタンを押せない
+- 通信の失敗は各所で`ApiException`(`StatusCode`が0なら通信断)が投げられるだけで、ほとんどの画面は
+  ログを出すだけ。窓口は要認証APIの`AccessTokenRefresher.SendAsync`にまとまっているが、デバイスの
+  登録・認証(`DeviceConnection`)はそこを通らない
+
+### 方針
+
+**1. 画面の外側に「システムレイヤー」を常駐させる**
+
+Bootstrapシーンに、シーン(Home/Battle)のUIより常に手前に出るUIを置く。Bootstrapは一度もUnloadされない
+ため、起動直後からシーンの切り替え中まで、いつでも出せる。
+
+```
+Bootstrap(常駐)
+  RootLifetimeScope
+  EventSystem                 -- Home/Battleから移す(アプリで1つ)
+  SystemUICamera              -- シーンのUICamera(depth -1)より大きいdepth
+  SystemCanvas(Screen Space - Camera、1920x1080基準)
+    LoadingView               -- 全画面の入力ブロッカー + インジケーター
+    ErrorDialogView           -- 全画面の入力ブロッカー + メッセージ + ボタン
+```
+
+- **USNは使わず、シーンに置いたGameObjectの表示を切り替えるだけにする**。ダイアログの出番は
+  「Addressablesやサーバーに繋がらない」ときであり、表示そのものがAddressablesの読み込みに依存しては
+  いけないため。シーンの画面遷移(`TransitionQueue`)とも無関係になり、遷移の途中でも待たずに出せる
+- 表示は`IScreenNavigator`ではなく、用途を絞ったサービスとして公開する。Rootに`IScreenNavigator`を
+  登録すると、シーンのスコープで上書きされる同名の登録と紛らわしいため
+  - `ISystemDialog`(Application): `UniTask<SystemDialogChoice> ShowAsync(SystemDialogRequest)`。
+    同時に1つだけ表示し、表示中の要求は順番待ちにする
+  - `ILoadingIndicator`(Application): `IDisposable Show()`。参照カウントで、全員が`Dispose`したら消す。
+    ちらつきを防ぐため、表示は一定時間(0.3秒程度)経っても終わらないときだけにする。入力のブロックは即座に行う
+  - 実装(View/Presenter)は`Atlas.Presentation`の`System/`、登録は`RootLifetimeScope`
+
+**2. 通信エラーは1か所で捕まえ、ダイアログでリトライさせる**
+
+```
+Presenter → Service → Connection → AccessTokenRefresher.SendAsync(要認証API)
+                                    DeviceConnection(登録・認証)も同じ窓口を通す
+                                          │ 失敗
+                                          ▼
+                          ICommunicationErrorHandler(Application、実装はPresentation)
+                                          │ 通信断・5xx・再認証の失敗
+                                          ▼
+                          ISystemDialog「通信に失敗しました [リトライ] [タイトルへ]」
+                                          │
+                  リトライ → 同じリクエストを送り直す(成功するまで、呼び出し元には失敗を返さない)
+                  タイトルへ → CommunicationAbortedExceptionを投げ、アプリを起動直後の状態からやり直す
+```
+
+- **分類**: 共通で扱うのは「画面側では何もできないエラー」だけにする
+  - 共通(ダイアログでリトライ): 通信断(`StatusCode` 0)、タイムアウト、5xx、再認証の失敗
+  - 画面ごと(そのまま`ApiException`を投げる): 4xx(パーティが空の400、存在しないバナーの404等)。
+    意味が画面ごとに違うため、Presenterで扱う
+- **`IMessageBroker`で通知する案(C-6の当初の想定)は採用しない**。リトライには「ユーザーの選択を待ってから
+  同じリクエストを送り直す」必要があり、投げっぱなしの通知では呼び出し元に結果を返せないため。
+  `ICommunicationErrorHandler`をApplicationに置き、Infrastructure.Apiはそれを呼ぶだけにする(依存の向きは
+  Infrastructure → Application)
+- **同時に失敗したリクエストは1つのダイアログにまとめる**。表示中に届いた失敗は、同じダイアログの
+  選択結果を待つ(`AccessTokenRefresher`の再認証と同じsingle-flight)。リトライを選ぶと、全員が送り直す
+- **Loadingも同じ窓口で出す**。すべての通信で自動的に`ILoadingIndicator.Show()`する。
+  マッチングの状況確認・チャットの受信など、裏で定期的に行う通信は出さない(送信時に指定する)
+- **起動時のサインイン**: システムレイヤーはBootstrapに最初からあるため、Homeを読み込む前でも同じ
+  ダイアログが出る。起動時はまだタイトルに戻る先が無いため、選択肢はリトライだけにする
+- **対戦(MagicOnion)は対象外**。BattleServerへの参加失敗・切断は対戦固有の扱い(C-3の再接続、C-4)に
+  なるため、`BattlePresenter`が`ISystemDialog`を直接使って出す
+
+**3. EventSystemをBootstrapへ移す**
+
+Home/BattleシーンのEventSystemを削除し、Bootstrapに1つだけ置く。シーンの切り替え中もダイアログを
+押せるようにするため(2つ同時にあるとUnityが警告を出すため、移すだけでなくシーン側から消す)。
+
+### 実装案
+
+通信基盤(タイムアウト・キャンセル・リトライ・二重送信の防止)と合わせて、次の順に実装する。
+各段階で動く状態にして区切る。
+
+#### 段階1: 生成コード(api-codegen)
+
+`ApiRequest`・各`XxxApiClient`は生成コードのため、api-codegen側を変更して再生成する。
+Atlas固有の処理は入れず、汎用ツールとして持っていてよい機能だけを足す。
+
+| 変更 | 内容 |
+|---|---|
+| タイムアウト | `ApiRequest.TimeoutSeconds`(既定10秒)を`UnityWebRequest.timeout`に設定する。現状は無制限で、通信が返らないと永久に待つ |
+| キャンセル | 各メソッドに`CancellationToken cancellation = default`を追加し、`SendWebRequest`に渡す(画面を閉じたら通信を止められるように) |
+| 通信断の判別 | `ApiException.IsNetworkError`(`UnityWebRequest.Result`が`ConnectionError`、タイムアウトを含む)を追加する。今は`StatusCode == 0`で見分けるしかない |
+| ログ | エラー時の`Debug.LogError`をやめ、`IApiRequestLogger`だけに出す(リトライで直るエラーが毎回エラーログになるため) |
+
+#### 段階2: サーバー(二重送信の防止)
+
+リトライでは「サーバーでは成功していたが、レスポンスだけ届かなかった」リクエストも送り直す。
+送り直してよいかをエンドポイントごとに確認した結果、対応が要るのは次のとおり。
+
+| エンドポイント | 送り直した場合 | 対応 |
+|---|---|---|
+| `POST /scout/rolls` | **ジェムが二重に引かれる** | リクエストに`requestId`(クライアントが生成するULID)を追加し、`scout_rolls`に`(player_id, request_id)`の一意制約を付ける。同じ`requestId`なら、新しく引かずに既存のロールを返す |
+| `POST /chat/send` | 同じ発言が2回載る | 同じく`requestId`で、既存の発言を返す(C-8のチャット画面と合わせて行う) |
+| `POST /signup` | 409(作成済み) | クライアント側で409を成功として扱う |
+| `POST /scout/rolls/{id}/select` | 409(選択済み) | クライアント側で409を成功として扱い、所持データはサインインし直しの差分で合わせる |
+| `POST /devices/register` | 使われないデバイスが1件増える | 対応しない(害が無いため) |
+| その他(`/edit/*`・`/sign-in`・`/devices/authenticate`・GET) | 同じ結果になる | 対応不要 |
+
+- 汎用の`Idempotency-Key`ヘッダーとミドルウェア(全POSTの応答を保存する)は採用しない。対象が2つしか無く、
+  応答の保存テーブルと期限切れの掃除を持つほどではないため
+- 変更したAPIは`scout.md`/`outgame.md`の「API仕様」に反映し、`api-codegen`で再生成する
+
+#### 段階3: クライアントの通信の窓口(Infrastructure.Api)
+
+`AccessTokenRefresher.SendAsync`を、すべての通信が通る`ApiCallExecutor`に置き換える。
+
+```csharp
+// Infrastructure.Api
+public sealed class ApiCallExecutor
+{
+    // requiresAuth=falseは/devices/*用(トークンの確認・401時の再認証をしない)
+    public UniTask<T> SendAsync<T>(Func<CancellationToken, UniTask<T>> request,
+        ApiCallOptions options = default, CancellationToken cancellation = default);
+}
+
+public readonly struct ApiCallOptions
+{
+    public bool RequiresAuth { get; init; }      // 既定true
+    public bool Background { get; init; }        // true: Loadingを出さない(定期的な通信)
+}
+```
+
+1回の`SendAsync`の流れ:
+
+1. `Background`でなければ`ILoadingIndicator.Show()`(終わったら`Dispose`)
+2. `RequiresAuth`なら、トークンの期限を確認して必要なら再認証(今の`AccessTokenRefresher`の処理をそのまま使う)
+3. 送信。401なら再認証して1回だけ送り直す(今と同じ)
+4. 失敗を分類する
+   - 通信断・タイムアウト・5xx・再認証の失敗 → `ICommunicationErrorHandler.HandleAsync(error)`の選択を待つ。
+     リトライなら3へ戻る。タイトルへなら`CommunicationAbortedException`を投げる
+   - 4xx → `ApiException`のまま呼び出し元へ投げる
+   - `cancellation`によるキャンセル → そのまま`OperationCanceledException`
+
+- `AccessTokenRefresher`はトークンの管理(期限の確認・single-flightの再認証)だけを残し、`ApiCallExecutor`から使う
+- `DeviceConnection`も`ApiCallExecutor`を通す(`RequiresAuth = false`)。起動時のデバイス登録の失敗も、同じダイアログでリトライになる
+- `ApiBattleMatchmaker`の状況確認のポーリングは`Background = true`
+- 各Connectionの`accessTokenRefresher.SendAsync(() => client.XxxAsync())`は
+  `executor.SendAsync(ct => client.XxxAsync(ct))`に置き換える(機械的な変更)
+
+#### 段階4: Applicationのインターフェース
+
+```csharp
+// Atlas.Application
+public interface ICommunicationErrorHandler
+{
+    // 表示中のダイアログがあれば、同じ選択結果を待つ(single-flight)
+    UniTask<CommunicationErrorDecision> HandleAsync(CommunicationError error);
+}
+public enum CommunicationErrorDecision { Retry, Abort }
+public sealed record CommunicationError(CommunicationErrorKind Kind, int StatusCode, string Endpoint);
+public enum CommunicationErrorKind { Network, Timeout, Server, AuthenticationFailed }
+public sealed class CommunicationAbortedException : Exception { }
+
+public interface ISystemDialog
+{
+    UniTask<SystemDialogChoice> ShowAsync(SystemDialogRequest request);
+}
+public interface ILoadingIndicator
+{
+    IDisposable Show();
+}
+public interface IAppRestarter
+{
+    void Restart();   // 「タイトルへ」
+}
+```
+
+#### 段階5: システムレイヤー(Presentation・DI・Bootstrapシーン)
+
+| 型 | 配置 | 役割 |
+|---|---|---|
+| `SystemDialogView` / `LoadingView` | `Atlas.Presentation`の`System/`、Bootstrapシーンに配置 | 表示と入力ブロックのみ |
+| `SystemDialog`(`ISystemDialog`) | 同上 | 同時に1つだけ表示し、表示中の要求は順番待ち |
+| `LoadingIndicator`(`ILoadingIndicator`) | 同上 | 参照カウント。入力は即ブロックし、表示は0.3秒経っても終わらないときだけ |
+| `CommunicationErrorHandler`(`ICommunicationErrorHandler`) | 同上 | 文言の組み立てとsingle-flight。起動中(Homeを開く前)は選択肢をリトライだけにする |
+| `AppRestarter`(`IAppRestarter`) | `Atlas.DI` | 下記「タイトルへ」 |
+
+- Viewは`RootLifetimeScope`の`[SerializeField]`で受け取り、`RegisterComponent`する(シーンの画面と同じ流儀)
+- Bootstrapシーンの編集(`SystemUICamera`・`SystemCanvas`・Viewの配置、EventSystemの移動)と、
+  Home/BattleシーンからのEventSystemの削除は、UnityのAPI(`EditorSceneManager`)で行う
+- **「タイトルへ」**: Bootstrapシーンを`LoadSceneMode.Single`で読み直し、起動直後の状態からやり直す。
+  `RootLifetimeScope`ごと作り直すため、各Repositoryの中身・トークン・`BattleEntryStore`等を個別に
+  消す処理が要らない(消し漏れが起きない)。代わりにマスタも読み直すが、起動時と同じ時間しかかからない
+- `CommunicationAbortedException`は、呼び出し元のPresenterでエラー扱いしない(再起動が始まっているため)。
+  下記の「捕まえ漏れの通知」からも除外する
+
+#### 段階6: 捕まえ漏れの通知
+
+- `UniTaskScheduler.UnobservedTaskException`(`Forget()`した処理の例外)とVContainerのエントリーポイントの例外を
+  Rootで購読し、「エラーが発生しました [OK]」を`ISystemDialog`で出す。`OperationCanceledException`と
+  `CommunicationAbortedException`は除外する
+- Presenterで扱うべき4xxを捕まえ忘れていても、黙って止まらずに気づける
+
+#### 段階7: 各画面への適用
+
+- `PartyPresenter`: 保存の失敗(4xx)は画面に留まってメッセージを出す(今はログのみ)
+- `HomePresenter`のマッチング: 4xx(パーティが空の400等)はメッセージ
+- `BattlePresenter`: BattleServerへの参加失敗・切断は`ISystemDialog`を直接使う(C-4。C-3の再接続とは別に進められる)
+
+#### テスト
+
+- EditMode(`ApiCallExecutor`、ハンドラーとLoadingはFake): 通信断 → リトライ → 成功、タイトルへで例外、
+  401 → 再認証 → 成功、4xxはそのまま投げる、同時に失敗した2件でハンドラーの呼び出しが1回、
+  `Background`ではLoadingを出さない、キャンセルでハンドラーを呼ばない
+- EditMode(`LoadingIndicator`): 参照カウント、0.3秒未満で終わった場合は表示しない
+- Server(結合テスト): 同じ`requestId`で`/scout/rolls`を2回送ると、ジェムが1回分だけ減り、同じ`rollId`が返る
+- Play Mode(手動): Serverを止めた状態で起動 → ダイアログ → Serverを起動してリトライ → Home。
+  Home表示中にServerを止めてパーティ保存 → ダイアログ → タイトルへ → 起動からやり直し
+
+### 決めること
+
+1. **「タイトルへ」の意味**: 案は上記のとおりBootstrapから読み直す(タイトル画面は挟まない)
+2. **リトライの上限**: 案は上限なし(ユーザーが選び続ける限りリトライ)
+3. **Loadingを全通信で自動にするか**: 案は自動(`Background`の通信だけ除外)
+4. **捕まえ漏れの通知**: 案は段階6のとおり共通ダイアログで知らせる
+5. **タイムアウトの秒数**: 案は10秒
 
 ## 未確定・今後決めること
 

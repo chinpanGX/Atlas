@@ -15,6 +15,7 @@ namespace Atlas.Navigation
     /// Atlas.Presentationとは別アセンブリ(Atlas.Navigation)に分離し、特定の画面/Presenterの
     /// 型を知らない汎用の画面遷移基盤として扱う。design/client-architecture.md
     /// 「INavigationService(現IScreenNavigator)」参照。
+    /// Push/Popはコンテナごとに直列化する(TransitionQueue)ため、前の遷移の途中で呼んでも順番待ちになる。
     /// </summary>
     public sealed class ScreenNavigator : IScreenNavigator
     {
@@ -47,9 +48,10 @@ namespace Atlas.Navigation
             });
         }
 
-        public async UniTask PopPageAsync(bool playAnimation = true, int popCount = 1)
+        public UniTask PopPageAsync(bool playAnimation = true, int popCount = 1)
         {
-            await pageContainer.Pop(playAnimation, popCount).Task.AsUniTask();
+            return TransitionQueue.For(pageContainer).EnqueueAsync(pageContainer,
+                () => pageContainer.Pop(playAnimation, popCount).Task.AsUniTask());
         }
 
         // USNはPopの遷移完了後にPageを破棄するため、破棄を待てば続けてPush/Popしても遷移中にならない。
@@ -77,12 +79,20 @@ namespace Atlas.Navigation
             });
         }
 
-        public async UniTask PopModalAsync(bool playAnimation = true, int popCount = 1)
+        public UniTask PopModalAsync(bool playAnimation = true, int popCount = 1)
         {
-            await modalContainer.Pop(playAnimation, popCount).Task.AsUniTask();
+            return TransitionQueue.For(modalContainer).EnqueueAsync(modalContainer,
+                () => modalContainer.Pop(playAnimation, popCount).Task.AsUniTask());
         }
 
-        private async UniTask<TPage> PushPageCoreAsync<TPage>(string resourceKey, bool playAnimation, bool stack,
+        private UniTask<TPage> PushPageCoreAsync<TPage>(string resourceKey, bool playAnimation, bool stack,
+            Action<LifetimeScope> configureScope) where TPage : Page
+        {
+            return TransitionQueue.For(pageContainer).EnqueueAsync(pageContainer,
+                () => PushPageNowAsync<TPage>(resourceKey, playAnimation, stack, configureScope));
+        }
+
+        private async UniTask<TPage> PushPageNowAsync<TPage>(string resourceKey, bool playAnimation, bool stack,
             Action<LifetimeScope> configureScope) where TPage : Page
         {
             resourceKey ??= typeof(TPage).Name;
@@ -104,7 +114,14 @@ namespace Atlas.Navigation
             return result;
         }
 
-        private async UniTask<TModal> PushModalCoreAsync<TModal>(string resourceKey, bool playAnimation,
+        private UniTask<TModal> PushModalCoreAsync<TModal>(string resourceKey, bool playAnimation,
+            Action<LifetimeScope> configureScope) where TModal : Modal
+        {
+            return TransitionQueue.For(modalContainer).EnqueueAsync(modalContainer,
+                () => PushModalNowAsync<TModal>(resourceKey, playAnimation, configureScope));
+        }
+
+        private async UniTask<TModal> PushModalNowAsync<TModal>(string resourceKey, bool playAnimation,
             Action<LifetimeScope> configureScope) where TModal : Modal
         {
             resourceKey ??= typeof(TModal).Name;

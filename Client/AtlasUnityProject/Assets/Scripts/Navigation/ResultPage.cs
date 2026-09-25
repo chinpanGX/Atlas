@@ -29,23 +29,26 @@ namespace Atlas.Navigation
             return Completion.CompleteAsync(this, result, () => CloseAsync(playAnimation));
         }
 
-        private async UniTask CloseAsync(bool playAnimation)
+        // 他の遷移と同じキューに並べ、順番が来た時点の位置から閉じる(待っている間に上へ積まれた画面も一緒に閉じる)。
+        private UniTask CloseAsync(bool playAnimation)
         {
             var container = PageContainer.Of(transform);
-            var canceled = await UniTask.WaitWhile(() => container.IsInTransition,
-                cancellationToken: destroyCancellationToken).SuppressCancellationThrow();
-            if (canceled)
+            return TransitionQueue.For(container).EnqueueAsync(container, async () =>
             {
-                return;
-            }
+                // 順番待ちの間に別の経路(上からまとめてPop等)で閉じられていれば何もしない。
+                if (this == null)
+                {
+                    return;
+                }
 
-            var popCount = CountFromTop(container);
-            if (popCount == 0)
-            {
-                return;
-            }
+                var popCount = CountFromTop(container);
+                if (popCount == 0)
+                {
+                    return;
+                }
 
-            await container.Pop(playAnimation, popCount).Task.AsUniTask();
+                await container.Pop(playAnimation, popCount).Task.AsUniTask();
+            });
         }
 
         private int CountFromTop(PageContainer container)
