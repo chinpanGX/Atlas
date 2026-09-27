@@ -1,4 +1,16 @@
-﻿.PHONY: up down ps logs mysql clean restart wait-db migrate migrate-revert setup db-reset
+﻿.PHONY: up down ps logs mysql clean restart wait-db migrate migrate-revert setup db-reset fmt fmt-check
+
+# rustfmtはcrateルート(lib.rs/各bin)から`mod`宣言を辿って対象ファイルを見つけるため、
+# 個別の.rsファイルを列挙する必要はない(むしろ列挙すると同じファイルが複数回チェックされ、
+# 出力が重複する)。src/master/generated/への再帰は、宣言側(src/master/mod.rs)の
+# #[rustfmt::skip]で止めている(rustfmt.tomlの`ignore`はstableでは無効なため)。
+FMT_ROOTS := src/lib.rs src/main.rs $(wildcard src/bin/*.rs)
+
+fmt:
+	@rustfmt --edition 2024 $(FMT_ROOTS)
+
+fmt-check:
+	@rustfmt --edition 2024 --check $(FMT_ROOTS)
 
 # MySQLコンテナを起動
 up:

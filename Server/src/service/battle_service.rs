@@ -158,7 +158,11 @@ pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Resul
          player1_selected_pachimon = ?, player2_selected_pachimon = ?, ended_at = NOW(3) \
          WHERE match_id = ?",
     )
-    .bind(if has_winner { STATUS_FINISHED } else { STATUS_ABORTED })
+    .bind(if has_winner {
+        STATUS_FINISHED
+    } else {
+        STATUS_ABORTED
+    })
     .bind(has_winner.then_some(&input.winner_id))
     .bind(sqlx::types::Json(selected_of(&player1_id)))
     .bind(sqlx::types::Json(selected_of(&player2_id)))

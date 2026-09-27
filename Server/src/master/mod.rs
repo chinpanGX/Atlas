@@ -1,4 +1,5 @@
 pub mod cache;
+#[rustfmt::skip] // master-data-pipeline生成物。rustfmtが並び順を書き換えるのを防ぐ(Server/rustfmt.toml参照)
 pub mod generated;
 
 pub use cache::MasterData;

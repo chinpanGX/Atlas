@@ -1,0 +1,8 @@
+edition = "2024"
+max_width = 100
+use_small_heuristics = "Default"
+
+# src/master/generated/ (master-data-pipelineが生成する「DO NOT EDIT」ファイル) はここでは除外できない。
+# rustfmtの`ignore`はnightly限定機能で、stableでは警告が出るだけで無視される(実機確認済み)。
+# 除外は`make fmt`(生成物を含まないファイル一覧に対してrustfmtを直接実行する)側で行う。
+# 生のcargo fmtを実行すると生成物の並び順が変わり、次回生成時との差分が発生し続けるので使わないこと。

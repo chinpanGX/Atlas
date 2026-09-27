@@ -9,7 +9,8 @@
         "GUID:41261d631a9f02542ba248f84bf54981",
         "GUID:619451fd5e12658408c1bba68b29ad7a",
         "GUID:8cea2db61e31fb5479b11bf6b3d73be8",
-        "GUID:f50f3c57a6ab8a546b8103805c756bcd",
+        "GUID:530c139058a762940af726050691d94b",
+        "GUID:4b7a874a3b17d434aaecc3633e34abb6",
         "GUID:2359c074672083046b6ff6b309700f8e",
         "GUID:a21ce864c79b452a824be204b9b4b161",
         "GUID:31964d10bfc601d4d8dd0b8a85f8bb6e",
@@ -17,8 +18,8 @@
         "GUID:ac5077aef605427f9a3fc74bc37132e2",
         "GUID:a9f3d18a0da2813498862209298fb7ff",
         "GUID:b4f8e1957a2a9f944b620db617042654",
-        "Atlas.BattleCore",
-        "Atlas.Infrastructure.Realtime"
+        "GUID:0e38cc78efbdb864ba69ccf7a3880c32",
+        "GUID:38bfacf7cd1aad54a86a97a2614e280c"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

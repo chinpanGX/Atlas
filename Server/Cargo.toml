@@ -5,6 +5,16 @@ edition = "2024"
 # src/bin/配下にも複数binがあるため、`cargo run`単体でAPIサーバー本体を起動できるよう指定
 default-run = "Server"
 
+# cargo clippy実行時のみ有効(cargo build/check/testには影響しない)。
+# unwrap/expectは起動処理・シードスクリプトでの意図的な使用が多いためwarn止まりとし、
+# dbg!/todo!/unimplemented!は現状0件のためdenyにして混入を防ぐ。
+[lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+
 [dependencies]
 # Webフレームワーク本体(ルーティング・リクエスト/レスポンス処理)
 axum = "0.7"

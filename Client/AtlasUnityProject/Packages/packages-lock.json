@@ -15,22 +15,24 @@
       "dependencies": {}
     },
     "com.chinpangx.supplement": {
-      "version": "file:../../../Supplement/Assets/Supplement",
+      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement",
       "depth": 0,
-      "source": "local",
+      "source": "git",
       "dependencies": {
-        "com.cysharp.unitask": "2.5.10",
-        "jp.hadashikick.vcontainer": "1.17.0",
+        "com.cysharp.unitask": "2.5.11",
+        "jp.hadashikick.vcontainer": "1.19.0",
         "com.unity.addressables": "2.7.6"
-      }
+      },
+      "hash": "f5722a2a1fc4d12c16c5d0eab8b785acb888e126"
     },
     "com.chinpangx.supplement.zeromessenger": {
-      "version": "file:../../../Supplement/Assets/Supplement.ZeroMessenger",
+      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger",
       "depth": 0,
-      "source": "local",
+      "source": "git",
       "dependencies": {
         "com.chinpangx.supplement": "1.0.0"
-      }
+      },
+      "hash": "f5722a2a1fc4d12c16c5d0eab8b785acb888e126"
     },
     "com.cysharp.magiconion.client.unity": {
       "version": "7.11.0",

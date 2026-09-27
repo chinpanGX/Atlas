@@ -24,7 +24,7 @@ namespace Atlas.Infrastructure
                 return null;
             }
 
-            var dto = await fileStorageService.ReadAsync<DeviceCredentialsDto>(FileKey, Password, CancellationToken.None);
+            var dto = await fileStorageService.ReadAsync<DeviceCredentialsDto>(FileKey, Password);
             return new DeviceCredentials(dto.DeviceId, dto.SecretKey);
         }
 
@@ -32,7 +32,7 @@ namespace Atlas.Infrastructure
         {
             fileStorageService.CreateDirectoryIfNotExists(FileKey);
             var dto = new DeviceCredentialsDto { DeviceId = credentials.DeviceId, SecretKey = credentials.SecretKey };
-            return fileStorageService.WriteAsync(FileKey, dto, Password, CancellationToken.None);
+            return fileStorageService.WriteAsync(FileKey, dto, Password);
         }
 
         [System.Serializable]
