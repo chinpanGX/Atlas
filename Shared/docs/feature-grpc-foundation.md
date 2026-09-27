@@ -36,6 +36,47 @@ Unityクライアントと Rust APIサーバー間の通信を、REST(OpenAPI)�
 - 形態は **サンプルのゲームサーバーとクライアントを含んだ「テンプレートのリポジトリ」**
   (ライブラリ単体の配布ではなく、そのまま開発を始められる雛形)
 
+### 2.4 リポジトリ構成と運用 【確定】
+
+#### 運用
+
+- アプリを作るときは、基盤のリポジトリを `git clone` し、`git remote add upstream <基盤のリポジトリ>` で複製元を登録する
+  - GitHubでは自分のリポジトリを同じアカウントにフォークできないため、フォーク機能は使わない。「Use this template」は複製元との履歴のつながりが無くなるため使わない
+- 基盤の改善は、`git fetch upstream` して取り込む。アプリ側の変更との切り分けはブランチ運用で解決する
+- 基盤をライブラリ(crate / UPMパッケージ)として配布する形は採らない。同じ基盤を使うアプリが複数になり、基盤を頻繁に更新する段階になってから検討する
+
+#### フォルダ構成
+
+```
+<repository>/
+├── foundation/          基盤(普段は触らない)
+│   ├── proto/           error_code.proto、auth/device.proto
+│   ├── server/          Rustのライブラリクレート(各Layer、差分コレクターの仕組み、デバイス登録・認証)
+│   └── client/          UnityのUPMパッケージ(ApiRequest、TaskService、Interceptor、エラー変換、再認証、IHasPlayerDiff)
+├── app/                 アプリ固有(最初はサンプル。アプリごとに書き換える)
+│   ├── proto/           サインイン、業務API、PlayerDiff(リソースの中身)
+│   ├── server/          Rustのバイナリクレート(foundationに依存)
+│   └── client/          Unityプロジェクト(foundationのパッケージを file: で参照)
+├── buf.yaml             foundation/proto と app/proto の2モジュール
+├── Cargo.toml           ワークスペース(foundation/server と app/server)
+├── docker-compose.yml / Makefile
+└── docs/design.md       本書の移管先
+```
+
+- `foundation/` をなるべく触らないことで、基盤の改善を取り込むときの衝突を減らす
+- 最初のサンプルは、リファレンスとして残す(残し方はブランチ運用で決める)
+
+#### 基盤とアプリの境界
+
+| もの | 置き場所 | 理由 |
+|---|---|---|
+| `players` テーブル | アプリ | 持たせる列はアプリごとに違う。基盤は `device_id` から `player_id` を引くtrait(例: `PlayerResolver`)だけを定義し、アプリが実装する |
+| 直前のレスポンスを保存するテーブル(5.3) | 基盤 | `player_id` をキーにするだけで、`players` の中身には依存しない |
+| `devices`・`access_tokens` テーブル(5.4) | 基盤 | 認証は基盤の機能 |
+| `PlayerDiff` の中身(リソースの種類) | アプリ | リソースの種類はアプリごとに違う。基盤は差分を集めて返す仕組みと `IHasPlayerDiff` だけを持つ |
+| `error_code.proto` | 基盤に置き、アプリが書き足す | protoのenumは1ファイルにまとめる必要があるため。1〜999は基盤の予約コード、1000以降をアプリが足す |
+| エラーダイアログ | 基盤はロジック(action → ボタン → 挙動)とインターフェース、アプリは見た目(prefab) | 見た目はアプリごとに違う |
+
 ---
 
 ## 3. 全体構成
@@ -64,10 +105,12 @@ proto/*.proto(APIの唯一の定義元)
  └─ protoc + grpc_csharp_plugin ────→ C#: メッセージ型 + クライアント
 ```
 
-- **v1ではカスタムオプションと自作のprotocプラグインは使わない**。標準的な生成だけで構成する
+- **v1では自作のprotocプラグインは使わない**。標準的な生成だけで構成する
   - 検討の結果、認証の要否・冪等性・playerDiffの反映などは、サービスの分割や一律適用、
-    C#の `partial` クラスへのインターフェース付与で実現でき、カスタムオプションが必要なケースが無かったため
+    C#の `partial` クラスへのインターフェース付与で実現でき、カスタムオプションやプラグインが必要なケースが無かったため
   - 手書きが負担になった時点で、必要な分だけプラグインを追加する
+- **カスタムオプションは、エラーコードの既定の action(`default_action`、5.2)にだけ使う**
+  - クライアント(C#)は生成コードの Descriptor から実行時に読むので、プラグインは要らない。サーバー(Rust/prost)は読まない
 - Unity では Grpc.Tools(MSBuild連携)が動かないため、**C#コードは事前に生成してリポジトリにコミットする**
 
 参考資料(カスタムオプション・自作プラグインを追加する段階になったとき):
@@ -173,16 +216,59 @@ proto/*.proto(APIの唯一の定義元)
 ```proto
 // google/rpc/error_details.proto(Googleが提供する定義。自分では定義しない)
 message ErrorInfo {
-  string reason = 1;                 // エラーコード。例: "INSUFFICIENT_GEMS"
+  string reason = 1;                 // エラーコード。ErrorCode の値の名前(例: "ERROR_CODE_INSUFFICIENT_GEMS")
   string domain = 2;                 // 固定値(サービス名等)。クライアントは判定に使わない
-  map<string, string> metadata = 3;  // v1では使わない(「文言への値の埋め込み」参照)
+  map<string, string> metadata = 3;  // "action" キーでサーバーが action を上書きできる(下記)
 }
 ```
 
-- `reason` は AIP-193 の規則に合わせる(大文字のスネークケース、63文字以内)
-- エラーコードは文字列のため `.proto` からは生成されない。サーバー・クライアントそれぞれで定数を1か所にまとめ、タイプミスを防ぐ
-- 標準型を選んだ理由: Rust・C#ともライブラリの型がそのまま使え、将来の引数も `metadata` で運べるため。比較した案は、独自の `ErrorDetail` に `.proto` の enum でコードを持たせ、両言語に定数を生成する方法
+- 標準型を選んだ理由: Rust・C#ともライブラリの型がそのまま使え、将来の引数も `metadata` で運べるため
 - 実装: Rust は tonic-types の `ErrorDetails::with_error_info` と `StatusExt` で作る。C# は `Google.Api.CommonProtos` の型でトレーラーをパースする(3.3)
+
+#### エラーコードの定義
+
+エラーコードと action の一覧は `.proto` の enum で定義し、サーバー・クライアントの両方に生成する(ここが唯一の定義元)。
+
+```proto
+// error_code.proto
+import "google/protobuf/descriptor.proto";
+
+enum ErrorAction {
+  ERROR_ACTION_UNSPECIFIED = 0;  // 指定なし
+  ERROR_ACTION_STAY = 1;
+  ERROR_ACTION_RETRY = 2;
+  ERROR_ACTION_HOME = 3;
+  ERROR_ACTION_TITLE = 4;
+  ERROR_ACTION_UPDATE = 5;
+}
+
+extend google.protobuf.EnumValueOptions {
+  ErrorAction default_action = 50001;
+}
+
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  // 1〜999: 基盤
+  ERROR_CODE_NETWORK_ERROR = 1        [(default_action) = ERROR_ACTION_RETRY];  // クライアント専用
+  ERROR_CODE_INTERNAL_ERROR = 2       [(default_action) = ERROR_ACTION_RETRY];
+  ERROR_CODE_UNKNOWN_ERROR = 3        [(default_action) = ERROR_ACTION_TITLE];  // クライアント専用
+  ERROR_CODE_MAINTENANCE = 4          [(default_action) = ERROR_ACTION_TITLE];
+  ERROR_CODE_UPDATE_REQUIRED = 5      [(default_action) = ERROR_ACTION_UPDATE];
+  ERROR_CODE_ACCOUNT_SUSPENDED = 6    [(default_action) = ERROR_ACTION_TITLE];
+  ERROR_CODE_DATE_CHANGED = 7         [(default_action) = ERROR_ACTION_TITLE];
+  // 1000〜: 業務エラー(機能ごとに番号の範囲を分ける。例: 1000〜1999 スカウト)
+  ERROR_CODE_INSUFFICIENT_GEMS = 1001 [(default_action) = ERROR_ACTION_STAY];
+}
+```
+
+- **`ErrorInfo.reason`** には enum の値の名前を入れる。サーバーは `ErrorCode::InsufficientGems.as_str_name()` で作り、クライアントは `ErrorCode.Descriptor.FindValueByName(reason)` で enum に戻す。名前は AIP-193 の規則(大文字のスネークケース、63文字以内)を満たす
+- **既定の action** は、enum の各値にカスタムオプション `default_action` で付ける。クライアントは起動時に Descriptor から全値のオプションを読み、`Dictionary<ErrorCode, ErrorAction>` にしておく。サーバーは読まない
+- **文言キー**はオプションにせず、enum の名前から決まりで作る(例: `ERROR_CODE_INSUFFICIENT_GEMS` → `error.insufficient_gems`)
+- **サーバーによる action の上書き**: 必要なときだけ `ErrorInfo.metadata["action"]` に `ErrorAction` の名前(例: `"ERROR_ACTION_HOME"`)を入れる。クライアントは、これがあればそれに従い、無いか知らない値なら既定の action を使う。指定できるのは5種類の action だけで、具体的な画面名は指定しない(特定の画面へ誘導したい場合は、呼び出し元でコードを捕まえて処理する)
+- **エラーコードの追加**: `.proto` に1行足し、クライアントのコードを生成し直して文言を足す。対応表を手で足す作業は無い
+- **削除**: 番号と名前は再利用せず `reserved` にする(7章)
+- **テスト**: クライアントで「全値に `default_action` が付いているか」「全値の文言キーが文言データにあるか」を確かめる。`default_action` が無い値は Title として扱う
+- 比較した案: C# に「code → action」の対応表を手書きする(カスタムオプション不要だが、コードを足すたびに表も足す)。自作プラグインで対応表を生成する(プラグインの自作が必要)
 
 #### 受け取り方(クライアント)
 
@@ -190,7 +276,7 @@ message ErrorInfo {
 
 | 受け取ったもの | エラーコード |
 |---|---|
-| `FAILED_PRECONDITION` + `ErrorInfo` | `ErrorInfo.reason` |
+| `FAILED_PRECONDITION` + `ErrorInfo` | `ErrorInfo.reason` を `ErrorCode` に戻したもの(知らない名前なら `UNKNOWN_ERROR`) |
 | `INTERNAL` | `INTERNAL_ERROR`(`ErrorInfo` が無くても) |
 | `UNAVAILABLE` / `DEADLINE_EXCEEDED` | `NETWORK_ERROR` |
 | `UNAUTHENTICATED` | 再認証して1回だけ送り直す。それでも失敗したらエラーとして扱う(5.4) |
@@ -202,7 +288,7 @@ message ErrorInfo {
 
 #### エラー時の挙動(文言・遷移先)
 
-**v1はクライアントのコード内の対応表で決める(下表のB)**。`IErrorPolicyProvider` のようなインターフェースの裏に置き、将来マスター(A)に差し替えられる構造にする。
+**既定の挙動は `.proto` の `default_action`、文言は enum の名前から決まる文言キーで決め(下表のBを `.proto` に寄せた形)、サーバーが必要なときだけ `metadata["action"]` で上書きする(Cの一部)**。詳細は「エラーコードの定義」。クライアントは `IErrorPolicyProvider` のようなインターフェースの裏に置き、将来マスター(A)に差し替えられる構造にする。
 
 | | A. マスター(実務のやり方) | B. クライアントのコード内の対応表 | C. サーバーがレスポンスで指示 |
 |---|---|---|---|
@@ -211,7 +297,7 @@ message ErrorInfo {
 | 依存 | テンプレートが master-data-pipeline に依存する | なし | サーバーがクライアントの画面構成を知る |
 | マスター読み込み前のエラー | 扱えない(別の仕組みが必要) | 問題なし | 問題なし |
 
-- 対応表に無いコードは `UNKNOWN_ERROR` と同じ挙動にする。サーバーが後からコードを追加しても、古いアプリは壊れない
+- 知らないコード(古いアプリに無い enum の値)は `UNKNOWN_ERROR` と同じ挙動にする。サーバーが後からコードを追加しても、古いアプリは壊れない
 - 画面ごとに個別に処理したいコード(例: Atlasの「プレイヤー未作成ならサインアップへ」)をどう捕まえるかは、クライアントの通信層の構成(6章)で決める
 
 action とダイアログのボタン:
@@ -224,7 +310,7 @@ action とダイアログのボタン:
 | Title | タイトルへ | タイトルに戻る(セッション情報を破棄) |
 | Update | ストアへ | ストアのページを開く。アプリは先へ進めない |
 
-予約コードと既定の action(業務ごとのコードは、各ゲームが対応表に追加する):
+予約コードと既定の action(表では接頭辞 `ERROR_CODE_` を省略。業務ごとのコードは、各ゲームが `ErrorCode` に追加する):
 
 | エラーコード | 返す側 | action | 用途 |
 |---|---|---|---|
@@ -242,7 +328,7 @@ action とダイアログのボタン:
 #### 文言への値の埋め込み
 
 - v1では対応しない(「あと{0}ジェム必要です」のような文言は使わない)
-- 必要になったら `ErrorInfo.metadata`(`map<string, string>`)で値を送る。`.proto` の変更は不要
+- 必要になったら `ErrorInfo.metadata`(`map<string, string>`)で値を送る(キー `action` は上書き用に使っているので避ける)。`.proto` の変更は不要
 
 #### 参考資料
 
@@ -492,11 +578,11 @@ gRPC化に伴い、Atlasで api-codegen が生成していた `ApiRequest`(Unity
 | 7 | スカラーのnullable | `optional`は使わず、取り決めた番兵値で表す | 4.3 |
 | 8 | メッセージ型のnull | 許容する。null = 変更なし / 該当なし | 4.3 |
 | 9 | oneof | ケースバイケース | 4.3 |
-| 10 | コード生成 | v1はカスタムオプション・自作プラグインを使わない | 3.2 |
+| 10 | コード生成 | v1は自作プラグインを使わない。カスタムオプションはエラーコードの既定の action にだけ使う | 3.2 |
 | 11 | リトライ | 自動リトライしない。クライアント側で判断する | 5.1 |
 | 12 | エラーの返し方 | 業務エラーは `FAILED_PRECONDITION`、内部エラーは `INTERNAL`。エラーコードは `google.rpc.ErrorInfo` の `reason` で運ぶ | 5.2 |
 | 13 | メンテナンス中の返し方 | 業務エラーと同じ(`FAILED_PRECONDITION` + `MAINTENANCE`) | 5.2 |
-| 14 | エラー時の挙動の決め方 | v1はクライアントのコード内の対応表。対応表に無いコードは `UNKNOWN_ERROR` と同じ扱い | 5.2 |
+| 14 | エラー時の挙動の決め方 | エラーコードと action は `.proto` の enum で定義し、既定の action はカスタムオプション `default_action`、文言キーは enum の名前から決める。サーバーは `metadata["action"]` で上書きできる。知らないコードは `UNKNOWN_ERROR` と同じ扱い | 5.2 |
 | 15 | エラーの分類 | 予約コード7種(通信断・内部・不明・メンテナンス・強制アップデート・BAN・日付変更)と action 5種(Stay / Retry / Home / Title / Update) | 5.2 |
 | 16 | 文言への値の埋め込み | v1では対応しない。必要になったら `ErrorInfo.metadata` を使う | 5.2 |
 | 17 | RequestIDによる冪等性 | プレイヤーごとに最新1件のレスポンスを保存する。サーバーは行ロック、クライアントは1つずつ送信。保存は業務データと同じトランザクションで行い、エラーは保存しない | 5.3 |
@@ -509,6 +595,8 @@ gRPC化に伴い、Atlasで api-codegen が生成していた `ApiRequest`(Unity
 | 24 | テスト | サーバーの結合テストは tonic の生成クライアントで書く | 7 |
 | 25 | 認証 | Atlasのデバイス認証を引き継ぐ(`secret_key` はArgon2、トークン有効期限1時間・1デバイス1トークン、メタデータ `authorization` で送る)。無効なら `UNAUTHENTICATED`、BANは `ACCOUNT_SUSPENDED` | 5.4 |
 | 26 | `UNAUTHENTICATED` の扱い | クライアントは再認証して1回だけ同じRequestIDで送り直す(5.1の例外)。再認証はsingle-flight | 5.4 |
+| 27 | リポジトリの運用 | clone して upstream を登録し、基盤の改善は fetch して取り込む。切り分けはブランチ運用。ライブラリ配布はしない | 2.4 |
+| 28 | フォルダ構成 | `foundation/`(基盤)と `app/`(アプリ固有。最初はサンプル)に分ける。`players` と `PlayerDiff` の中身はアプリ側、基盤は `PlayerResolver` で引く | 2.4 |
 
 ### 未確定・保留
 
