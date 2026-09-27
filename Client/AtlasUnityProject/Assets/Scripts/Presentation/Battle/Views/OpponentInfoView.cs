@@ -1,6 +1,7 @@
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Atlas.Presentation.Battle
 {
@@ -8,13 +9,31 @@ namespace Atlas.Presentation.Battle
     {
         [SerializeField] private TextMeshProUGUI nameText;
         [SerializeField] private TextMeshProUGUI currentHpPercentText;
-        [SerializeField] private Image hpGaugeImage;
+        [SerializeField] private HpGaugeView hpGauge;
+
+        private int displayedHpPercent;
 
         public void Refresh(OpponentInfoDto dto)
         {
             nameText.text = dto.PachimonName;
-            currentHpPercentText.text = dto.CurrentHpPercent;
-            hpGaugeImage.fillAmount = dto.CurrentHpGauge;
+            SetHpPercent(dto.CurrentHpPercent);
+            hpGauge.SetValue(dto.CurrentHpGauge);
+        }
+
+        // HPの変化をゲージと%の両方で少しずつ見せる(名前はすぐ反映する)。
+        public UniTask AnimateAsync(OpponentInfoDto dto, CancellationToken cancellation)
+        {
+            nameText.text = dto.PachimonName;
+            var fromPercent = displayedHpPercent;
+            return hpGauge.AnimateAsync(dto.CurrentHpGauge,
+                progress => SetHpPercent(Mathf.RoundToInt(Mathf.Lerp(fromPercent, dto.CurrentHpPercent, progress))),
+                cancellation);
+        }
+
+        private void SetHpPercent(int percent)
+        {
+            displayedHpPercent = percent;
+            currentHpPercentText.text = $"{percent}%";
         }
     }
 }

@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.annulusgames.lit-motion": "https://github.com/annulusgames/LitMotion.git?path=src/LitMotion/Assets/LitMotion",
     "com.atlas.battlecontracts": "file:../../../Shared/BattleContracts",
     "com.atlas.battlecore": "file:../../../Shared/BattleCore",
     "com.chinpangx.supplement": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement",

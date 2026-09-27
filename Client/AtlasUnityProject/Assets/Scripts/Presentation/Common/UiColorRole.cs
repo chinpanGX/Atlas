@@ -40,5 +40,9 @@ namespace Atlas.Presentation.Common
         TextOnBackground,
         // 「ひんし」など注意を引く文字。
         TextWarning,
+        // 残りHPが半分以下のHPゲージ(HpGaugeは半分より多いとき)。
+        HpGaugeMiddle,
+        // 残りHPが2割以下のHPゲージ。
+        HpGaugeLow,
     }
 }

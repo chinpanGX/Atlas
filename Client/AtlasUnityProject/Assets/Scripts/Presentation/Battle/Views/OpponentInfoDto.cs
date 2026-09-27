@@ -3,7 +3,7 @@
     public record OpponentInfoDto
     {
         public string PachimonName;
-        public string CurrentHpPercent;
+        public int CurrentHpPercent;
         public float CurrentHpGauge;
     }
 }

@@ -27,6 +27,15 @@ namespace Atlas.Presentation.Battle
             commandView.Refresh(stateDto.Commands);
         }
 
+        // HPの変化をゲージが減る(増える)演出で見せ、動き終わるまで待つ。場のパチモンが入れ替わったときはRefreshを使う。
+        public UniTask RefreshAnimatedAsync(BattleUIStateDto stateDto, CancellationToken cancellation)
+        {
+            commandView.Refresh(stateDto.Commands);
+            return UniTask.WhenAll(
+                selfInfoView.AnimateAsync(stateDto.SelfInfo, cancellation),
+                opponentInfoView.AnimateAsync(stateDto.OpponentInfo, cancellation));
+        }
+
         // 行動(技・交代)の入力可否。行動送信後にターン結果が届くまでの間や、強制交代の選択中は押せなくする。
         // 投了はいつでもできるよう対象外。
         public void SetCommandsInteractable(bool interactable)

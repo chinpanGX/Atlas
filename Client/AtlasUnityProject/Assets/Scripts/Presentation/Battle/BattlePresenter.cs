@@ -422,7 +422,7 @@ namespace Atlas.Presentation.Battle
             }
         }
 
-        // 技名 → (HP・PPを反映) → 外れ/急所/効果 → 倒れた、の順に流す。
+        // 技名 → (HPゲージが減り終わるまで待つ) → 外れ/急所/効果 → 倒れた、の順に流す。
         private async UniTask PlayMoveAsync(ActionResult action, bool actorIsSelf, CancellationToken cancellation)
         {
             var moveName = masterDataService.Database.MovesDataTable.FindByMoveId(int.Parse(action.MoveId)).Name;
@@ -430,7 +430,7 @@ namespace Atlas.Presentation.Battle
                 BattleMessageBuilder.MoveUsed(actorIsSelf, ActivePachimonName(actorIsSelf), moveName), cancellation);
 
             ApplyAction(action);
-            view.Refresh(BuildUiState());
+            await view.RefreshAnimatedAsync(BuildUiState(), cancellation);
 
             if (!action.Hit)
             {
@@ -592,7 +592,7 @@ namespace Atlas.Presentation.Battle
                 OpponentInfo = new OpponentInfoDto
                 {
                     PachimonName = opponentName,
-                    CurrentHpPercent = $"{opponentHpPercent}%",
+                    CurrentHpPercent = opponentHpPercent,
                     CurrentHpGauge = opponentHpPercent / 100f,
                 },
                 Commands = selfMoves

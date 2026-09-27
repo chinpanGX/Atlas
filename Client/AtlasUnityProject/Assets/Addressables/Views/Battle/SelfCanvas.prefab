@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 8301740520719356342}
   - component: {fileID: 2780374699685195389}
   - component: {fileID: 3745652712120348835}
-  - component: {fileID: 8253943831084302720}
+  - component: {fileID: 3355888340971511905}
   m_Layer: 5
   m_Name: Image
   m_TagString: Untagged
@@ -76,7 +76,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &8253943831084302720
+--- !u!114 &3355888340971511905
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -85,11 +85,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 579158043259225101}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8ddb11da44efab4e8cc616dfeca0129, type: 3}
+  m_Script: {fileID: 11500000, guid: 279704392e944df6a97d17aa9103011e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PaletteColor
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Battle.HpGaugeView
+  gaugeImage: {fileID: 3745652712120348835}
   palette: {fileID: 11400000, guid: c75647eafd9f3264db827a8d976e97b0, type: 2}
-  role: 12
+  secondsPerFullGauge: 1
 --- !u!1 &2009423956428260043
 GameObject:
   m_ObjectHideFlags: 0
@@ -511,7 +512,7 @@ MonoBehaviour:
   nameText: {fileID: 2570121753594675528}
   currentHpText: {fileID: 1003903815959931823}
   maxHpText: {fileID: 7987911861856695654}
-  hpGaugeImage: {fileID: 3745652712120348835}
+  hpGauge: {fileID: 3355888340971511905}
 --- !u!1 &8010486168996181277
 GameObject:
   m_ObjectHideFlags: 0

@@ -188,6 +188,8 @@ UnityClientのビルド設定はIL2CPP前提。パッケージ導入経路が3�
 - アセット管理: Addressables(`com.unity.addressables`、導入済み)
 - 画面遷移: UnityScreenNavigator(`com.harumak.unityscreennavigator`、Gitパッケージ、MIT License、導入済み。client-architecture.md参照)
 - View↔Presenter間のリアクティブ購読: R3(`com.cysharp.r3`、Gitパッケージ、導入済み、design/battle.md・client-architecture.md参照)
+- UIのアニメーション(Tween): LitMotion(`com.annulusgames.lit-motion`、Gitパッケージ、MIT License、導入済み)。UniTask連携
+  (`ToUniTask`)で演出の完了を`await`できる。バトルのHPゲージが減る演出で使用(design/battle.md「クライアントUI」参照)
 - 画面をまたぐ通知: ZeroMessenger(NuGetForUnity経由、`Assets/Packages/ZeroMessenger.1.0.4/`。SupplementがNuGet版1.0.4を要求するため、Supplement側の配置をそのままAtlas Client側にもコピーする形で導入。Supplementの`IMessageBroker`(`Supplement.ZeroMessenger.GlobalMessageBroker`)経由でのみ使い、`MessageBroker<T>`を直接扱わない)
 - テスト: Unity Test Framework(導入済み)。モンキーテスト(Anjin等)は実装が一定進んでから改めて検討する
 

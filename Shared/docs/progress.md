@@ -40,7 +40,7 @@
 
 - [x] Unityプロジェクトの作成、利用ライブラリの導入、コンパイル確認
   - VContainer / UniTask / R3 / UnityScreenNavigator / MagicOnion.Client / YetAnotherHttpHandler /
-    MessagePack / MasterMemory / ZeroMessenger / ZLinq / Supplement(submodule)。導入経路はarchitecture.md「クライアント利用ライブラリ」
+    MessagePack / MasterMemory / ZeroMessenger / ZLinq / LitMotion / Supplement(submodule)。導入経路はarchitecture.md「クライアント利用ライブラリ」
   - MasterMemory等はUPM版にSource Generatorが無いため、NuGetForUnityでNuGet版を`Assets/Packages/`に配置
 - [x] マスターデータの組み込み(`Scripts/MasterData/`の単一アセンブリ`Atlas.MasterData`、`masterdata.bytes`はAddressablesで配布)
 - [x] REST APIクライアントの組み込み(`api-codegen`で生成し`Infrastructure/Api/`へ配置、`uloop compile`で0エラー)
@@ -141,6 +141,9 @@
 - [x] ターンの演出(テキスト): 行動を送るとコマンド欄を隠し、`turn_result`を行動順に1文ずつメッセージ枠に流す
   (HPもその文に合わせて更新。一定時間で自動送り・タップで早送り)。強制交代・相手の交代待ち・結果Modalは流し終えてから出す
   (design/battle.md「クライアントUI」)
+- [x] HPゲージの演出: 技でHPが変わるとゲージと数値が少しずつ減り(LitMotion)、減り終わってから次の文へ進む。
+  残りHPでゲージの色を変える(緑/黄(半分以下)/赤(2割以下))。交代先のパチモンは即時に切り替える。
+  交代選択Modal・パーティ編成画面のHPゲージは従来どおり単色(緑)
 - [x] Multiplayer Play Modeで、Unity Client同士の実サーバー(Server + BattleServer)対戦を確認(旧C-1)。
   マッチング → BattleServerへの接続 → 決着まで通った
 - [x] 相手の場のパチモン名が、プレイヤー間で食い違う問題を修正。相手が既に公開済みの枠へ交代し直すと
