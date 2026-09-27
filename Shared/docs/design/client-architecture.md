@@ -9,7 +9,7 @@ Unity Client側の「View⇔ロジック」を繋ぐ土台の設計。個別画�
 
 - 画面遷移: [UnityScreenNavigator](https://github.com/Haruma-K/UnityScreenNavigator)(USN、MIT
   License)を自分でフォークしたもの([chinpanGX/UnityScreenNavigator](https://github.com/chinpanGX/UnityScreenNavigator)、
-  `develop`ブランチを参照)。Push/Popによるスタック型画面遷移・モーダル・遷移アニメーション・ライフサイクル
+  リポジトリ直下のサブモジュール`UnityScreenNavigator/`(`develop`ブランチ)を`file:`で参照)。Push/Popによるスタック型画面遷移・モーダル・遷移アニメーション・ライフサイクル
   イベントに加え、フォーク側でPresenter起点の画面遷移(VContainer連携)・Overlay・遷移の直列化を提供する。このアプリはPage間のフロー制御が単純(タイトル→ホーム→各機能→対戦、
   程度)で済むため、フロー概念(名前付きルート・トランザクション等)を持つような大掛かりな
   自作フレームワークは過剰と判断し、シンプルなPush/Pop型のOSSを採用する

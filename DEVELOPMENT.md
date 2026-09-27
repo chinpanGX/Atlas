@@ -46,7 +46,10 @@ git clone --recurse-submodules <リポジトリURL>
 git submodule update --init --recursive
 ```
 
-`master-data-pipeline` / `api-codegen` / `Supplement` はサブモジュール([.gitmodules](.gitmodules))。
+`master-data-pipeline` / `api-codegen` / `Supplement` / `UnityScreenNavigator` はサブモジュール([.gitmodules](.gitmodules))。
+`UnityScreenNavigator`(画面遷移ライブラリのフォーク)はClientの`manifest.json`から`file:`で参照しているため、
+サブモジュールを取得しないとUnityプロジェクトを開けない。フォークを直したときは、フォーク側でコミット・pushしてから
+Atlas側でサブモジュールの参照先コミットを更新してコミットする
 
 ## 3. 共通の設定(シークレット・環境変数)
 

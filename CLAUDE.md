@@ -35,10 +35,11 @@ Atlas/
 ├── Shared/                 # クライアント/サーバー間の共有定義(マスターデータスキーマ、設計書)
 ├── master-data-pipeline/   # マスターデータ生成パイプライン(サブモジュール、自作)
 ├── api-codegen/            # OpenAPI仕様書→Unity向けDTO・通信APIクライアント生成ツール(サブモジュール、自作)
-└── Supplement/              # Unity共通ユーティリティパッケージ(サブモジュール、自作)
+├── Supplement/              # Unity共通ユーティリティパッケージ(サブモジュール、自作)
+└── UnityScreenNavigator/   # 画面遷移ライブラリUSNのフォーク(サブモジュール、developブランチ)。Clientは`file:`で参照
 ```
 
-`master-data-pipeline` / `api-codegen` / `Supplement` はgit submodule([.gitmodules](.gitmodules))。
+`master-data-pipeline` / `api-codegen` / `Supplement` / `UnityScreenNavigator` はgit submodule([.gitmodules](.gitmodules))。
 
 ローカル環境の設定(Server/BattleServerで共有するシークレット等)・起動順・よく使うコマンドは
 [DEVELOPMENT.md](DEVELOPMENT.md)にまとめている。

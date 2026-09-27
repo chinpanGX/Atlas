@@ -184,9 +184,11 @@ UnityClientのビルド設定はIL2CPP前提。パッケージ導入経路が3�
   - Grpc.Net.Client関連・System.IO.Pipelines等の依存(`org.nuget.*`、YetAnotherHttpHandler/MagicOnion.Clientの前提ライブラリ)
 - **git submodule**(Atlasリポジトリ直下にclone、`file:`ローカルパッケージ参照):
   - 補助ユーティリティ: Supplement(`chinpanGX/Supplement`、`com.chinpangx.supplement`) — Addressables経由のAssetLoader/SceneLoader抽象、暗号化付きローカルセーブデータ永続化(`ISaveDataRepository`/`IFileStorageService`)、VContainer登録拡張、`IMessageBroker`(画面をまたぐ通知、client-architecture.md参照)等。UniTask/VContainer/Addressablesに依存
+  - 画面遷移: UnityScreenNavigator(`chinpanGX/UnityScreenNavigator`、`com.harumak.unityscreennavigator`、MIT License) — USNのフォーク。
+    `develop`ブランチを追跡し、`file:../../../UnityScreenNavigator/Assets/UnityScreenNavigator`で参照する(フォークを直すとpushを待たずに
+    Atlasへ反映される。使うバージョンはサブモジュールの参照先コミットで決まる)。client-architecture.md参照
 - REST通信(認証/スカウト/チャット): 上記とは独立して`UnityWebRequest`のまま。`api-codegen`が生成する`Atlas.Infrastructure.Api`(`UnityWebRequest`を`UniTask`でラップ、VContainer非依存)を利用する。gRPC側への統一は行わない(RustサーバーをOpenAPI/RESTからprotobuf/gRPCへ作り直すコストに見合わないため)
 - アセット管理: Addressables(`com.unity.addressables`、導入済み)
-- 画面遷移: UnityScreenNavigator(`com.harumak.unityscreennavigator`、Gitパッケージ、MIT License、導入済み。client-architecture.md参照)
 - View↔Presenter間のリアクティブ購読: R3(`com.cysharp.r3`、Gitパッケージ、導入済み、design/battle.md・client-architecture.md参照)
 - UIのアニメーション(Tween): LitMotion(`com.annulusgames.lit-motion`、Gitパッケージ、MIT License、導入済み)。UniTask連携
   (`ToUniTask`)で演出の完了を`await`できる。バトルのHPゲージが減る演出で使用(design/battle.md「クライアントUI」参照)

@@ -40,7 +40,7 @@
 
 - [x] Unityプロジェクトの作成、利用ライブラリの導入、コンパイル確認
   - VContainer / UniTask / R3 / UnityScreenNavigator / MagicOnion.Client / YetAnotherHttpHandler /
-    MessagePack / MasterMemory / ZeroMessenger / ZLinq / LitMotion / Supplement(submodule)。導入経路はarchitecture.md「クライアント利用ライブラリ」
+    MessagePack / MasterMemory / ZeroMessenger / ZLinq / LitMotion / Supplement(submodule) / UnityScreenNavigatorのフォーク(submodule)。導入経路はarchitecture.md「クライアント利用ライブラリ」
   - MasterMemory等はUPM版にSource Generatorが無いため、NuGetForUnityでNuGet版を`Assets/Packages/`に配置
 - [x] マスターデータの組み込み(`Scripts/MasterData/`の単一アセンブリ`Atlas.MasterData`、`masterdata.bytes`はAddressablesで配布)
 - [x] REST APIクライアントの組み込み(`api-codegen`で生成し`Infrastructure/Api/`へ配置、`uloop compile`で0エラー)
@@ -59,7 +59,8 @@
 #### 画面遷移・DI・アーキテクチャ
 
 - [x] Bootstrap / Home / Battle の3シーン構成。シーン単位は`ISceneNavigator`、シーン内はUSNのPage/Modal
-- [x] 画面遷移をUSNのフォーク(chinpanGX/UnityScreenNavigator、`#develop`)のPresenter起点方式へ移行。
+- [x] 画面遷移をUSNのフォーク(chinpanGX/UnityScreenNavigator、`develop`)のPresenter起点方式へ移行。
+  フォークはサブモジュール`UnityScreenNavigator/`にし、manifestから`file:`で参照する。
   Presenterの型でPush(`[AssetAddress]`でprefabを解決)し、`ScreenNavigator`がPushごとにヘッドレスな子スコープで
   Presenterを解決する。Page/Modal prefabの子`LifetimeScope`・`PageLifetimeScope<TViewDto>`・`ResultModal`/`ResultPage`・
   Atlas独自の`IScreenNavigator`/`ScreenNavigator`/`SceneNavigator`/`TransitionQueue`は廃止。Pop結果は

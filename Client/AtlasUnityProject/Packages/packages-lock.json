@@ -90,11 +90,10 @@
       "url": "https://package.openupm.com"
     },
     "com.harumak.unityscreennavigator": {
-      "version": "https://github.com/chinpanGX/UnityScreenNavigator.git?path=/Assets/UnityScreenNavigator#develop",
+      "version": "file:../../../UnityScreenNavigator/Assets/UnityScreenNavigator",
       "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "2a44c3ee6fa3e44a95db68d236f5b0075fc0bab1"
+      "source": "local",
+      "dependencies": {}
     },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
