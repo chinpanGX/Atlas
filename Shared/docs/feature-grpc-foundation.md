@@ -31,7 +31,8 @@ Unityクライアントと Rust APIサーバー間の通信を、REST(OpenAPI)�
 
 ### 2.3 成果物
 
-- **新規リポジトリ**として作成する
+- **gRPC API基盤専用の新規リポジトリ**として作成し、Atlasとは独立して管理する
+  - 本書は新規リポジトリの作成後にそちらへ移す
 - 形態は **サンプルのゲームサーバーとクライアントを含んだ「テンプレートのリポジトリ」**
   (ライブラリ単体の配布ではなく、そのまま開発を始められる雛形)
 
@@ -192,7 +193,7 @@ message ErrorInfo {
 | `FAILED_PRECONDITION` + `ErrorInfo` | `ErrorInfo.reason` |
 | `INTERNAL` | `INTERNAL_ERROR`(`ErrorInfo` が無くても) |
 | `UNAVAILABLE` / `DEADLINE_EXCEEDED` | `NETWORK_ERROR` |
-| `UNAUTHENTICATED` | 認証で扱う(5.4) |
+| `UNAUTHENTICATED` | 再認証して1回だけ送り直す。それでも失敗したらエラーとして扱う(5.4) |
 | 呼び出し側によるキャンセル | エラーとして扱わない |
 | 上記以外(`ErrorInfo` の無い `FAILED_PRECONDITION`、`UNIMPLEMENTED` 等) | `UNKNOWN_ERROR` |
 
@@ -299,12 +300,31 @@ action とダイアログのボタン:
 - [AIP-155: Request identification](https://google.aip.dev/155) — 重複時は前回の成功レスポンスを返す。AIPはIDをリクエストメッセージのフィールドに持つが、本基盤は全API一律に適用するためメタデータに載せる
 - [MONEX ENGINEER BLOG「Web APIにおける重複エラーはエラーに非ず」](https://blog.tech-monex.com/entry/2024/12/05/133747) — 重複リクエストにはエラーではなく、初回と同じ正常レスポンスを返すべきという主張
 
-### 5.4 認証 【保留】
+### 5.4 認証 【確定】
 
-- 認証トークンの方式、期限切れ時の扱い(自動再認証するか等)は保留
-  - Atlasは `401` を受けると再認証して1回だけ再送している(`AccessTokenRefresher`)。これを引き継ぐ場合、5.1「自動リトライしない」との整理が必要
-- BAN・アカウント停止(`ACCOUNT_SUSPENDED`、5.2)の判定は、認証の中で行う想定
-- 参考: 認証の要否はサービスの分割で表現できる(認証不要のサービスと、それ以外のサービスに分け、後者にだけ認証を適用する)
+**Atlasのデバイス認証(ゲスト型)をそのまま引き継ぐ。**
+
+#### サーバー
+
+- **デバイス登録**: クライアントが生成した `secret_key` を送り、サーバーは `device_id` を発行する。`secret_key` は Argon2 でハッシュ化して保存する(平文は保存しない)
+- **認証**: `device_id` と `secret_key` を照合し、アクセストークンを発行する
+  - トークンはランダムな文字列(Atlasは ULID を2つ連結)。DBに `device_id` と有効期限とともに保存する
+  - 有効期限は1時間。有効なトークンは1デバイスにつき1つで、再認証すると古いトークンは上書きされて無効になる
+- **トークンの検証**: 要認証サービスへのリクエストは、メタデータ `authorization: Bearer <token>` を共通処理で検証する。トークンが無い・存在しない・期限切れなら `UNAUTHENTICATED` を返す
+- **認証の要否はサービスの分割で表す**: 認証不要のサービス(デバイス登録・認証)と、それ以外のサービスに分け、後者にだけ検証を適用する
+- **BAN・アカウント停止**: トークンの検証の中で判定し、`FAILED_PRECONDITION` + `ACCOUNT_SUSPENDED`(5.2)を返す。`UNAUTHENTICATED` にはしない(再認証しても解決しないため)
+
+#### クライアント
+
+- `device_id` と `secret_key` は端末に保存する(初回起動時に登録する)
+- 送信前に有効期限が近ければ(Atlasは残り5分)、先に再認証する
+- それでも `UNAUTHENTICATED` が返ったら、再認証して**1回だけ**送り直す。2回目も失敗したらエラーとして扱う
+  - 5.1「自動リトライしない」の例外とする。`UNAUTHENTICATED` はサーバーが処理を始める前に弾いたものなので、送り直しても二重実行にならない。送り直すときは同じRequestIDを使う(5.3)
+- 再認証が同時に複数走ると、互いのトークンを無効化し合う。実行中の再認証があればその完了を待つ(single-flight。Atlasの `AccessTokenRefresher` と同じ)
+
+#### 参考資料
+
+- Atlas: サーバーは `Server/src/service/auth_service.rs`(認証・トークン発行・検証)、`Server/src/service/device_service.rs`(登録)、`Server/src/extractor.rs`(トークン検証)。クライアントは `AccessTokenRefresher.cs`(期限前の再認証、`401` 時の再送、single-flight)
 
 ### 5.5 playerDiff(ユーザーデータ差分の同期)
 
@@ -365,7 +385,7 @@ message SelectScoutCandidateResponse {
 | RequestIDの付与 | Interceptor。ただし採番は再試行の外側で行う(5.3) |
 | エラーの変換(`RpcException` → `ApiException`) | Interceptor |
 | ログ | Interceptor |
-| 認証トークンの付与 | Interceptor(方式は保留) |
+| 認証トークンの付与 | Interceptor(`authorization: Bearer <token>`。5.4) |
 | アプリのバージョンの付与(強制アップデートの判定用) | Interceptor |
 | playerDiffの反映 | Connectionの共通ヘルパー |
 | リトライ | 自動では行わない。呼び出し側が再実行する |
@@ -487,13 +507,14 @@ gRPC化に伴い、Atlasで api-codegen が生成していた `ApiRequest`(Unity
 | 22 | デバッグ手段 | Postmanを使う。サーバーは開発時のみgRPCリフレクションを有効にする。grpcurlも併用可 | 7 |
 | 23 | `.proto`の管理 | bufを使う(lint・format・breaking、C#の生成)。Rustの生成は build.rs の tonic-build | 7 |
 | 24 | テスト | サーバーの結合テストは tonic の生成クライアントで書く | 7 |
+| 25 | 認証 | Atlasのデバイス認証を引き継ぐ(`secret_key` はArgon2、トークン有効期限1時間・1デバイス1トークン、メタデータ `authorization` で送る)。無効なら `UNAUTHENTICATED`、BANは `ACCOUNT_SUSPENDED` | 5.4 |
+| 26 | `UNAUTHENTICATED` の扱い | クライアントは再認証して1回だけ同じRequestIDで送り直す(5.1の例外)。再認証はsingle-flight | 5.4 |
 
 ### 未確定・保留
 
 | # | 項目 | 状態 | 節 |
 |---|---|---|---|
-| 1 | 認証トークン(BANの判定、`UNAUTHENTICATED` の扱いを含む) | 保留 | 5.4 |
-| 2 | playerDiffのクライアントでの反映方法(6章と合わせて決める) | 未確定 | 5.5 |
-| 3 | 共通処理の置き場所(クライアント / サーバー) | 未確定 | 5.6, 5.7 |
-| 4 | メンテナンス・強制アップデート・日付変更の判定方法 | 未確定 | 5.7 |
-| 5 | クライアント通信層の構成の見直し(RequestIDの採番場所、送信の順番待ちを含む) | 未確定 | 6 |
+| 1 | playerDiffのクライアントでの反映方法(6章と合わせて決める) | 未確定 | 5.5 |
+| 2 | 共通処理の置き場所(クライアント / サーバー) | 未確定 | 5.6, 5.7 |
+| 3 | メンテナンス・強制アップデート・日付変更の判定方法 | 未確定 | 5.7 |
+| 4 | クライアント通信層の構成の見直し(RequestIDの採番場所、送信の順番待ちを含む) | 未確定 | 6 |
