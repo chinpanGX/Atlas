@@ -5,8 +5,8 @@
 
 - ステータス: ドラフト(確定事項と未確定事項が混在。各項目に明記)
 - 参考資料:
-  - CEDEC2025「『学園アイドルマスター』のバックエンドを支える基盤システムの仕組み」(QualiArts) — 以下「学マス資料」
-  - CEDEC2025「次世代デジタルカードゲームのサーバー設計と運用 〜『Shadowverse: Worlds Beyond』の舞台裏〜」(Cygames / Cysharp) — 以下「シャドバWB資料」
+  - CEDEC2025「『学園アイドルマスター』のバックエンドを支える基盤システムの仕組み」(QualiArts) — 以下「学マス資料」。[セッション概要](https://cedec.cesa.or.jp/2025/timetable/detail/s67a5b1155ef14/)、[講演レポート](https://www.gamebusiness.jp/article/2025/08/15/24859.html)
+  - CEDEC2026「次世代デジタルカードゲームのサーバー設計と運用 〜『Shadowverse: Worlds Beyond』の舞台裏〜」(Cygames / Cysharp) — 以下「シャドバWB資料」。[スライド](https://speakerdeck.com/cygames/cygames_202607_cedec2026_06)
 
 ---
 
@@ -69,6 +69,13 @@ proto/*.proto(APIの唯一の定義元)
   - 手書きが負担になった時点で、必要な分だけプラグインを追加する
 - Unity では Grpc.Tools(MSBuild連携)が動かないため、**C#コードは事前に生成してリポジトリにコミットする**
 
+参考資料(カスタムオプション・自作プラグインを追加する段階になったとき):
+
+- [高速で統一的な自動生成ツールをprotocプラグインとして実装した話](https://speakerdeck.com/qualiarts/gao-su-detong-de-nazi-dong-sheng-cheng-turuwoprotocpuraguintositeshi-zhuang-sitahua)(QualiArts、Go Conference 2022) — カスタムオプションで生成先を指定し、API・DBスキーマ・エンティティ等を1コマンドで生成する
+- [「Protocol Buffers」からGoコードを自動生成 ー独自protocプラグイン開発と「1次ソース」の設計思想](https://thinkit.co.jp/article/39506)(CyberAgent / QualiArts) — protocプラグインの作り方
+- [学マス資料の講演レポート](https://www.gamebusiness.jp/article/2025/08/15/24859.html)(GameBusiness.jp) — Protocol Buffersにあらゆる定義を集約し、自作プラグインで数万ファイルを生成している。本基盤のv1とは逆に、この方向を突き詰めた例
+- [「IDOLY PRIDE」におけるgRPC利用とカスタマイズ](https://technote.qualiarts.jp/article/24/)(QualiArts) — カスタムオプションで、APIごとに認証・アプリバージョン・マスターデータのバージョン・メンテナンスのチェックの有無を切り替えている(本基盤ではサービスの分割で表す方針。5.4、5.7)
+
 ### 3.3 Unity側の依存パッケージ
 
 | パッケージ | 用途 |
@@ -77,8 +84,13 @@ proto/*.proto(APIの唯一の定義元)
 | Grpc.Core.Api | Interceptor等(Grpc.Net.Clientの依存として入る) |
 | YetAnotherHttpHandler | UnityでHTTP/2通信を行うためのハンドラー |
 | Google.Protobuf | 生成されたメッセージ型のランタイム |
+| Google.Api.CommonProtos | エラー詳細の型(`google.rpc.Status` / `google.rpc.ErrorInfo`)。5.2参照 |
 
 (参考: Atlasでは MagicOnion 用に Grpc.Net.Client 2.84.0 / YetAnotherHttpHandler 1.11.5 が導入済み)
+
+- YetAnotherHttpHandler は OpenUPM、それ以外は Unity NuGet レジストリ(`org.nuget.*`)から導入できる(Atlasと同じ)
+- エラー詳細を読み出すヘルパー `Grpc.StatusProto` は Unity NuGet レジストリに無い。処理はトレーラーを読んでパースするだけなので、自前で書く
+- 参考: [Unity用のHTTP/2(gRPC) Client、YetAnotherHttpHandlerを公開しました](https://neue.cc/2023/07/28_yetanotherhttphandler.html)(Cysharp代表のブログ) — YetAnotherHttpHandlerが必要な理由(UnityがHTTP/2に対応していない、C-core版のgRPCが非推奨になった)
 
 ---
 
@@ -125,13 +137,14 @@ proto/*.proto(APIの唯一の定義元)
 - リトライするかどうかは、必ずクライアント側(ダイアログでのユーザー操作など)で判断する
 - `Grpc.Net.Client` の組み込みリトライ機能は有効にしない(設定しなければ無効)
 
-### 5.2 エラーモデル 【未確定】
+### 5.2 エラーモデル 【確定】
 
 #### 検討の前提(Atlasの現状)
 
 - サーバーのエラーはHTTPステータス5種類のみ(`AppError`: BadRequest / Unauthorized / NotFound / Conflict / InternalError)
 - クライアントはHTTPステータスで分岐している(`401` → トークン更新して再送、`404` → サインアップへ)
 - 業務上の意味(例: 「404 = プレイヤー未作成」)を汎用ステータスで表しているため、URL間違いの404等と区別できない。「ジェム不足」等も文字列でしか判別できない
+- 通信エラーのダイアログは設計案のみ(Atlasの `Shared/docs/design/client-architecture.md`「通信エラーダイアログ・Loading」)。通信断・タイムアウト・5xxは共通のダイアログ([リトライ] [タイトルへ])で扱い、4xxは画面ごとに扱う案。業務エラーには共通の既定の挙動が無い
 
 #### 参考: 実務での運用例
 
@@ -141,36 +154,66 @@ proto/*.proto(APIの唯一の定義元)
 
 ※ あくまで実務での例であり、本基盤で採用するかは別途判断する。
 
-#### 案: APIの取り決め
+#### 返し方(サーバー)
 
 | 実務(REST) | gRPCでの対応 |
 |---|---|
-| 業務エラーはすべて400 | 業務エラーはすべて1つのステータスコード(例: `FAILED_PRECONDITION`) |
-| レスポンス本文に string のエラーコード | Status の details に `ErrorDetail { string code }` を入れる |
+| 業務エラーはすべて400 | 業務エラーはすべて `FAILED_PRECONDITION` |
+| レスポンス本文に string のエラーコード | Status の details に `google.rpc.ErrorInfo` を入れ、`reason` をエラーコードにする |
+
+| 種類 | ステータス | `ErrorInfo.reason` |
+|---|---|---|
+| 業務エラー(メンテナンス・強制アップデート等を含む) | `FAILED_PRECONDITION` | 業務ごとのコード(例: `INSUFFICIENT_GEMS`) |
+| サーバー内部エラー | `INTERNAL` | `INTERNAL_ERROR`(詳細はログにだけ出し、クライアントには返さない) |
+
+- gRPCではエラー時にレスポンスメッセージを返せないため、付加情報は**リッチエラーモデル**で運ぶ。`google.rpc.Status` の details に任意のprotoメッセージを入れ、トレーラー `grpc-status-details-bin` で返す仕組みで、Rust(tonic)・C#(grpc-dotnet)とも対応している
+- details には独自のメッセージを定義せず、Google標準の `google.rpc.ErrorInfo` を入れる
 
 ```proto
-message ErrorDetail {
-  string code = 1;   // 例: "INSUFFICIENT_GEMS"
+// google/rpc/error_details.proto(Googleが提供する定義。自分では定義しない)
+message ErrorInfo {
+  string reason = 1;                 // エラーコード。例: "INSUFFICIENT_GEMS"
+  string domain = 2;                 // 固定値(サービス名等)。クライアントは判定に使わない
+  map<string, string> metadata = 3;  // v1では使わない(「文言への値の埋め込み」参照)
 }
 ```
 
-- gRPCではエラー時にレスポンスメッセージを返せないため、付加情報は Status の details(トレーラー)で運ぶ
-- クライアントは Interceptor で `RpcException` から `ErrorDetail` を取り出し、自前の `ApiException(code)` に変換する
-- サーバー側はエラーコードの定数を1つのモジュールにまとめ、タイプミスを防ぐ
+- `reason` は AIP-193 の規則に合わせる(大文字のスネークケース、63文字以内)
+- エラーコードは文字列のため `.proto` からは生成されない。サーバー・クライアントそれぞれで定数を1か所にまとめ、タイプミスを防ぐ
+- 標準型を選んだ理由: Rust・C#ともライブラリの型がそのまま使え、将来の引数も `metadata` で運べるため。比較した案は、独自の `ErrorDetail` に `.proto` の enum でコードを持たせ、両言語に定数を生成する方法
+- 実装: Rust は tonic-types の `ErrorDetails::with_error_info` と `StatusExt` で作る。C# は `Google.Api.CommonProtos` の型でトレーラーをパースする(3.3)
 
-この取り決めは、次項「挙動をどこで決めるか」とは独立して確定できる。
+#### 受け取り方(クライアント)
 
-#### 案: エラー時の挙動(文言・遷移先)をどこで決めるか
+受け取ったエラーをエラーコードに変換し、以降はコードだけで扱う。
+
+| 受け取ったもの | エラーコード |
+|---|---|
+| `FAILED_PRECONDITION` + `ErrorInfo` | `ErrorInfo.reason` |
+| `INTERNAL` | `INTERNAL_ERROR`(`ErrorInfo` が無くても) |
+| `UNAVAILABLE` / `DEADLINE_EXCEEDED` | `NETWORK_ERROR` |
+| `UNAUTHENTICATED` | 認証で扱う(5.4) |
+| 呼び出し側によるキャンセル | エラーとして扱わない |
+| 上記以外(`ErrorInfo` の無い `FAILED_PRECONDITION`、`UNIMPLEMENTED` 等) | `UNKNOWN_ERROR` |
+
+- `NETWORK_ERROR` と `UNKNOWN_ERROR` はクライアント専用の予約コード(サーバーは返さない)
+- 存在しないメソッドを呼ぶと `UNIMPLEMENTED` になるため、業務上の「見つからない」と混ざらない
+
+#### エラー時の挙動(文言・遷移先)
+
+**v1はクライアントのコード内の対応表で決める(下表のB)**。`IErrorPolicyProvider` のようなインターフェースの裏に置き、将来マスター(A)に差し替えられる構造にする。
 
 | | A. マスター(実務のやり方) | B. クライアントのコード内の対応表 | C. サーバーがレスポンスで指示 |
 |---|---|---|---|
-| 方法 | エラーマスターに code / text_key / action を持つ | C#に「code → text_key, action」の表を1か所に持つ | `ErrorDetail` に action も入れる |
+| 方法 | エラーマスターに code / text_key / action を持つ | C#に「code → text_key, action」の表を1か所に持つ | エラー詳細に action も入れる |
 | 挙動の変更 | マスターをリモート配信していればアプリ更新なしで可能 | アプリ更新が必要 | サーバーのデプロイのみで可能 |
 | 依存 | テンプレートが master-data-pipeline に依存する | なし | サーバーがクライアントの画面構成を知る |
 | マスター読み込み前のエラー | 扱えない(別の仕組みが必要) | 問題なし | 問題なし |
 
-- 提案: **v1はB**。`IErrorPolicyProvider` のようなインターフェースの裏に置き、将来Aに差し替えられる構造にする
-- action とダイアログのボタンの対応(案):
+- 対応表に無いコードは `UNKNOWN_ERROR` と同じ挙動にする。サーバーが後からコードを追加しても、古いアプリは壊れない
+- 画面ごとに個別に処理したいコード(例: Atlasの「プレイヤー未作成ならサインアップへ」)をどう捕まえるかは、クライアントの通信層の構成(6章)で決める
+
+action とダイアログのボタン:
 
 | action | ボタン | 挙動 |
 |---|---|---|
@@ -178,37 +221,89 @@ message ErrorDetail {
 | Retry | 再試行 / タイトルへ | 再試行: 同じRequestIDで再送 / タイトルへ: タイトルに戻る |
 | Home | ホームへ | ホーム画面に戻る |
 | Title | タイトルへ | タイトルに戻る(セッション情報を破棄) |
+| Update | ストアへ | ストアのページを開く。アプリは先へ進めない |
 
-- サーバーからコードが来ないエラー(通信断・タイムアウト)は、クライアント側で予約コード(例: `NETWORK_ERROR`)を割り当てて同じ仕組みで扱う
+予約コードと既定の action(業務ごとのコードは、各ゲームが対応表に追加する):
 
-#### 未確定の論点
+| エラーコード | 返す側 | action | 用途 |
+|---|---|---|---|
+| `NETWORK_ERROR` | クライアント | Retry | 通信断・タイムアウト |
+| `INTERNAL_ERROR` | サーバー | Retry | サーバー内部エラー。一時的な障害(DBの一時エラー等)は再試行で直り得る |
+| `UNKNOWN_ERROR` | クライアント | Title | 想定外のステータス、対応表に無いコード |
+| `MAINTENANCE` | サーバー | Title | メンテナンス中 |
+| `UPDATE_REQUIRED` | サーバー | Update | 強制アップデート |
+| `ACCOUNT_SUSPENDED` | サーバー | Title | BAN・アカウント停止 |
+| `DATE_CHANGED` | サーバー | Title | 日付変更。タイトルからサインインし直し、所持データを全件取り直す |
 
-1. エラー時の挙動をどこで決めるか(A / B / C)
-2. 業務エラーに使うステータスコード(`FAILED_PRECONDITION` 等)
-3. メンテナンス中の返し方(業務エラーと同じステータスにそろえるか、`UNAVAILABLE` にするか)
-4. サーバー内部エラーの返し方(案: `INTERNAL` + `INTERNAL_ERROR`)
-5. 分類の過不足(BAN・アカウント停止、強制アップデート、日付変更によるデータ再取得など)
-6. textKey の文言に値を埋め込むケース(「あと{0}ジェム必要です」等)への対応。必要なら `ErrorDetail` に引数リストを持たせる
+- 強制アップデートは v1 から入れる。リリース済みのアプリには後から仕組みを足せない(古いアプリには「更新が必要」を理解する手段が無い)ため
+- 判定の仕組みは別の節で決める。メンテナンス・強制アップデート・日付変更はサーバーの共通処理(5.7)、BANは認証(5.4)
 
-### 5.3 RequestIDによる冪等性 【未確定】
+#### 文言への値の埋め込み
+
+- v1では対応しない(「あと{0}ジェム必要です」のような文言は使わない)
+- 必要になったら `ErrorInfo.metadata`(`map<string, string>`)で値を送る。`.proto` の変更は不要
+
+#### 参考資料
+
+- [gRPC: Error handling](https://grpc.io/docs/guides/error/) — 標準エラーモデルとリッチエラーモデル
+- [Carpe Diem「gRPCでエラー詳細を渡す方法」](https://christina04.hatenablog.com/entry/grpc-error-details) — エラーコードの渡し方3案(メッセージのparse / レスポンスのフィールド / error details)の比較
+- [アルパカ三銃士「gRPC Application のエラー設計」](https://codehex.hateblo.jp/entry/2020/08/10/164630) — 標準のエラー詳細型と独自型の使い分け
+- [AIP-193: Errors](https://google.aip.dev/193) — `ErrorInfo` の使い方と `reason` の命名規則
+- [Microsoft Learn: Error handling with gRPC on .NET](https://learn.microsoft.com/en-us/aspnet/core/grpc/error-handling) — C#でのリッチエラーモデル
+- [tonic-types](https://docs.rs/tonic-types/latest/tonic_types/) — Rust(tonic)でのリッチエラーモデル
+- [Fintan「HTTP API通信で発生するエラーのハンドリング」](https://fintan-contents.github.io/mobile-app-crib-notes/react-native/santoku/decisions/adr-003-http-api-error-handling/) — モバイルアプリでのエラー分類の実例。メンテナンス・強制アップデートを共通処理で扱い、自動リトライせずユーザーに再試行させる
+- [Qiita「クライアントアプリでのレベル別エラー分類の提案」](https://qiita.com/yosshi4486/items/53367ba2dde668f5f038) — 「システムで回復 / ユーザーが回復 / 回復不能」の3段階の分類
+
+### 5.3 RequestIDによる冪等性 【確定】
 
 学マス資料 p.51 のレスポンスキャッシュを参考にする。
 
 - 目的: 更新系APIの重複実行を防ぐ(レスポンスを受け取る前に通信が切れ、再送した場合など)
-- 仕組み(案):
-  - クライアントがリクエストごとにRequestIDを採番し、メタデータに付けて送る(Interceptor)
-  - サーバーは同じRequestIDのレスポンスを保存しておき、再送されたら保存済みのレスポンスを返す
-  - ダイアログの「再試行」では同じRequestIDで再送する(5.1、5.2と連動)
+- 仕組み:
+  - クライアントは1回の操作につき1つRequestID(UUID)を採番し、メタデータに付けて送る。ダイアログの「再試行」では同じRequestIDで再送する(5.1、5.2と連動)
+  - サーバーはプレイヤーごとに「直前のRequestIDとレスポンス」を1行だけ保存する(上書き)。同じRequestIDが再送されたら、処理し直さずに保存済みのレスポンスを返す
 
-未確定の論点:
+#### 決定事項
 
-1. 対象を全APIにするか、更新系だけにするか(案: 全APIに一律適用し、対象を選ぶ仕組みを不要にする)
-2. 保存先と保持期間(案: MySQLのテーブル)
-3. 同じユーザーの更新系リクエストを直列化するか。直列化する場合、サーバーでロックするか、クライアントで送信を1つずつに制限するか(学マス資料 p.45 の注記ではこれを前提にしている)
+| 論点 | 決定 | 理由 |
+|---|---|---|
+| 保存方式 | プレイヤーごとに最新1件だけ保存する(MySQLのテーブルに1プレイヤー1行、上書き) | 保存量がプレイヤー数で頭打ちになり、期限切れの掃除が要らない。ゲームは通信中に操作をふさいで1つずつ送るため、最新1件で足りる(学マス資料 p.45 の注記もこれが前提) |
+| 直列化 | サーバーは上記の行を `SELECT ... FOR UPDATE` でロックする。クライアントは対象のリクエストを1つずつ送る | ロック: 処理中に再送が届いても、最初の処理の完了を待ってから保存済みのレスポンスを返せる。1つずつ: 下記「注意」の二重実行を防ぐ |
+| トランザクション | レスポンスの保存と業務データの更新を同じトランザクションで行う | 「業務データはコミット済み・レスポンスは未保存」の状態が生まれず、再送で二重実行されない |
+| エラー時 | 保存しない(トランザクションごとロールバックされる)。再試行すると処理し直す | 何もコミットされていないので安全。`INTERNAL_ERROR` を Retry にしたこと(5.2)と整合する |
+| 対象 | 既定で全サービスに適用する。読み取り専用で頻繁に呼ぶもの(ポーリング)とサインインは、別サービスに分けて対象外にする。認証前のAPI(デバイス登録等)も対象外 | 外し忘れは書き込みが少し増えるだけだが、付け忘れは二重実行になるため、既定を「適用」にする。サインインは下記「注意」を参照 |
+
+処理の流れ(サーバーの共通処理):
+
+1. トランザクションを開始する
+2. プレイヤーの行を `SELECT ... FOR UPDATE` でロックし、保存済みのRequestIDを読む
+3. 同じRequestIDなら、保存済みのレスポンスを返して終わる
+4. 違えば、ハンドラーを実行する(ハンドラーは同じトランザクションを使う)
+5. 成功したらレスポンスを保存(上書き)してコミットする。エラーならロールバックする
+
+#### 注意
+
+- **クライアントが1つずつ送る理由**: 「Aの応答が届かないまま次のBを送り、サーバーの記録がBで上書きされた後にAを再送する」と、Aがもう一度実行される。Aが成功するか、ユーザーが諦める(タイトルへ戻る)までBを送らない
+- **RequestIDの採番場所**: 再試行で同じIDを使うため、採番は再試行の外側で行う。Interceptorで毎回採番すると、再試行のたびに別のIDになる。どこで採番するかは6章で決める
+- **トランザクションの持ち方**: トランザクションをハンドラーの中ではなく共通処理で開始し、ハンドラーに渡す構造が必要になる(5.7)
+- **プレイヤーの行**: ロックの対象にするため、プレイヤーの作成時に1行作っておく
+- **サインインを対象外にする理由**: 保存量は「プレイヤー数 × 各プレイヤーの直前のレスポンスの大きさ」になる。サインインは全件データを返すため、対象にすると保存量が大きくなり、サインインが集中する時間帯(メンテナンス明け・イベント開始)の書き込みも重くなる。一方でサインインは読み取りが中心なので、再実行されても結果は変わらない
+- **サインイン中の状態変更**: 付与などの状態変更(ログインボーナス等)は別のAPIにして、この仕組みに乗せる(再送されても二重に付与されず、保存済みのレスポンスで演出も出せる)。サインイン中の書き込みは、最終ログイン日時の更新のように、何回実行しても結果が同じものに限る
+- **認証前のAPI**: どのプレイヤーか決まらないため、APIごとに冪等に作る(Atlasと同じ判断。例: デバイス登録は再送されても害が無い)
+
+#### 参考資料
+
+- Atlasの `Shared/docs/design/client-architecture.md`「段階2: サーバー(二重送信の防止)」 — 送り直したときに何が壊れるかを、エンドポイントごとに調べた表。Atlasは対象が2つだけのため汎用の仕組みを採用せず、エンドポイントごとの `requestId` で対応すると判断している
+- [Stripe「Designing robust and predictable APIs with idempotency」](https://stripe.com/blog/idempotency) — 冪等キーの考え方
+- [brandur「Implementing Stripe-like Idempotency Keys in Postgres」](https://brandur.org/idempotency-keys) — 一定期間すべて保存する方式の実装例(処理中の重複には409を返す、72時間で削除する)
+- [AIP-155: Request identification](https://google.aip.dev/155) — 重複時は前回の成功レスポンスを返す。AIPはIDをリクエストメッセージのフィールドに持つが、本基盤は全API一律に適用するためメタデータに載せる
+- [MONEX ENGINEER BLOG「Web APIにおける重複エラーはエラーに非ず」](https://blog.tech-monex.com/entry/2024/12/05/133747) — 重複リクエストにはエラーではなく、初回と同じ正常レスポンスを返すべきという主張
 
 ### 5.4 認証 【保留】
 
 - 認証トークンの方式、期限切れ時の扱い(自動再認証するか等)は保留
+  - Atlasは `401` を受けると再認証して1回だけ再送している(`AccessTokenRefresher`)。これを引き継ぐ場合、5.1「自動リトライしない」との整理が必要
+- BAN・アカウント停止(`ACCOUNT_SUSPENDED`、5.2)の判定は、認証の中で行う想定
 - 参考: 認証の要否はサービスの分割で表現できる(認証不要のサービスと、それ以外のサービスに分け、後者にだけ認証を適用する)
 
 ### 5.5 playerDiff(ユーザーデータ差分の同期)
@@ -225,23 +320,53 @@ message ErrorDetail {
 
 - 差分の各リソースはメッセージ型のフィールドとし、**null は「変更なし」**を意味する(4.3)
 - サインイン時は全件のスナップショットなので、全リソースを設定する
+- サインインは冪等性の対象外。付与などの状態変更は別APIにする(5.3)
+- **レスポンスへの載せ方**: 差分を返すAPIのレスポンスメッセージには、`player_diff` という名前のフィールドを必ず持たせる(規約)
+  - メタデータ(トレーラー)は、サイズ上限(実装により8〜16KB程度)があり、サインイン時の全件データが載らないため使わない
+    - 実例: アプリボットは、データの更新情報を毎回トレーラーで返していたが、更新が多いと8KBの上限を超えてエラーになり、テーブル名だけを返す形に直した([CEDEC2019 アプリボット×Cysharpの資料](https://speakerdeck.com/n_takehata/kuraiantotong-xin-haipahuomansunatong-xin-ji-pan-falsekai-fa-tomagiconionniyoruriarutaimutong-xin-falseshi-xian))
+  - 全レスポンスを共通の入れ物(`{ PlayerDiff diff; Any body; }`)で包む方法は、APIごとの型が消えるため採らない
+- **値の持ち方**: 差分は変化量(ジェム-100)ではなく、変更後の値(ジェム残り200)で持つ。同じ差分を2回反映しても結果が変わらないため、5.3で保存済みのレスポンスが再送時に返っても問題ない(Atlasも変更後の値で返している)
+- **サインインの全件の反映**: クライアントは差分としてではなく、手元のデータの「置き換え」として反映する(6章の制約)
+- **サーバーでの差分の集め方**: v1から、リクエスト単位の差分コレクターを使う
+  - 書き込み関数(アイテムを増やす等)が、DBに書くついでにコレクターへ記録する。ハンドラーは最後に取り出してレスポンスに詰めるだけにし、差分を手で並べない
+  - コレクターは5.3の「1リクエスト=1トランザクション」と同じリクエスト単位に載せる(5.7)。トランザクションがロールバックされたら中身も捨てる(エラーのレスポンスには差分が付かない)
+  - 同じリクエスト内で同じものが複数回書き換わったら、最後の値だけを残す
+  - 検討した他の案: ハンドラーが手で組み立てる(Atlasの方式。副作用で変わったものを入れ忘れ得る)、自動生成したデータアクセス層が変更を検知する(学マスの方式。コード生成が必要で、v1の方針(3.2)と合わない)
+
+```proto
+message PlayerDiff {
+  ItemsDiff items = 1;         // null = 変更なし(4.3)
+  PachimonDiff pachimon = 2;   // リソース種別ごとに1フィールド
+}
+message ItemsDiff {
+  repeated PlayerItem upserted = 1;  // 追加・更新されたもの(変更後の値)
+  repeated int32 removed = 2;        // 削除されたもののID
+}
+message SelectScoutCandidateResponse {
+  PlayerDiff player_diff = 1;  // 規約: 名前は必ず player_diff
+}
+```
 
 #### 未確定の論点
 
-1. **レスポンスへの載せ方**: gRPCのメタデータにはサイズ上限(実装により8〜16KB程度)があり、サインイン時の全件データが載らない。案として、各レスポンスメッセージのフィールドとして持つ規約にする
-2. **クライアントでの反映方法**: 案として、Connectionが共通で使う呼び出しヘルパーで反映する
+1. **クライアントでの反映方法**(6章と合わせて決める): 案として、Connectionが共通で使う呼び出しヘルパーで反映する
    - 反映処理は非同期であり、DIで注入される依存(`PlayerDiffApplier`)を使うため、Interceptorには向かない
    - 生成されたC#クラスは `partial` なので、`partial class XxxResponse : IHasPlayerDiff {}` を手で付け、ヘルパーで判定する
-3. **サーバーでの差分の収集方法**: Atlasは handler が手で差分を組み立てており、副作用で変わったリソースの入れ忘れが起こり得る。学マスは自動生成したデータアクセス層(ORM)が変更を検知して自動で差分を付けている。案として、リクエスト単位の差分コレクターを用意し、service層の書き込み関数が記録する(v1では見送り、手組みの限界を感じてから導入)
+
+#### 参考資料
+
+- Atlas: 差分を手で組み立てている例は `Server/src/api/scout.rs` の候補選択(パチモンと技の2種類を並べている)、サインインの全件は `Server/src/api/player.rs` の `build_full_player_diff`、クライアントでの反映は `PlayerDiffApplier.cs`
+- [高速で統一的な自動生成ツールをprotocプラグインとして実装した話](https://speakerdeck.com/qualiarts/gao-su-detong-de-nazi-dong-sheng-cheng-turuwoprotocpuraguintositeshi-zhuang-sitahua)(QualiArts) — protoからエンティティやリポジトリのインターフェースまで生成している。データアクセス層で変更を検知する方式の土台になる考え方
 
 ### 5.6 共通処理の置き場所(クライアント) 【未確定】
 
 | 処理 | 置き場所(案) |
 |---|---|
-| RequestIDの付与 | Interceptor |
+| RequestIDの付与 | Interceptor。ただし採番は再試行の外側で行う(5.3) |
 | エラーの変換(`RpcException` → `ApiException`) | Interceptor |
 | ログ | Interceptor |
 | 認証トークンの付与 | Interceptor(方式は保留) |
+| アプリのバージョンの付与(強制アップデートの判定用) | Interceptor |
 | playerDiffの反映 | Connectionの共通ヘルパー |
 | リトライ | 自動では行わない。呼び出し側が再実行する |
 
@@ -262,6 +387,12 @@ var client = new PlayerService.PlayerServiceClient(invoker);
 ### 5.7 共通処理の置き場所(サーバー) 【未確定】
 
 - tower の Layer / tonic の Interceptor で、認証、RequestIDのレスポンスキャッシュ、エラー変換(`AppError` → `tonic::Status`)、ログを行う(案)
+  - レスポンスキャッシュはレスポンスを扱うため、tower の Layer で行う(tonic の Interceptor はリクエストしか扱えない)
+- トランザクションは共通処理で開始してハンドラーに渡し、RequestIDのレスポンスの保存と一緒にコミットする(1リクエスト=1トランザクション。5.3で決定)。5.5の差分コレクターも、同じリクエスト単位に載せる
+- メンテナンス・強制アップデート・日付変更の判定(5.2)も、全リクエストに対する共通処理で行う(案)。未確定の論点:
+  1. メンテナンス状態と、アプリの最低バージョンの置き場所
+  2. 日付変更の判定方法(日付の切り替え時刻、サインインした日付をクライアントが送るかサーバーが保持するか)
+  3. 判定の対象外にしたいAPI(メンテナンス中でも呼べるお知らせ取得など)の表し方。IDOLY PRIDEはカスタムオプションでAPIごとに切り替えている([「IDOLY PRIDE」におけるgRPC利用とカスタマイズ](https://technote.qualiarts.jp/article/24/))。本基盤ではサービスの分割で表せるか確認する
 
 ---
 
@@ -294,15 +425,35 @@ gRPC化に伴い、Atlasで api-codegen が生成していた `ApiRequest`(Unity
 
 - テンプレートのクライアント側を、Connection層から設計し直すか
 - 設計し直す場合、「Presenter / Service / 通信 / Repository」の責務分担を先に決め、その後に 5.6 の共通処理の置き場所を決め直す
+- 設計する際に守る制約(5.2、5.3で決定済み):
+  - エラーはエラーコードに変換し、対応表(5.2)に従ってダイアログを出す。画面ごとに個別に処理したいコードの捕まえ方はここで決める
+  - RequestIDは1回の操作につき1つ。再試行で同じIDを使うため、採番は再試行の外側で行う
+  - 冪等性の対象サービスへのリクエストは1つずつ送る(前のリクエストが成功するか、ユーザーが諦めるまで次を送らない)
+  - サインインの全件データは、差分としてではなく手元のデータの「置き換え」として反映する(5.5)
 
 ---
 
-## 7. 開発運用 【未確定】
+## 7. 開発運用 【確定】
 
-1. **`.proto` の管理**: protoc を直接使うか buf を使うか。生成の実行手順。後方互換のルール(フィールド番号の再利用禁止など)
-2. **デバッグ手段**: Swagger UI の代わりとして、開発環境で gRPC リフレクションを有効にし、grpcurl 等で呼び出せるようにするか
-3. **テスト**: サーバーの結合テストを gRPC クライアントで書く方針
+1. **`.proto` の管理** 【確定】: **buf** を使う
+   - `buf lint`(書き方のチェック)、`buf format`(整形)、`buf breaking`(後方互換を壊す変更の検出)を使う
+   - C#の生成は `buf generate` で行う(protoc組み込みの C# 生成と grpc_csharp_plugin を呼ぶ)。Rustは3.2のとおり `build.rs` の tonic-build で生成する
+   - 後方互換のルール: 一度使ったフィールド番号・名前は再利用しない(消したら `reserved` にする)。`buf breaking` で検出する
+2. **デバッグ手段** 【確定】: Swagger UI の代わりに **Postman** を使う
+   - サーバーは開発環境のときだけ gRPC リフレクションを有効にする(`tonic-reflection`)。Postman はサーバーからサービス定義を読み込めるので、`.proto` を変えるたびにインポートし直さなくてよい(`.proto` をインポートする方法も使える)
+   - RequestID(5.3)や認証トークンは、Postman の Metadata タブで設定して送る
+   - 手順をコマンドで残したいときは grpcurl も使える(同じくリフレクションを使う)
+   - Postman は `.proto` からモックサーバーも作れる。サーバーを作る前に応答の形を確かめる用途で使える
+3. **テスト** 【確定】: サーバーの結合テストは、tonic が生成する gRPC クライアントで書く。実際のクライアントと同じ経路(共通処理のLayerを含む)を通して確認できるため
 4. **既定値が0以外のリクエストパラメータ**: proto3 では任意の既定値を指定できないため、サーバー側で補う(必要になった時点で検討)
+
+参考資料:
+
+- [Protocol Buffersで実現するWINTICKETのスキーマ駆動データ基盤](https://developers.cyberagent.co.jp/blog/archives/60672/)(CyberAgent) — Bufを採用した理由(lint・フォーマット・後方互換のチェック・依存管理)。1の材料
+- [「IDOLY PRIDE」におけるgRPC利用とカスタマイズ](https://technote.qualiarts.jp/article/24/)(QualiArts) — 開発用に grpc-gateway と Swagger UI を導入している。2の材料。grpc-gateway はGoのプロキシを別に立てる仕組みなので、Rustでは gRPCリフレクション + grpcurl 等と比べて選ぶ
+- [PostmanでgRPCのデバッグをする](https://zenn.dev/valmet083/articles/d98edd0cfc2441)(Zenn) — `.proto` をインポートして Unary を呼ぶ手順。2の材料
+- [PostmanでgRPC APIのテスト](https://qiita.com/yokawasa/items/8a55dd427230de6374bc)(Qiita) — `.proto` をAPIとして管理する方法と、gRPCのモックサーバー。2の材料
+- [IDOLY PRIDEにおけるゲームAPIの開発](https://technote.qualiarts.jp/article/31/)(QualiArts) — protoからAPIドキュメントを自動生成している。画面ごとに必要なAPIとパラメータを決め、クライアントとすり合わせる進め方
 
 ---
 
@@ -323,15 +474,26 @@ gRPC化に伴い、Atlasで api-codegen が生成していた `ApiRequest`(Unity
 | 9 | oneof | ケースバイケース | 4.3 |
 | 10 | コード生成 | v1はカスタムオプション・自作プラグインを使わない | 3.2 |
 | 11 | リトライ | 自動リトライしない。クライアント側で判断する | 5.1 |
+| 12 | エラーの返し方 | 業務エラーは `FAILED_PRECONDITION`、内部エラーは `INTERNAL`。エラーコードは `google.rpc.ErrorInfo` の `reason` で運ぶ | 5.2 |
+| 13 | メンテナンス中の返し方 | 業務エラーと同じ(`FAILED_PRECONDITION` + `MAINTENANCE`) | 5.2 |
+| 14 | エラー時の挙動の決め方 | v1はクライアントのコード内の対応表。対応表に無いコードは `UNKNOWN_ERROR` と同じ扱い | 5.2 |
+| 15 | エラーの分類 | 予約コード7種(通信断・内部・不明・メンテナンス・強制アップデート・BAN・日付変更)と action 5種(Stay / Retry / Home / Title / Update) | 5.2 |
+| 16 | 文言への値の埋め込み | v1では対応しない。必要になったら `ErrorInfo.metadata` を使う | 5.2 |
+| 17 | RequestIDによる冪等性 | プレイヤーごとに最新1件のレスポンスを保存する。サーバーは行ロック、クライアントは1つずつ送信。保存は業務データと同じトランザクションで行い、エラーは保存しない | 5.3 |
+| 18 | 冪等性の適用対象 | 既定で全サービス。ポーリング・サインイン・認証前のAPIは対象外 | 5.3 |
+| 19 | サインインでの状態変更 | 付与などは別APIにする。サインイン中の書き込みは、何回実行しても結果が同じものに限る | 5.3 |
+| 20 | playerDiffの載せ方 | 差分を返すAPIのレスポンスに `player_diff` フィールドを必ず持たせる。値は変化量ではなく変更後の値で持つ | 5.5 |
+| 21 | サーバーでの差分の集め方 | v1からリクエスト単位の差分コレクターを使う。書き込み関数が記録し、ハンドラーは手で並べない | 5.5 |
+| 22 | デバッグ手段 | Postmanを使う。サーバーは開発時のみgRPCリフレクションを有効にする。grpcurlも併用可 | 7 |
+| 23 | `.proto`の管理 | bufを使う(lint・format・breaking、C#の生成)。Rustの生成は build.rs の tonic-build | 7 |
+| 24 | テスト | サーバーの結合テストは tonic の生成クライアントで書く | 7 |
 
 ### 未確定・保留
 
 | # | 項目 | 状態 | 節 |
 |---|---|---|---|
-| 1 | エラーモデル(ステータス、エラーコード、挙動の決め方、分類) | 未確定 | 5.2 |
-| 2 | RequestIDによる冪等性(対象、保存先、直列化) | 未確定 | 5.3 |
-| 3 | 認証トークン | 保留 | 5.4 |
-| 4 | playerDiffの載せ方・反映方法・サーバーでの収集方法 | 未確定 | 5.5 |
-| 5 | 共通処理の置き場所(クライアント / サーバー) | 未確定 | 5.6, 5.7 |
-| 6 | クライアント通信層の構成の見直し | 未確定 | 6 |
-| 7 | `.proto`の管理、デバッグ手段、テスト | 未確定 | 7 |
+| 1 | 認証トークン(BANの判定、`UNAUTHENTICATED` の扱いを含む) | 保留 | 5.4 |
+| 2 | playerDiffのクライアントでの反映方法(6章と合わせて決める) | 未確定 | 5.5 |
+| 3 | 共通処理の置き場所(クライアント / サーバー) | 未確定 | 5.6, 5.7 |
+| 4 | メンテナンス・強制アップデート・日付変更の判定方法 | 未確定 | 5.7 |
+| 5 | クライアント通信層の構成の見直し(RequestIDの採番場所、送信の順番待ちを含む) | 未確定 | 6 |
