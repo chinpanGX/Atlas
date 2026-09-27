@@ -8,8 +8,9 @@ Unity Client側の「View⇔ロジック」を繋ぐ土台の設計。個別画�
 ## 採用ライブラリ
 
 - 画面遷移: [UnityScreenNavigator](https://github.com/Haruma-K/UnityScreenNavigator)(USN、MIT
-  License)。Push/Popによるスタック型画面遷移・モーダル・遷移アニメーション・ライフサイクル
-  イベントを提供する。このアプリはPage間のフロー制御が単純(タイトル→ホーム→各機能→対戦、
+  License)を自分でフォークしたもの([chinpanGX/UnityScreenNavigator](https://github.com/chinpanGX/UnityScreenNavigator)、
+  `develop`ブランチを参照)。Push/Popによるスタック型画面遷移・モーダル・遷移アニメーション・ライフサイクル
+  イベントに加え、フォーク側でPresenter起点の画面遷移(VContainer連携)・Overlay・遷移の直列化を提供する。このアプリはPage間のフロー制御が単純(タイトル→ホーム→各機能→対戦、
   程度)で済むため、フロー概念(名前付きルート・トランザクション等)を持つような大掛かりな
   自作フレームワークは過剰と判断し、シンプルなPush/Pop型のOSSを採用する
 - DI: VContainer(既存、[architecture.md](architecture.md)「クライアント利用ライブラリ」参照)
@@ -28,8 +29,8 @@ Unity Client側の「View⇔ロジック」を繋ぐ土台の設計。個別画�
 `Bootstrap` / `Home` / `Battle`の3シーン構成にする。バトルとアウトゲームは別シーンとして
 分離し、起動処理専用のシーンを独立させる。画面遷移を2階層に分ける:
 
-- **Scene単位の遷移**(Bootstrap→Home、Home⇔Battle): Supplementの`ISceneLoader`
-  (Addressables経由、[ISceneLoader.cs](../../../Supplement/Assets/Supplement/Loader/Abstractions/ISceneLoader.cs)参照)で行う
+- **Scene単位の遷移**(Bootstrap→Home、Home⇔Battle): `ISceneNavigator`(フォークのUSN)で行う。
+  内部ではSupplementの`ISceneLoader`(Addressables経由、[ISceneLoader.cs](../../../Supplement/Assets/Supplement/Loader/Abstractions/ISceneLoader.cs)参照)を使う
 - **Scene内の画面遷移**(Home内のタイトル/パーティ編成/スカウト等、Battle内の対戦画面/
   投了確認等): USNのPage/Modalで行う
 
@@ -42,14 +43,14 @@ Bootstrap(Build Settingsの起動シーン、Addressables対象外)
     │ ISceneLoader.ChangeScene("Home", additive: true, ...)
     ▼
 Home(Addressables管理)
-  UICamera / PageContainer / ModalContainer(USN)
+  UICamera / PageContainer / ModalContainer / OverlayContainer(USN)
   HomeLifetimeScope(VContainer、RootLifetimeScopeの子)
   タイトル・ホーム・パーティ編成・スカウト・チャット等、アウトゲームの全画面をUSNの
   Page/Modalとして持つ
     │ マッチング成立 → ISceneLoader.ChangeScene("Battle", additive: true, ...)
     ▼
 Battle(Addressables管理)
-  UICamera / PageContainer / ModalContainer(USN)
+  UICamera / PageContainer / ModalContainer / OverlayContainer(USN)
   BattleLifetimeScope(VContainer、RootLifetimeScopeの子)
   対戦画面のPage、投了確認等のModal
     │ 対戦終了 → ISceneLoader.ChangeScene("Home", additive: true, ...)
@@ -60,8 +61,8 @@ Battle(Addressables管理)
 - Bootstrapは`ISceneLoader.ChangeScene`の対象にせず、常にロードされたままにする(Home/Battleを
   上に重ねてロードする側)。これにより`RootLifetimeScope`は`DontDestroyOnLoad`等の特別な仕組み
   なしに、「Bootstrapシーン自体が一度もUnloadされない」という性質だけで生存させられる
-- Home⇔Battleの切り替えは、前のシーンをUnloadしてから次をLoadする想定(両方を同時にロードした
-  ままにしない)
+- Home⇔Battleの切り替えは、次のシーンをLoadしてから前のシーンをUnloadする(切り替え中に何も無い
+  一瞬を作らないため。詳細は下記「シーンの切り替え(ISceneNavigator)」参照)
 - Page/Modal prefabはAddressablesで管理し、`Assets/Addressables/Views/{機能名}/`配下に配置する
   (シーン自体のAddressables化とは別の対象)。Addressables管理のシーン(Home/Battle)は
   `Assets/Addressables/Scenes/`に置き、Bootstrap(Build Settings登録)は`Assets/Scenes/`に残す
@@ -109,118 +110,87 @@ Mirrativ記事はこれを「Clean Architectureの厳密な分離よりシンプ
 
 ### クラス関係図
 
-`PartyEditPage`(View)を例に、LifetimeScopeの階層とPresenter/View/Serviceの依存関係を
+`PartyEditPage`(View)を例に、DIスコープの階層とPresenter/View/Serviceの依存関係を
 1枚にまとめる。上半分が「誰が誰を子として生成するか(DIスコープの所有関係)」、下半分が
 「誰が誰をコンストラクタ注入で受け取るか(実行時の依存関係)」。
 
 ```
 RootLifetimeScope(Bootstrapシーン、常駐)
-  registers: IXxxConnection(Mock/Real選択済み), IXxxRepository, IPartyService, IMasterDataService...
+  registers: IXxxConnection(Mock/Real選択済み), IXxxRepository, IPartyService, IMasterDataService,
+             ISceneNavigator(TransitionAwareSceneNavigator)...
   │
-  │ LifetimeScope.EnqueueParent
+  │ FindParent()でRootLifetimeScopeを直接親にする
   ▼
 HomeLifetimeScope(Homeシーン)
-  registers: PageContainer, ModalContainer, IScreenNavigator実装
+  registers: PageContainer, ModalContainer, OverlayContainer, IScreenNavigator(ScreenNavigator)
   │
-  │ LifetimeScope.EnqueueParent(IScreenNavigatorがPushのonLoad内で実行)
+  │ ScreenNavigatorがPushのonLoad内でresolver.CreateScope(...)する
+  │ (LifetimeScopeコンポーネントを介さない、ヘッドレスな子スコープ)
   ▼
-PartyEditPageLifetimeScope : PageLifetimeScope<PartyEditViewDto>
-  (PartyEditPage prefabに同梱、Instantiate直後・自動Build無効化・onLoad内で明示Build)
-  Configure(builder):
-    builder.RegisterComponent(view)           -- PartyEditPage(View)インスタンス
-    RegisterViewDto(builder)                  -- Push時に渡されたPartyEditViewDto(null許容)
-    builder.RegisterEntryPoint<PartyEditPresenter>()
+Push単位の子スコープ
+    RegisterInstance(view, view.GetType())   -- PartyEditPage(View)インスタンス
+    RegisterInstance(args, args.GetType())   -- Push時に渡されたPartyEditViewDto(引数付きPushのみ)
+    Register<PartyEditPresenter>(Scoped)
   │
-  │ Build()の副作用としてEntryPointDispatcherが自動構築(呼び出し側は明示的にResolveしない、
-  │ 下記「DIによる結線とライフサイクル」参照)
   ▼
-PartyEditPresenter ← コンストラクタ注入で依存 ─┬─ PartyEditPage(View、同じスコープでRegisterComponent済み)
-  IInitializable/IDisposable実装               ├─ PartyEditViewDto(同じスコープでRegisterInstance済み)
-  (Page破棄時にScopeごとDispose)                └─ IPartyService(親のRootLifetimeScopeまで遡って解決)
+PartyEditPresenter ← コンストラクタ注入で依存 ─┬─ PartyEditPage(View)
+  [AssetAddress(AddressDefinition.PartyEditPage)] ├─ PartyEditViewDto
+  IScreenWithArgs<PartyEditViewDto>              └─ IPartyService(親のRootLifetimeScopeまで遡って解決)
 
 PartyEditPage(View)が公開するもの:
-  Observable<Unit> OnSaveButtonClicked  -- PartyEditPresenter.Initialize()内でSubscribe
+  Observable<Unit> OnSaveButtonClicked  -- PartyEditPresenter.InitializeAsync()内でSubscribe
   void Refresh(PartyEditViewDto dto)    -- PartyEditPresenterから呼ばれる(初期表示・購読処理の両方から)
 ```
 
-- 上半分(LifetimeScopeの親子)は「スコープの生存期間」を表す: Root=アプリ生存期間、
-  Home=シーン生存期間、PartyEditPageLifetimeScope=そのPageの表示期間
+- 上半分(スコープの親子)は「スコープの生存期間」を表す: Root=アプリ生存期間、
+  Home=シーン生存期間、Push単位の子スコープ=その画面の表示期間
 - 下半分(コンストラクタ注入)は「実行時に誰が誰を握っているか」を表す: `IPartyService`
-  だけがスコープを跨いで(Root→Page)解決される。`View`と`ViewDto`は同じPage単位スコープ内で
+  だけがスコープを跨いで(Root→Push単位)解決される。`View`と`ViewDto`は同じPush単位スコープ内で
   完結する
-- `PartyEditPage`自身は`PartyEditPresenter`を知らない(コンストラクタ注入の矢印はPresenter側
-  からView側への一方向)。ViewはObservableとRefreshだけを公開し、誰が購読しているか・誰が
-  Refreshを呼ぶかを意識しない
+- 依存はPresenter→Viewの一方向。`PartyEditPage`自身は`PartyEditPresenter`を知らず、Observableと
+  Refreshだけを公開する。Page/Modal prefabに`LifetimeScope`コンポーネントは置かない
 
 ### DIによる結線とライフサイクル
 
-OutgameSampleの[`PageBuilderBase.Build`](https://github.com/adarapata/ScreenSystem/blob/main/Assets/ScreenSystem/Runtime/Page/PageBuilderBase.cs)
-で使われている実装をそのまま踏襲する。Page prefab自体に子`LifetimeScope`コンポーネントを
-持たせておき(Viewと同じprefab内、自動Build無効化)、`onLoad`コールバックの中でそのスコープに
-親を紐付けてから明示的に`Build`する。
-
-**実装時に修正した点**: `IScreenNavigator`(の実装`ScreenNavigator`)は`TPage`(View)の型しか
-知らず、画面ごとに異なる`XxxPresenter`の具体型を知らない。そのため`ScreenNavigator`側で
-`lts.Container.Resolve<XxxPresenter>()`のように明示的に解決することはできない
-(以前の版はここが誤りだった)。代わりに、各画面の`XxxPageLifetimeScope.Configure`内で
-VContainerの`RegisterEntryPoint<XxxPresenter>()`を使う。これは`Build()`が呼ばれた時点で
-自動的にPresenterを構築してくれる仕組みだが、**`XxxPresenter`が`IInitializable`等の
-VContainerライフサイクルインターフェースを最低1つ実装していないと、`Dispatch()`が
-解決対象に含めず一度も構築されない**(VContainer本体の`EntryPointDispatcher.Dispatch()`実装で
-確認済み)。このため`XxxPresenter`は`IInitializable`を実装し、購読処理は
-コンストラクタではなく`Initialize()`(`Dispatch()`から同期的に呼ばれる)に置く。
+画面遷移の土台は、USNのフォーク([chinpanGX/UnityScreenNavigator](https://github.com/chinpanGX/UnityScreenNavigator)、
+`Runtime/ChinpanGX`)が提供するPresenter起点の画面遷移(`IScreenNavigator`/`ScreenNavigator`/
+`IPresenter`/`ILifecycleHandler`/`IScreenWithArgs<TArgs>`/`AssetAddressAttribute`)をそのまま使う。
+設計の詳細はフォーク側の`feature-screen-navigation-package.md`とREADMEを参照。
 
 ```
-IScreenNavigator.PushPageAsync<XxxPage>()
+IScreenNavigator.PushPageAsync<XxxPresenter>()
+  │ [AssetAddress]からresourceKeyを取得
+  ▼
+PageContainer.Push(resourceKey)(USN) -- Instantiate(prefab) --> XxxPage(GameObject)
+  │ onLoad callback
+  ▼
+var scope = resolver.CreateScope(builder => { View/Args/Presenterを登録 });
+var presenter = scope.Resolve<XxxPresenter>();          // コンストラクタでView/Args/Serviceを受け取る
+page.AddLifecycleEvent(new PageLifecycleAdapter(presenter));  // USNのライフサイクルをILifecycleHandlerへ橋渡し
   │
   ▼
-using (LifetimeScope.EnqueueParent(sceneScope))   // 次にAwakeする子LifetimeScopeの親を予約
-{
-    PageContainer.Push<XxxPage>()(USN) -- Instantiate(prefab) --> XxxPage(GameObject)
-      │ onLoad callback
-      ▼
-    var lts = page.gameObject.GetComponentInChildren<LifetimeScope>();  // Page prefab内の子スコープ
-    lts.Build();          // ここでsceneScopeを親として構築される(EnqueueParentで予約済みのため)
-    // XxxPresenterは呼び出し側(ScreenNavigator)が明示的にResolveするのではなく、
-    // RegisterEntryPointの副作用としてBuild()内で自動的に構築される(下記参照)
-}
+ILifecycleHandler.InitializeAsync()(Openアニメーションより前) → WillPushEnterAsync → DidPushEnter ...
+  │ Pop時
+  ▼
+CleanupAsync → IPresenter.CompleteAsync()(WaitForPopAsyncの待機を解決) → 子スコープをDispose(Presenter.Disposeも呼ばれる)
 ```
 
 ```csharp
-// Page prefab内の子LifetimeScope(自動Build無効化しておく)。ViewDtoを使わない画面でも
-// PageLifetimeScope<TViewDto>は常に継承する(基底クラスを使い分けない、下記「ViewDto付きPush」参照)
-public sealed class XxxPageLifetimeScope : PageLifetimeScope<XxxViewDto>
-{
-    [SerializeField] private XxxPage view;
-
-    protected override void Configure(IContainerBuilder builder)
-    {
-        builder.RegisterComponent(view);
-        RegisterViewDto(builder);
-        // RegisterEntryPointは「Build()時に自動構築してほしい」という意図を表す。
-        // XxxPresenterがIInitializableを実装していない場合、これだけでは一度も
-        // 構築されない点に注意(下記XxxPresenter参照)
-        builder.RegisterEntryPoint<XxxPresenter>();
-        // IXxxServiceは親(シーン/Root)スコープに登録済みなので、ここでは何もしなくても解決できる
-    }
-}
-
-public sealed class XxxPresenter : IInitializable, IDisposable
+[AssetAddress(AddressDefinition.XxxPage)]
+public sealed class XxxPresenter : IPresenter   // Push時の引数を受け取る画面はIScreenWithArgs<XxxViewDto>
 {
     private readonly XxxPage view;
     private readonly IXxxService service;
     private readonly CompositeDisposable disposables = new();
 
-    [Inject]
     public XxxPresenter(XxxPage view, IXxxService service)
     {
         this.view = view;
         this.service = service;
     }
 
-    // Build()内でRegisterEntryPointの副作用として同期的に呼ばれる。
-    // ここで初めてViewのObservable購読を開始する(コンストラクタでは行わない)
-    public void Initialize()
+    // Openアニメーションより前に呼ばれる。ここでViewのObservable購読と初期表示を行う
+    public UniTask InitializeAsync()
     {
         view.OnXxxClicked
             .SubscribeAwait(async (_, ct) =>
@@ -229,37 +199,35 @@ public sealed class XxxPresenter : IInitializable, IDisposable
                 view.Refresh(new XxxViewDto(...));                    // Pageのリフレッシュ
             })
             .AddTo(disposables);
+        return UniTask.CompletedTask;
     }
 
+    // Pop完了時(またはシーンのアンロード時)に、子スコープのDisposeと一緒に呼ばれる
     public void Dispose() => disposables.Dispose();
 }
 ```
 
-- Page破棄(Pop)時、Page prefab内の子`LifetimeScope`も一緒に破棄される。VContainerは解決済み
-  インスタンスが`IDisposable`なら破棄時に`Dispose`を呼ぶため、`XxxPresenter`が`IDisposable`を
-  実装して`disposables`(購読の集合)を`Dispose`すれば、画面遷移のたびに購読が自動的に解除される
-  (明示的な`OnPagePop`フック等は不要)
-- `LifetimeScope.EnqueueParent(parent)`は、[PageBuilderBase.cs](https://github.com/adarapata/ScreenSystem/blob/main/Assets/ScreenSystem/Runtime/Page/PageBuilderBase.cs)
-  で実際に使われているのを確認済みのAPI。以前「未検証」としていたVContainerのマルチシーン
-  (動的Instantiateされたprefabへの親スコープ紐付け)の仕組みはこれで確定する
-- 上記の`RegisterEntryPoint`+`IInitializable`の組み合わせは、実際に`Atlas.Presentation`
-  (`Client/AtlasUnityProject/Assets/Scripts/Presentation/`)の`ScreenNavigator`実装時に
-  コンパイル・VContainer本体のソースで動作を確認済み
-- **`IInitializable`と`IAsyncStartable`の使い分け**: Presenterの初期化が同期で完結する場合は
-  `IInitializable`(`void Initialize()`)、`ISignInService.SignInAsync`のように非同期の
-  初期データ取得が必要な場合は`IAsyncStartable`(`UniTask StartAsync(CancellationToken)`)を
-  使う。`RegisterEntryPoint`はどちらも解決対象にする(`EntryPointDispatcher.Dispatch()`の
-  `IAsyncStartable`一覧解決を確認済み)ため、Presenterごとに必要な方を選べばよい。
-  `HomePresenter`(`Presentation/Home/`)が`IAsyncStartable`の実例
+- `ILifecycleHandler`のメソッドはすべて既定実装を持つので、必要なものだけ実装する
+  (`HomePresenter`は上に積んだ画面から戻った時の再描画に`WillPopEnterAsync`も使う)
+- **`InitializeAsync`の完了までOpenアニメーションが始まらない**。通信のように時間のかかる
+  初期化(スカウトのバナー取得、BattleServerへの参加)は`InitializeAsync`では待たず、
+  `UniTaskVoid`で開始だけして画面は先に開く(`ScoutPresenter`/`BattlePresenter`)。
+  `InitializeAsync`の中でシーン切り替えを待つと、`TransitionAwareSceneNavigator`がPush自身の
+  遷移完了を待つためデッドロックする点にも注意
+- **Presenterの破棄**: フォークの`ScreenNavigator`はPresenterを子スコープに`Scoped`で登録するため、
+  Popの完了時(またはシーンのアンロードで`ScreenNavigator`が破棄された時)に子スコープごと`Dispose`される。
+  Presenterは`IDisposable.Dispose`で購読等を解放するだけでよく、自分で`Dispose`を呼ばない
+  (以前はフォークが`Transient`で登録していてDisposeされなかったため、各Presenterが`CleanupAsync`から
+  自分で呼んでいたが、フォーク側を修正して不要になった)
+- シーン単位の`IScreenNavigator`をシーンの`LifetimeScope`に登録している(フォークの設計書の
+  「パターンA」)ため、シーンがアンロードされると`ScreenNavigator`・Push中の子スコープも一緒に破棄される
 
-**検討した代替案(不採用): `RegisterFactory`+`AddTo(GameObject)`**。USN公式デモ
-(`Demo/Core/Scripts/Composition/`)はDIコンテナを一切使わず、`XxxPresenterFactory`を
-手書きし、Presenterの破棄も`AddTo(page.gameObject)`(UniRx)で行っている。これをVContainerの
-`RegisterFactory`(DI解決する依存+実行時引数を両方受け取れるFactory登録)で再現すれば、
-Page prefabへのLifetimeScope埋め込みと`EnqueueParent`を丸ごと廃止できる案として検討したが、
-**不採用とした**。理由: Presenterの生存期間管理がVContainerのスコープ機構(現行案)とR3の
-`AddTo`(代替案)とでライブラリをまたいで分裂するのを避け、DIコンテナに一貫して寄せる方を
-優先したため。
+**旧方式(廃止)**: 以前はPage/Modal prefabごとに子`LifetimeScope`(`XxxPageLifetimeScope :
+PageLifetimeScope<TViewDto>`)を同梱し、Atlas独自の`ScreenNavigator`が`onLoad`内で
+`LifetimeScope.EnqueueParent(sceneScope)`→`Build()`し、Presenterは`RegisterEntryPoint`の副作用で
+構築していた。フォーク側にPresenter起点のDI(Presenterの型でPushし、ヘッドレスな子スコープで
+解決する)が用意できたため、画面ごとの`LifetimeScope`・`PageLifetimeScope<TViewDto>`・
+`ResultModal`/`ResultPage`をすべて廃止してフォークの仕組みに移行した。
 
 ### 未決定: DTOの粒度(パフォーマンス方針)
 
@@ -295,7 +263,7 @@ namespace Supplement.Core
     限定されない**もの
   - 該当しない例: あるボタンを押したら同じ画面のPresenterが処理する、というような
     1画面内で完結する通知(直接Observable購読を使う)。Pushした画面から結果を受け取る
-    ケースも該当しない(「Pop結果の受け渡し」の`ResultModal`/`ResultPage`で既に解決済み)
+    ケースも該当しない(「Pop結果の受け渡し」の`WaitForPopAsync`で既に解決済み)
 - **スコープ管理を意識する必要がない**: `GlobalMessageBroker`は内部で
   `MessageBroker<T>.Default`(ZeroMessengerの型ごとの静的インスタンス)に委譲するだけの
   ステートレスな実装なので、VContainerのどのスコープで`IMessageBroker`を解決しても
@@ -317,254 +285,145 @@ namespace Supplement.Core
   - `MasterDataLoader`が読み込んだ`MemoryDatabase`
   - 各`IXxxConnection`実装(Mock/Realの選択はここで行う、詳細は下記)、各`IXxxRepository`実装、
     各`IXxxService`実装
+  - `ISceneNavigator`(シーンをまたいで動く責務なので常にRoot)
 - **シーンLifetimeScope**(`HomeLifetimeScope`/`BattleLifetimeScope`、対応するシーンが
-  ロードされている間だけ存在): `RootLifetimeScope`の子として生成する。そのシーン固有の
-  USN`PageContainer`/`ModalContainer`をここで登録する。呼び出し側(Presenter等)に
-  `PageContainer`を直接触らせず、`IScreenNavigator`のような薄いラッパー越しに`Push`/`Pop`
-  させることを推奨する(Presenterのテスト時にUSNの型をモックせずに済む)
-- **Page単位の子スコープ**: Page prefab自体に子`LifetimeScope`(自動Build無効化)を持たせておき、
-  `IScreenNavigator`が`Push`の`onLoad`コールバック内で`LifetimeScope.EnqueueParent(sceneScope)`
-  →`lts.Build()`という順で構築する。Presenterは`ScreenNavigator`が明示的にResolveするのではなく、
-  各画面の`Configure`内の`RegisterEntryPoint<XxxPresenter>()`の副作用として`Build()`内で
-  自動構築される(詳細は下記「責務分担(Page / View / Presenter / Service)とデータフロー」参照)
-- Page破棄(Pop)時に子スコープも一緒に破棄され、Presenterのライフタイムは画面の表示期間と一致する
-- Home/BattleシーンのLifetimeScopeを別シーンにある`RootLifetimeScope`の子にする部分も、同じ
-  `LifetimeScope.EnqueueParent(parent)`で行える見込み(Page単位の子スコープと同じAPI)。
-  Bootstrap→Home疎通実装時に実際に動作するか確認する
+  ロードされている間だけ存在): `FindParent()`で`RootLifetimeScope`を直接親にする。そのシーン固有の
+  USN`PageContainer`/`ModalContainer`/`OverlayContainer`と`IScreenNavigator`(`ScreenNavigator`)を
+  ここで登録する。Presenterには`PageContainer`を直接触らせず、`IScreenNavigator`越しに`Push`/`Pop`させる
+- **Push単位の子スコープ**: `ScreenNavigator`がPushのたびに`CreateScope`で作るヘッドレスな
+  スコープ。Pop(またはシーンのアンロード)で破棄され、Presenterのライフタイムは画面の表示期間と一致する
 
 ## IScreenNavigator
 
-USNの`PageContainer`/`ModalContainer`をラップし、呼び出し側(Presenter等)にUSNの型を
-直接触らせないための抽象。実クラス([PageContainer.cs](https://github.com/Haruma-K/UnityScreenNavigator/blob/main/Assets/UnityScreenNavigator/Runtime/Core/Page/PageContainer.cs))
-に基づいて設計する。
-
-> **画面遷移エンジン自体はUSNのまま**にする。自前実装の[ScreenService](https://github.com/adarapata/ScreenSystem)
-> (`ViewCachePool`/`LayerObjectContainer`/`SortingLayerController`等でView管理を完全に
-> 自作している)は不採用。理由は、ScreenServiceのView管理部分をAtlasへ持ち込んでも
-> USNの相当機能を置き換えるだけで得るものが無い一方、ScreenServiceの価値の中心である
-> オーケストレーション部分(トランザクションキュー等)は今回不要と判断したため。
-> **ScreenServiceから実際に採用するのは「Push時にDTOを渡す」「Pop時に結果を返す」という
-> API上のエルゴノミクスのみ**で、これは以下のようにUSNの上に薄く実装できる。
+フォークの`UnityScreenNavigator.IScreenNavigator`をそのまま使う(Atlas側に独自の抽象は置かない)。
+主なメンバー:
 
 ```csharp
 public interface IScreenNavigator
 {
-    UniTask<TPage> PushPageAsync<TPage>(bool playAnimation = true, bool stack = true, string resourceKey = null)
-        where TPage : Page;
-    UniTask<TPage> PushPageAsync<TPage, TViewDto>(TViewDto dto, bool playAnimation = true,
-        bool stack = true, string resourceKey = null) where TPage : Page;
-
+    UniTask<TPresenter> PushPageAsync<TPresenter>(bool stack = true, bool playAnimation = true)
+        where TPresenter : IPresenter;
+    UniTask<TPresenter> PushPageAsync<TPresenter, TArgs>(TArgs args, bool stack = true, bool playAnimation = true)
+        where TPresenter : IPresenter, IScreenWithArgs<TArgs> where TArgs : class;
     UniTask PopPageAsync(bool playAnimation = true, int popCount = 1);
-    // 結果を返さないPageが閉じる(破棄される)まで待つ。結果を返す画面は下記「Pop結果の受け渡し」参照
-    UniTask WaitForPopAsync(Page target, CancellationToken token);
+    UniTask PopPageAsync(IPresenter presenter, bool playAnimation = true);   // 自分(と上に積まれた画面)を閉じる
 
-    UniTask<TModal> PushModalAsync<TModal>(bool playAnimation = true, string resourceKey = null)
-        where TModal : Modal;
-    UniTask<TModal> PushModalAsync<TModal, TViewDto>(TViewDto dto, bool playAnimation = true,
-        string resourceKey = null) where TModal : Modal;
+    // Modal/Overlayも同じ形(PushModalAsync/PopModalAsync、PushOverlayAsync/PopOverlayAsync)
 
-    UniTask PopModalAsync(bool playAnimation = true, int popCount = 1);
+    UniTask<TResult> WaitForPopAsync<TResult>(IPresenter presenter, CancellationToken cancellation = default);
 }
 ```
+
+- Overlayは通信エラーダイアログ等、Modalより前面に出す画面用のレイヤー。Home/Battleシーンの
+  Canvasの最後の子に`OverlayContainer`(`ModalContainer`+マーカー)を置いてある。現時点で使っている画面は無い
+  (下記「通信エラーダイアログ・Loading」で使う想定)
+- `stack: false`にするとPushと同時に直前のPageを破棄する(タイトル→ホームのように戻る必要が
+  ない遷移で使う)。`stack: true`(デフォルト)は履歴に積む(戻るボタン付きの遷移で使う)
 
 ### ViewDto付きPush(Push時の入力と初期表示データを1つの型に統一)
 
-当初「Push時の入力(`Parameter`)」と「Refresh時の表示データ(`ViewDto`)」を別の型として
-分けていたが、これを撤回して**同じ`XxxViewDto`に統一する**。ScreenServiceも
-`PushAsync(ViewDto dto)`で受け取った同じ`ViewDto`をそのまま`View.RenderAsync(viewDto)`の
-初期表示に使っており、Push時点で分かっている情報と初期表示に必要な情報は実質同じもの
-だったため、型を分ける意味が薄いと判断した。
-
-[adarapata/ScreenSystem](https://github.com/adarapata/ScreenSystem)の
-`PageBuilderBase<TPage, TPageView, TParameter>`/`LifetimeScopeWithParameter<T>`(実例で
-動作確認済み)と同じ仕組みを、型引数の意味だけ`TViewDto`に読み替えてそのまま使う。
-Page prefab同梱の子`LifetimeScope`が`PageLifetimeScope<TViewDto>`を継承していれば、
-`Build()`前に`SetViewDto`で値を渡せるようにする。
+「Push時の入力」と「Refresh時の表示データ」は同じ`XxxViewDto`に統一する(Push時点で分かっている
+情報と初期表示に必要な情報は実質同じものだったため)。Push時に値を渡す画面のPresenterは
+`IScreenWithArgs<XxxViewDto>`を実装し、コンストラクタで`XxxViewDto`を受け取る。
 
 ```csharp
-public abstract class PageLifetimeScope<TViewDto> : LifetimeScope
-    where TViewDto : class
-{
-    protected TViewDto ViewDto { get; private set; }
-    public void SetViewDto(TViewDto dto) => ViewDto = dto;
-
-    // VContainerのRegisterInstanceはnullを渡すとNullReferenceExceptionになるため、
-    // ViewDtoを使わない画面(SetViewDtoが一度も呼ばれずnullのまま)向けにガードする。
-    // Configure内ではbuilder.RegisterInstance(ViewDto)ではなくこちらを使うこと
-    // (実装時にVContainer本体のソースで挙動を確認済み)
-    protected void RegisterViewDto(IContainerBuilder builder)
-    {
-        if (ViewDto != null)
-        {
-            builder.RegisterInstance(ViewDto);
-        }
-    }
-}
-
-// 画面ごとの子LifetimeScope(Push時に初期データを渡す画面はこちらを継承する)
-public sealed class PartyEditPageLifetimeScope : PageLifetimeScope<PartyEditViewDto>
-{
-    [SerializeField] private PartyEditPage view;
-
-    protected override void Configure(IContainerBuilder builder)
-    {
-        builder.RegisterComponent(view);
-        RegisterViewDto(builder);
-        builder.RegisterEntryPoint<PartyEditPresenter>();  // Build()時に自動構築させる(下記「DIによる結線とライフサイクル」参照)
-    }
-}
-
-public sealed class PartyEditPresenter : IInitializable, IDisposable
-{
-    private readonly PartyEditPage view;
-    private readonly IPartyService partyService;
-    private readonly PartyEditViewDto initialDto;
-
-    [Inject]
-    public PartyEditPresenter(PartyEditPage view, IPartyService partyService, PartyEditViewDto initialDto)
-    {
-        this.view = view;
-        this.partyService = partyService;
-        this.initialDto = initialDto;
-    }
-
-    public void Initialize()
-    {
-        view.Refresh(initialDto);   // Push元が渡した値でそのまま初期表示する(追加の変換不要)
-        // ここから先、購読処理の中でServiceを呼んだ結果を新しいPartyEditViewDtoに詰めて
-        // 再度view.Refresh(dto)する流れは他の画面と同じ
-    }
-
-    public void Dispose() { /* 購読があればここでDispose */ }
-}
+var presenter = await screenNavigator.PushModalAsync<ScoutConfirmPresenter, ScoutConfirmViewDto>(
+    new ScoutConfirmViewDto { PachimonName = pachimonName });
 ```
 
-`IScreenNavigator`側の実装は、`onLoad`コールバック内で`lts.Build()`を呼ぶ前に、
-`SetViewDto(dto)`を呼ぶ。**Push時に渡すデータが無い画面でも`PageLifetimeScope<TViewDto>`は
-常に継承する**(基底クラスを使い分けない)。`SetViewDto`が一度も呼ばれなければ`ViewDto`は
-`null`のままになるだけで、`Configure`内は`RegisterViewDto(builder)`を呼んでおけば
-(`ViewDto`が`null`なら何も登録しない)安全。`PushPageAsync<TPage>()`(引数無しオーバーロード)は
-この`null`のケースに対応する呼び出し方で、`TViewDto`という制約上`class`型のみ対応する
-(`where TViewDto : class`)。
+- `TPresenter`と`TArgs`の組み合わせは`IScreenWithArgs<TArgs>`の制約でコンパイル時に検査される
+- Push時に渡すデータが無い画面は`IPresenter`だけを実装し、引数無しの`PushXxxAsync<TPresenter>()`で開く
+  (旧方式にあった「中身の無い`XxxViewDto`を型だけ用意する」統一ルールは廃止)
 
 ### Pop結果の受け渡し
 
-Push元が「Pushした画面が閉じたときの結果」を型付きで受け取れるようにする。ScreenServiceの
-`IPresenter.CompleteAsync()`+`WaitForPopAsync<T>`と同じ考え方だが、**結果の型を画面の型に
-持たせる**点が異なる。結果を返す画面は`ResultModal<TResult>`/`ResultPage<TResult>`
-(`Atlas.Navigation`)を継承する。
+結果を返す画面のPresenterは`IPresenter.CompleteAsync()`を上書きし、Push元は
+`IScreenNavigator.WaitForPopAsync<TResult>`で受け取る。
 
 ```csharp
-// 画面(View): 結果の型を宣言する。Complete以外の閉じ方をした時の値も画面側で決める
-public sealed class PartyEditPage : ResultPage<PartyEditResult>
-{
-    protected override PartyEditResult CanceledResult => PartyEditResult.Canceled;  // 省略時はdefault
-}
+// Push元
+var forfeitConfirm = await screenNavigator.PushModalAsync<ForfeitConfirmPresenter>();
+var forfeit = await screenNavigator.WaitForPopAsync<bool>(forfeitConfirm, cancellation);
 
-// Push元(呼び出し側): TResultはPageの型から推論される
-var partyEditPage = await screenNavigator.PushPageAsync<PartyEditPage, PartyEditViewDto>(dto);
-var result = await partyEditPage.WaitForResultAsync(ct);
+// 閉じる画面のPresenter: 結果を控えてから自分を閉じる
+view.OnForfeitButtonClicked.Select(_ => true)
+    .Merge(view.OnCancelButtonClicked.Select(_ => false))
+    .Take(1)
+    .Subscribe(value =>
+    {
+        forfeit = value;
+        screenNavigator.PopModalAsync(this).Forget();
+    })
+    .AddTo(disposables);
 
-// PartyEditPresenter側(保存ボタン押下時): 自分自身を閉じて結果を返す
-await view.CompleteAsync(new PartyEditResult(...));
+public UniTask<object> CompleteAsync() => UniTask.FromResult<object>(forfeit);
 ```
 
-- **型の食い違いがコンパイルエラーになる**: 返す側(`CompleteAsync`)と受け取る側
-  (`WaitForResultAsync`)の型はどちらも画面の`TResult`で決まる。以前の
-  `WaitForPopModalAsync<TResult>`/`PopModalAsync<TResult>`(内部で`object`にキャスト)は、
-  呼び出し側ごとに型引数を書くため食い違いが実行時の`InvalidCastException`になっていた
-- **最上位ではなく自分を閉じる**: `CompleteAsync`はコンテナ内の自分の位置を探し、自分と
-  その上に積まれた画面をまとめてPopする(`Modal.Identifier`は既定でプレハブ名で、コンテナ内の
-  IDとは一致しないため、インスタンスで探す)。Popは他の遷移と同じ順番待ちに並べ(下記「遷移の直列化」)、
-  順番が来た時点の位置から閉じる。Push中(開くアニメーション中)に呼ばれた場合も、Pushが終わってからPopする
-- **結果の通知は画面の破棄時(`destroyCancellationToken`)**: USNはPopの遷移完了後に画面を
-  破棄するため、結果を受けた側が続けてPush/Popしても"screen is already in transition"に
-  ならない。また、`CompleteAsync`を経由しない閉じ方(背景タップで閉じる、`PopModalAsync`で
-  上からまとめて閉じる、`stack=false`のPageが次のPushで消える、シーンごと破棄)でも待機が
-  終わらなくなることはなく、`CanceledResult`が返る
-- `CompleteAsync`の2回目以降(連打、画面側と呼び出し側の両方から完了した場合)は最初の結果を
-  優先し、進行中のPopの完了だけを待つ。呼び出し側から閉じたい場合(例: 対戦のターン進行で
-  交代選択Modalを閉じる)も、保持しておいた画面に対して`CompleteAsync(キャンセル値)`を呼ぶ
-- `WaitForResultAsync`の`CancellationToken`は**待つのをやめるだけ**で、画面は閉じない
-  (シーン破棄中にPopを始めると破棄済みのRectTransformを触るため)。複数回呼んでもよい
-- 結果を返さない画面の終了を待つだけなら`IScreenNavigator.WaitForPopAsync(page, ct)`
-  (同じく破棄を待つ)を使う
+- **結果の型は実行時に検査される**: `CompleteAsync`は`object`を返すため、`WaitForPopAsync<TResult>`の
+  型引数と食い違うと`InvalidCastException`になる(フォークの設計上の割り切り。旧`ResultModal<TResult>`の
+  コンパイル時検査は失われた)
+- `WaitForPopAsync`は、Popの完了(=`CleanupAsync`の後)で解決する。ボタン以外の閉じ方(背景タップ、
+  シーンごと破棄)でも待機は必ず終わり、その場合は`CompleteAsync`がその時点のフィールド値(未確定なら
+  既定値)を返す。1つのPresenterにつき1回しか待てない。`CancellationToken`は**待つのをやめるだけ**で、画面は閉じない
+- **同じ画面を二重にPopしない**のはアプリ側の責務(フォークの`PopXxxAsync(presenter)`は、既に閉じた
+  画面を渡すと例外になる)。ボタンは`Take(1)`で1回だけ受け付ける。Push元からも閉じる画面
+  (ターンの進行で閉じる交代選択Modal)は、Presenterに「最初の結果を優先し、2回目以降は進行中の
+  Popの完了を待つだけ」の`CloseAsync(result)`を持たせ、両方からそれを呼ぶ(`SwitchSelectPresenter`)
+- 結果を返さない画面から戻ってきたことを知りたいだけなら、Push元のPresenterの
+  `WillPopEnterAsync`を使う(`HomePresenter`がスカウト画面から戻った時にジェム表示を取り直す)
 
 ### 遷移の直列化
 
-1つのコンテナ(`PageContainer`/`ModalContainer`)への遷移は、要求された順に1つずつ実行する
-(`TransitionQueue`、`Atlas.Navigation`内部)。USNは遷移中のPush/Popを`InvalidOperationException`で
-拒否するため、別々の場所から来た遷移が重なると、後の方が失敗する。例えば次のようなケースがある。
+1つのコンテナ(Page/Modal/Overlay)への遷移は、要求された順に1つずつ実行する。USNは遷移中の
+Push/Popを例外で拒否するため、別々の場所から来た遷移が重なると後の方が失敗する(例: 交代選択Modalを
+閉じている途中に、決着の結果Modalを出す)。これを捨てずに順番待ちにする。
 
-- ページを開くアニメーションの途中で、通信エラーのダイアログを出す
-- 交代選択Modalを閉じている途中に、決着の結果Modalを出す
-
-これらを捨てずに順番待ちにする。
-
-- 対象は`ScreenNavigator`のPush/Popと、`ResultModal`/`ResultPage`が自分を閉じるPop。後者は
-  Navigatorを持たないため、キューは`ScreenNavigator`ではなくコンテナにひも付けて持つ
-  (`ConditionalWeakTable`)。どちらから来た遷移も同じキューに並ぶ
-- キューはコンテナごと。PageとModalはUSNでも別々に遷移できるため、互いを待たせない
-- 前の遷移が失敗しても、次の遷移は実行する(失敗は、その遷移を要求した呼び出し側にだけ例外で返る)
-- 順番が来た時点でコンテナが破棄されていれば(シーンの切り替え等)、実行せずに
-  `OperationCanceledException`で返す
+- フォークの`ScreenNavigator`がコンテナごとに`TransitionQueue`を持つ(旧Atlas版の`TransitionQueue`を
+  フォークへ移した。テストもフォーク側の`TransitionQueueTest`へ移した)。`PopXxxAsync(presenter)`の
+  Pop枚数は、順番が来た時点の位置から数える(待っている間に上へ積まれた画面も一緒に閉じる)
+- 前の遷移が失敗しても次の遷移は実行する。順番が来た時点でコンテナが破棄されていれば
+  (シーンの切り替え等)、実行せずに`OperationCanceledException`で返す
 - **ユーザーの連打は対象外**。直列化すると、連打した回数だけ同じ画面が順番に開いてしまう。連打は次の2つで防ぐ
   - 遷移中: USNの設定(`EnableInteractionInTransition: false`、`ControlInteractionsOfAllContainers: true`)で、
     どれかのコンテナが遷移している間は全コンテナの`CanvasGroup.interactable`がfalseになり、ボタンを押せない
   - 遷移を始める前(通信を待っている間など): Presenter側で`SubscribeAwait(..., AwaitOperation.Drop)`や
     `Take(1)`を使い、2回目以降の押下を捨てる
-- シーンの切り替え(`SceneNavigator`)はキューに入れず、今までどおり遷移中でなくなるのを待ってから
-  Unloadする。Unload後に残った順番待ちは、上記のとおりキャンセルになる
+
+### シーンの切り替え(ISceneNavigator)
+
+フォークの`UnityScreenNavigator.ISceneNavigator`/`SceneNavigator`を使う。`SceneNavigator`は
+「次のシーンを加算ロード→アクティブシーンにする→前のシーンをアンロード」の順で切り替える
+(切り替え中に何も無い一瞬を作らないため、前のシーンは次のシーンを読み込んでから外す)。
+
+- Atlasでは`ISceneNavigator`として`TransitionAwareSceneNavigator`(`Atlas.Navigation`)を登録し、
+  全コンテナのPage/Modalの遷移が終わるのを待ってから`SceneNavigator`に委ねる。USNの遷移アニメーションは
+  `UpdateDispatcher`(DontDestroyOnLoad)に登録され、遷移中にシーンごとPage/Modalを破棄すると
+  破棄済みの`RectTransform`を毎フレーム操作して例外になるため。フォークには入れず、アプリ側の都合として持つ
+- `SceneNavigator`は`ISceneLoader`を必要とするため、Rootで`AddressablesAssetLoader`を
+  `IAssetLoader`と`ISceneLoader`の両方として登録している
+- 切り替え中は前後のシーンが一時的に同時にロードされる。USNのコンテナは名前(`_name`)を静的な
+  辞書に登録するため、Home/Battleのコンテナの`_name`は空のままにしておく(同名だと登録が衝突する)
 
 ### データ受け渡し型の命名規則
 
 画面をまたいで受け渡すデータは2種類。**すべて画面名(`Xxx`)をプレフィックスにし、
-サフィックスで役割を区別する**。
+サフィックスで役割を区別する**(フォークの設計書の例にある`XxxPageArgs`ではなく、既存の`ViewDto`を使う)。
 
 | サフィックス | 役割 | 受け渡し方向 | 例(`PartyEdit`画面) |
 |---|---|---|---|
 | `XxxViewDto` | Push時の入力、およびPresenterがViewを再描画するための表示データ(`Refresh(dto)`)。両者は同じ型 | Push元 → 新しい画面 / Presenter → 同じ画面のView | `PartyEditViewDto` |
 | `XxxResult` | Pop時にPush元へ返す結果 | 閉じる画面 → Push元 | `PartyEditResult` |
 
-例えば`PartyEditPage`関連の型は`PartyEditViewDto`/`PartyEditResult`/`PartyEditPresenter`/
-`PartyEditPageLifetimeScope`と、すべて画面名で揃える。
+例えば`PartyEditPage`関連の型は`PartyEditViewDto`/`PartyEditResult`/`PartyEditPresenter`と、
+すべて画面名で揃える。
 
-- `resourceKey`は省略可能にし、省略時は`typeof(TPage).Name`(Modalも同様)をそのまま
-  Addressableのアドレスとして使う。Page/Modalの各prefabは、**Addressableアドレスを
-  対応するC#クラス名と完全一致させる**という命名規約に統一する
-  (`Assets/Addressables/Views/{機能名}/{PageClassName}.prefab`、アドレスも`{PageClassName}`)。
-  型ごとの定数クラスやenumによるマッピング表は用意しない(画面が増えるたびにメンテナンスが
-  必要になり、実体(prefab)との二重管理になるため)。呼び出し側は基本`PushPageAsync<TitlePage>()`
-  のように型引数だけで完結する
-  - 命名規約から外れるとアドレス解決に失敗し、Push時に`AssetLoadStatus.Failed`として
-    即座に例外で検知できる(実行時に気づける、サイレントに壊れない)ため、命名規約を破った
-    場合の検知コストは低いと判断する
-  - `resourceKey`の明示指定は、将来ローカライズ差し替え等で1つの型に複数のprefabを
-    対応させたくなった場合の抜け道として残す(現状は使わない想定)
-  - **USN公式デモ(`Demo/Core/Scripts/Foundation/Common/ResourceKey.cs`)との乖離について**:
-    公式デモは`ResourceKey.Prefabs.TopPage`のような一元管理された定数クラスを使っており、
-    Atlasのクラス名規約とは異なる。これは意図的な選択で不採用にしたわけではなく、
-    上記の「型ごとの定数クラス〜二重管理になるため」という理由を優先した結果の乖離である。
-    定数クラス方式の利点(コンパイル時に存在チェックできる)よりも、実体(prefab)との
-    二重管理を避ける利点を優先したという判断であり、変更の必要は無いと判断する
-
-- `PageContainer.Push<TPage>`/`ModalContainer.Push<TModal>`は`AsyncProcessHandle`
-  (コルーチンベース)を返す。`AsyncProcessHandle.Task`(`System.Threading.Tasks.Task<object>`)を
-  `.AsUniTask()`することでUniTaskに変換し、Atlas全体のUniTask前提の設計と揃える
-- `stack: false`にするとPushと同時に直前のPageを破棄する(タイトル→ホームのように戻る必要が
-  ない遷移で使う)。`stack: true`(デフォルト)は履歴に積む(戻るボタン付きの遷移で使う)
-- DI注入のフック地点は`Push`の`onLoad`コールバック。Page(GameObject)がInstantiateされた
-  直後、そのPage自身のライフサイクル(`AfterLoad`等)が走るより前に呼ばれる。ここで、
-  Page prefab内に同梱した子`LifetimeScope`を`LifetimeScope.EnqueueParent(sceneScope)`で
-  親付けしてから`Build()`する(`IObjectResolver.Inject`は使わない)。Presenterは`ScreenNavigator`が
-  明示的にResolveするのではなく`RegisterEntryPoint`の副作用として構築される
-  (詳細は「責務分担(Page / View / Presenter / Service)とデータフロー」参照)。
-  この一連の処理は画面ごとに書かず、`IScreenNavigator`の実装1箇所にまとめる
-- `IObjectResolver.Instantiate`(Instantiate+Inject一体型)への統一は**不可能と確認済み**。
-  `IAssetLoader.LoadAsync<GameObject>`が返すのはPrefabアセットであり、実際の
-  `Instantiate`呼び出しは`PageContainer`内でUnity標準の`Object.Instantiate`が直接
-  ハードコードされている(差し替え用のフック・委譲先が無い)。USN側を改造しない前提のため、
-  「先にUSNがInstantiate→`onLoad`で後から子スコープをBuild」以外の経路は取れない
+- Presenterには`[AssetAddress(AddressDefinition.XxxPage)]`でprefabのアドレスを付ける(無いとPush時に例外)。
+  `AddressDefinition`はAddressDefinitionGeneratorの自動生成定数なので、prefabとの二重管理にはならない
+- Page/Modalの各prefabは、**Addressableアドレスを対応するView(`XxxPage`/`XxxModal`)のクラス名と
+  一致させる**(`Assets/Addressables/Views/{機能名}/{ViewClassName}.prefab`、アドレスも`{ViewClassName}`)
+- 表示だけで操作の無いModal(`OpponentSwitchingModal`)や、操作をPush元へ渡すだけのModal
+  (`MatchmakingModal`)にも、Pushの型として中身の薄いPresenter(`OpponentSwitchingPresenter`/
+  `MatchmakingPresenter`)を用意する
 
 ## コア進行ロジックのMock/Real切り替え(Connection / Repository / Service)
 
@@ -744,20 +603,18 @@ HomePresenter
 | `Atlas.Infrastructure.Mock` | `MockXxxConnection`、`MockBattleConnection`/`MockBattleConnectionFactory`/`MockBattleMatchmaker` | `Atlas.Domain`, `Atlas.Application`, `Atlas.MasterData`, `Atlas.BattleCore`, UniTask |
 | `Atlas.Infrastructure.Realtime` | `RealtimeBattleConnection`/`RealtimeBattleConnectionFactory`(MagicOnionクライアント) | `Atlas.Domain`, `Atlas.Application`, `Atlas.BattleContracts`, `Atlas.BattleCore`, MagicOnion.Client, YetAnotherHttpHandler, UniTask |
 | `Atlas.BattleContracts`(`Shared/BattleContracts/`、ローカルパッケージ) | `IBattleHub`/`IBattleHubReceiver`とPayload型。BattleServerと共有する通信契約 | `Atlas.BattleCore`, MessagePack, MagicOnion.Abstractions |
-| `Atlas.Navigation` | `IScreenNavigator`/`ScreenNavigator`(USNの`PageContainer`/`ModalContainer`をラップする画面遷移基盤)、`PageLifetimeScope<TViewDto>`基底クラス | USN, VContainer, UniTaskのみ |
-| `Atlas.Presentation` | USNの`Page`派生クラス(View)、`XxxPresenter`、`XxxViewDto`、Page同梱の子`LifetimeScope`(`XxxPageLifetimeScope`)。**画面単位**の型のみを持ち、シーン単位のスコープは持たない | `Atlas.Domain`, `Atlas.Application`, `Atlas.Navigation`, USN, VContainer, R3 |
+| `Atlas.Navigation` | `TransitionAwareSceneNavigator`(遷移完了を待ってからフォークの`SceneNavigator`に委ねる) | USN, UniTaskのみ |
+| `Atlas.Presentation` | USNの`Page`/`Modal`派生クラス(View)、`XxxPresenter`(フォークの`IPresenter`実装)、`XxxViewDto`。**画面単位**の型のみを持ち、スコープ(`LifetimeScope`)は持たない | `Atlas.Domain`, `Atlas.Application`, USN, VContainer, R3 |
 | `Atlas.DI` | `RootLifetimeScope`/`HomeLifetimeScope`/`BattleLifetimeScope`等、**シーン単位**の`LifetimeScope`全て。Connection(Mock/Real)・Repository・Serviceの実装をDIコンテナへ登録する構成ルート(Composition Root) | `Atlas.Domain`, `Atlas.Application`, `Atlas.Presentation`, `Atlas.Infrastructure`(base/Api/Mock全部), `Atlas.Navigation`, USN, Supplement, VContainer |
 
 Presenterは`Atlas.Presentation`に属するが、`IXxxService`(Applicationのインターフェース)経由でしか
 呼ばないため、Connectionの実体(Mock/Real)も、所持データがどのRepositoryにどう保持されているかも
 意識しない(`Atlas.Domain`の型はEntityとしてのみ利用し、`Atlas.Infrastructure`系は一切参照しない)。
 
-**`Atlas.Navigation`の分離**: `IScreenNavigator`/`ScreenNavigator`/`PageLifetimeScope<TViewDto>`は
-特定の画面(`XxxPage`/`XxxPresenter`)の型を一切知らない汎用の画面遷移基盤であり、USNと
-VContainerだけに依存する。`Atlas.Domain`にも`Atlas.Presentation`にも依存しないため、
-`Atlas.Presentation`から独立したアセンブリ(`Atlas.Navigation`)として切り出す。
-`Atlas.Presentation`側は`Atlas.Navigation`を参照する一方向の依存になる
-(`XxxPageLifetimeScope`が`PageLifetimeScope<TViewDto>`を利用する)。
+**`Atlas.Navigation`の位置づけ**: 画面遷移の基盤(`IScreenNavigator`/`ScreenNavigator`/`ISceneNavigator`等)は
+フォークのUSNへ移したため、`Atlas.Navigation`にはフォークへ入れないアプリ側の補い
+(`TransitionAwareSceneNavigator`)だけを置く。登録する`Atlas.DI`だけが参照し、`Atlas.Presentation`は
+参照しない(Presenterはフォークの`ISceneNavigator`だけを知る)。
 
 **`Atlas.DI`は構成ルート(Composition Root)専用の最上位アセンブリ**: `Atlas.DI`は
 `Atlas.Domain`/`Atlas.Application`/`Atlas.Presentation`/`Atlas.Infrastructure`/`Atlas.Navigation`
@@ -765,10 +622,10 @@ VContainerだけに依存する。`Atlas.Domain`にも`Atlas.Presentation`にも
 本体に加え、`HomeLifetimeScope`/`BattleLifetimeScope`等シーンロード時に生成される
 スコープ)を**すべて**ここに置く。`RootLifetimeScope`が`IXxxConnection`のMock/Real実装・
 `IXxxRepository`/`IXxxService`の実装を`Configure`内で登録するため`Atlas.Infrastructure`への参照が、`HomeLifetimeScope`が
-`screenNavigator.PushPageAsync<HomePage>()`のように画面をPushするため`Atlas.Presentation`への
+`screenNavigator.PushPageAsync<HomePresenter>()`のように画面をPushするため`Atlas.Presentation`への
 参照が、それぞれ必要になる。これを`Atlas.Presentation`内の例外として個別に扱うのではなく、
 「他の全レイヤーに依存してよい最上位のアセンブリ」として`Atlas.DI`に一本化する。
-`Atlas.Presentation`は画面単位の型(`XxxPage`/`XxxPresenter`/`XxxViewDto`/`XxxPageLifetimeScope`)
+`Atlas.Presentation`は画面単位の型(`XxxPage`/`XxxPresenter`/`XxxViewDto`)
 だけを持ち、`Atlas.Infrastructure`はもちろん`Atlas.DI`も参照しないため、依存方向は常に
 `Atlas.DI` → `{Atlas.Domain, Atlas.Application, Atlas.Presentation, Atlas.Infrastructure, Atlas.Navigation}`
 の一方向で、逆方向の参照は発生しない。
@@ -779,11 +636,7 @@ VContainerだけに依存する。`Atlas.Domain`にも`Atlas.Presentation`にも
 
 ```
 Assets/Scripts/Navigation/
-  IScreenNavigator.cs
-  ScreenNavigator.cs             -- IScreenNavigatorの実装(ScreenServiceの実装クラス名に揃える)
-  ISceneNavigator.cs
-  SceneNavigator.cs
-  PageLifetimeScope.cs           -- PageLifetimeScope<TViewDto>基底クラス
+  TransitionAwareSceneNavigator.cs  -- 遷移完了を待ってからフォークのSceneNavigatorに委ねるISceneNavigator
 ```
 
 `Atlas.DI`もシーン単位のスコープしか持たないため、直下にフラットに置く(シーン数だけ
@@ -800,10 +653,10 @@ Assets/Scripts/DI/
 `Atlas.Presentation`はAddressablesのprefab配置(`Assets/Addressables/Views/{機能名}/`、
 上記「データ受け渡し型の命名規則」参照)と同じ`{機能名}`でフォルダを切る。
 
-- **Page**: `XxxPage`/`XxxPageLifetimeScope`/`XxxPresenter`/`XxxViewDto`は`{機能名}`直下に置く。
+- **Page**: `XxxPage`/`XxxPresenter`/`XxxViewDto`は`{機能名}`直下に置く。
   その画面だけで使うView部品・表示用Dto・ロジック(`PachimonListView`/`PartySlotDto`/`PartyEditor`等)も同じ階層に置く
-- **Modal**: `{機能名}`の下にModalごとのサブフォルダを切り、`XxxModal`/`XxxModalLifetimeScope`/
-  `XxxPresenter`/`XxxViewDto`/`XxxResult`とそのModal専用の部品をまとめる(namespaceは`{機能名}`のまま)
+- **Modal**: `{機能名}`の下にModalごとのサブフォルダを切り、`XxxModal`/`XxxPresenter`/
+  `XxxViewDto`/`XxxResult`とそのModal専用の部品をまとめる(namespaceは`{機能名}`のまま)
 - **部品が多い画面**: Pageの部品が多い場合は`Views/`サブフォルダにまとめてよい(`Battle/Views/`)
 - **他機能と共用する部品**: 最初に作った機能のフォルダに置いたまま、他機能から参照する
   (`Party/`の`PachimonInfoView`/`PachimonCellView`/`PachimonInfoDtoBuilder`をScout・Battleからも使う)
@@ -814,18 +667,14 @@ Assets/Scripts/Presentation/
   Common/                         -- 機能に属さない共通の型
   Home/                           -- 機能名(Addressablesの{機能名}と揃える)
     HomePage.cs
-    HomePageLifetimeScope.cs
     HomePresenter.cs
     HomeViewDto.cs
     Matchmaking/                  -- Modal(1Modal = 1サブフォルダ)
       MatchmakingModal.cs
-      MatchmakingModalLifetimeScope.cs
-      MatchmakingViewDto.cs
+      MatchmakingPresenter.cs
   Scout/
     ScoutPage.cs
-    ScoutPageLifetimeScope.cs
     ScoutPresenter.cs
-    ScoutViewDto.cs
     ScoutCandidateListView.cs     -- ScoutPage専用の部品
     Confirm/
       ScoutConfirmModal.cs
@@ -835,7 +684,7 @@ Assets/Scripts/Presentation/
     ...
     Views/                        -- BattlePageの部品(CommandView/SelfInfoView等)
     Forfeit/
-    OpponentSwitching/            -- 相手の強制交代待ちModal(Presenterは持たない)
+    OpponentSwitching/            -- 相手の強制交代待ちModal(表示のみ、閉じるのはBattlePresenter)
     Result/
     Switch/
 ```
@@ -856,19 +705,13 @@ Assets/Scripts/Presentation/
 以下は`Client/AtlasUnityProject`に最小実装(`Atlas.Presentation`/`Atlas.DI`/`Atlas.Navigation`
 アセンブリ、`Bootstrap`/`Home`シーン、`TitlePage`)を作成し、Play Modeで実際に動作確認済み。
 
-- `RootLifetimeScope`(Bootstrap)→`ISceneLoader.ChangeScene("Home")`→`HomeLifetimeScope`
-  (`LifetimeScope.EnqueueParent`でRootの子として構築)→`IScreenNavigator.PushPageAsync`→
-  USNがAddressablesから`TitlePage`prefabをInstantiate→`TitlePageLifetimeScope`
-  (`EnqueueParent`でHomeの子として構築)→`RegisterEntryPoint<TitlePresenter>()`の副作用で
-  `TitlePresenter.Initialize()`が自動実行→`view.Refresh(initialDto)`で初期表示、という
-  一連の流れが実際に動くことを確認
+- (旧方式での検証)`RootLifetimeScope`(Bootstrap)→`ISceneLoader.ChangeScene("Home")`→`HomeLifetimeScope`
+  →`IScreenNavigator.PushPageAsync`→USNがAddressablesから`TitlePage`prefabをInstantiate→
+  Page同梱の子`LifetimeScope`をBuild→Presenterの初期表示、という一連の流れが動くことを確認。
+  フォークの`ScreenNavigator`へ移行した後も、Bootstrap→Home→Battle(交代・投了→結果Modal→Home)の
+  PlayModeテストと、Home→パーティ編成/スカウト→戻るの手動確認で同じ流れが動くことを確認済み
 - ボタンクリック(`OnClickAsObservable`購読)→`Refresh`での表示更新も、実際のUIクリック
   シミュレーションで確認済み
-- 実装中に判明し設計を修正した点(いずれも上記「DIによる結線とライフサイクル」に反映済み):
-  `ScreenNavigator`は`TPresenter`の具体型を知らないため`Resolve<XxxPresenter>()`は不可能
-  だった(`RegisterEntryPoint`に変更)。`RegisterEntryPoint`は`IInitializable`等を実装しないと
-  一度も構築されない(`XxxPresenter`に`IInitializable`を追加し、購読処理をコンストラクタから
-  `Initialize()`へ移動)
 - Supplementの`IMessageBroker`(ZeroMessenger実装)は`com.chinpangx.supplement.zeromessenger`
   という別パッケージ(`Assets/Supplement.ZeroMessenger/`)だったため、`com.chinpangx.supplement`
   とは別にmanifest.jsonへの追加が必要だった

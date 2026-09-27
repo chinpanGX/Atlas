@@ -2,12 +2,12 @@ using System;
 using System.Linq;
 using System.Threading;
 using Atlas.Application;
-using Atlas.Navigation;
+using Atlas.Application.Address;
 using Atlas.Presentation.Party;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
-using VContainer.Unity;
+using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Scout
 {
@@ -15,7 +15,8 @@ namespace Atlas.Presentation.Scout
     // 「はい」でPOST /scout/rolls/{rollId}/selectを送って入手を確定する。
     // ジェムはロールした時点で消費済みのため、候補を選ぶまでは戻るボタンを押せなくする
     // (ロール中の候補を取り直すAPIが無く、離れると消費したジェムが無駄になるため)。
-    public sealed class ScoutPresenter : IAsyncStartable, IDisposable
+    [AssetAddress(AddressDefinition.ScoutPage)]
+    public sealed class ScoutPresenter : IPresenter
     {
         // itemsマスタのitem_id=1(ジェム)。
         private const int GemItemId = 1;
@@ -26,6 +27,7 @@ namespace Atlas.Presentation.Scout
         private readonly IMasterDataService masterDataService;
         private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
+        private readonly CancellationTokenSource lifetimeCancellation = new();
 
         // 開催中バナーのうち先頭の1件だけを使う(バナーを選ぶUIは未作成)。取得前・取得失敗時はnull。
         private ScoutBanner banner;
@@ -47,7 +49,7 @@ namespace Atlas.Presentation.Scout
             this.screenNavigator = screenNavigator;
         }
 
-        public async UniTask StartAsync(CancellationToken cancellation)
+        public UniTask InitializeAsync()
         {
             view.ClearCandidates();
             RefreshState();
@@ -60,9 +62,16 @@ namespace Atlas.Presentation.Scout
                 .SubscribeAwait(async (index, ct) => await OnCandidateClickedAsync(index, ct), AwaitOperation.Drop)
                 .AddTo(disposables);
             view.OnBackButtonClicked
-                .SubscribeAwait(async (_, _) => await screenNavigator.PopPageAsync(), AwaitOperation.Drop)
+                .SubscribeAwait(async (_, _) => await screenNavigator.PopPageAsync(this), AwaitOperation.Drop)
                 .AddTo(disposables);
 
+            // バナーの取得を待たずに画面を開き、取得できた時点でスカウトボタンを押せるようにする。
+            LoadBannerAsync(lifetimeCancellation.Token).Forget();
+            return UniTask.CompletedTask;
+        }
+
+        private async UniTaskVoid LoadBannerAsync(CancellationToken cancellation)
+        {
             try
             {
                 banner = (await scoutConnection.GetBannersAsync()).FirstOrDefault();
@@ -74,7 +83,11 @@ namespace Atlas.Presentation.Scout
                 return;
             }
 
-            cancellation.ThrowIfCancellationRequested();
+            if (cancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
             if (banner is null)
             {
                 Debug.LogWarning("[Scout] 開催中のスカウトバナーがありません");
@@ -134,9 +147,9 @@ namespace Atlas.Presentation.Scout
         private async UniTask ConfirmAndSelectAsync(ScoutCandidate candidate, CancellationToken cancellation)
         {
             var pachimonName = FindPachimonName(candidate.PachimonId);
-            var modal = await screenNavigator.PushModalAsync<ScoutConfirmModal, ScoutConfirmViewDto>(
+            var confirm = await screenNavigator.PushModalAsync<ScoutConfirmPresenter, ScoutConfirmViewDto>(
                 new ScoutConfirmViewDto { PachimonName = pachimonName });
-            var confirmed = await modal.WaitForResultAsync(cancellation);
+            var confirmed = await screenNavigator.WaitForPopAsync<bool>(confirm, cancellation);
             if (!confirmed)
             {
                 return;
@@ -189,6 +202,8 @@ namespace Atlas.Presentation.Scout
 
         public void Dispose()
         {
+            lifetimeCancellation.Cancel();
+            lifetimeCancellation.Dispose();
             disposables.Dispose();
         }
     }

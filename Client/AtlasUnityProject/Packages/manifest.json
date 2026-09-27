@@ -10,7 +10,7 @@
     "com.cysharp.yetanotherhttphandler": "1.11.5",
     "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity#v4.5.0",
     "com.github.messagepack-csharp": "3.1.9",
-    "com.harumak.unityscreennavigator": "https://github.com/Haruma-K/UnityScreenNavigator.git?path=/Assets/UnityScreenNavigator",
+    "com.harumak.unityscreennavigator": "https://github.com/chinpanGX/UnityScreenNavigator.git?path=/Assets/UnityScreenNavigator#develop",
     "com.unity.addressables": "2.11.2",
     "com.unity.ai.assistant": "2.19.0-pre.2",
     "com.unity.ai.inference": "2.6.1",

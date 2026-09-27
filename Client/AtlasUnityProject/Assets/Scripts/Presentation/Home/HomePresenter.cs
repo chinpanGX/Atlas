@@ -2,17 +2,17 @@ using System;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
-using Atlas.Navigation;
 using Atlas.Presentation.Party;
 using Atlas.Presentation.Scout;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
-using VContainer.Unity;
+using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Home
 {
-    public sealed class HomePresenter : IAsyncStartable, IDisposable
+    [AssetAddress(AddressDefinition.HomePage)]
+    public sealed class HomePresenter : IPresenter
     {
         // itemsマスタのitem_id=1(ジェム)。
         private const int GemItemId = 1;
@@ -42,12 +42,9 @@ namespace Atlas.Presentation.Home
         }
 
         // HomeはPush時のViewDtoを持たず、自分でIPlayerAccountServiceから初期データを取得する。
-        // 非同期の初期化が必要なためIInitializableではなくIAsyncStartableを使う
-        // (同期で済む場合はTitlePresenterのようにIInitializableでよい)
-        public async UniTask StartAsync(CancellationToken cancellation)
+        public UniTask InitializeAsync()
         {
-            var dto = CreateDto();
-            view.Refresh(dto);
+            view.Refresh(CreateDto());
 
             // 動作確認用。連打でも1回分ずつ送るよう、実行中の押下は待たせる(捨てない)。
             view.OnGrantGemsButtonClicked
@@ -57,13 +54,12 @@ namespace Atlas.Presentation.Home
                     view.Refresh(CreateDto());
                 }, AwaitOperation.Sequential)
                 .AddTo(disposables);
-            // スカウトでジェムが減るため、スカウト画面から戻ったらHomeの表示を取り直す。
-            view.OnScoutButtonClicked
-                .SubscribeAwait(async (_, ct) => await OpenScoutAsync(ct), AwaitOperation.Drop)
-                .AddTo(disposables);
             // Push完了までの連打で同じPageを重ねて積まないよう、実行中の押下は捨てる。
+            view.OnScoutButtonClicked
+                .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<ScoutPresenter>(), AwaitOperation.Drop)
+                .AddTo(disposables);
             view.OnPartyButtonClicked
-                .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<PartyPage>(), AwaitOperation.Drop)
+                .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<PartyPresenter>(), AwaitOperation.Drop)
                 .AddTo(disposables);
             // マッチング待ち〜シーン切り替えの間の連打は捨てる。キャンセルした場合は再び押せる。
             view.OnBattleButtonClicked
@@ -71,27 +67,26 @@ namespace Atlas.Presentation.Home
                 .AddTo(disposables);
             // チャット画面は未実装のため、現時点ではログのみ。
             view.OnChatButtonClicked.Subscribe(_ => Debug.Log("[Home] Chat button clicked (not implemented yet)")).AddTo(disposables);
-            await UniTask.CompletedTask;
+            return UniTask.CompletedTask;
         }
 
-        private async UniTask OpenScoutAsync(CancellationToken cancellation)
+        // スカウトでジェムが減るため、上に積んだ画面から戻ってきたらHomeの表示を取り直す。
+        public UniTask WillPopEnterAsync()
         {
-            var page = await screenNavigator.PushPageAsync<ScoutPage>();
-            await screenNavigator.WaitForPopAsync(page, cancellation);
             view.Refresh(CreateDto());
+            return UniTask.CompletedTask;
         }
 
-        // マッチング待ちModalを出して対戦相手を探し、成立したらBattleシーンへ切り替える。USNは遷移中の
-        // Push/Popを拒否するため、Pushの完了を待ってからマッチングを始め、Popの完了を待ってから切り替える
-        // (Mockのマッチングは待たずに成立するため、この順序を守らないとPush中のPopになる)。
+        // マッチング待ちModalを出して対戦相手を探し、成立したらBattleシーンへ切り替える。キャンセルボタンを
+        // 購読するためにPushの完了を待ってからマッチングを始め、Modalが閉じてからシーンを切り替える。
         // Battleは別シーンのため、マッチング結果はPush時のViewDtoではなくBattleEntryStore経由で受け渡す。
         private async UniTask FindMatchAndStartBattleAsync(CancellationToken cancellation)
         {
-            var modal = await screenNavigator.PushModalAsync<MatchmakingModal>();
+            var matchmaking = await screenNavigator.PushModalAsync<MatchmakingPresenter>();
 
             BattleMatch match = null;
             using (var matchCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
-            using (modal.OnCancelButtonClicked.Take(1).Subscribe(_ => matchCancellation.Cancel()))
+            using (matchmaking.OnCancelButtonClicked.Take(1).Subscribe(_ => matchCancellation.Cancel()))
             {
                 try
                 {
@@ -107,7 +102,7 @@ namespace Atlas.Presentation.Home
                 }
             }
 
-            await screenNavigator.PopModalAsync();
+            await screenNavigator.PopModalAsync(matchmaking);
             if (match is null)
             {
                 return;

@@ -1,8 +1,8 @@
 using System.Threading;
-using Atlas.Navigation;
 using Atlas.Presentation.Home;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityScreenNavigator;
 using UnityScreenNavigator.Runtime.Core.Modal;
 using UnityScreenNavigator.Runtime.Core.Page;
 using VContainer;
@@ -14,25 +14,20 @@ namespace Atlas.DI
     {
         [SerializeField] private PageContainer pageContainer;
         [SerializeField] private ModalContainer modalContainer;
+        [SerializeField] private OverlayContainer overlayContainer;
 
-        // BootstrapEntryPoint.StartAsync内のLifetimeScope.EnqueueParent(rootScope)は
-        // ChangeScene()のawait完了(=シーンLoad完了)時点で解除されるが、これは自分自身の
-        // Awake()完了より後になるとは限らない。EnqueueParent(rootScope)がまだ有効な間に
-        // このシーン自身のHomeEntryPointが(Awake→Build内で同期的に走るため)HomePageの
-        // PushPageAsyncを開始し、その内部でさらにLifetimeScope.EnqueueParent(this)を
-        // ネストして積むため、外側(rootScope)がAddressablesのシーンLoad完了を検知して
-        // 先にPopしてしまうと、後入れのthisが先に取り除かれてスタックが壊れる
-        // (HomePage側のBuild()がRootLifetimeScopeを親と誤認する不具合が実際に発生した)。
-        // EnqueueParentの共有スタックに依存せず、常にRootLifetimeScopeを直接探すことで
-        // このタイミング依存を無くす。
+        // BootstrapEntryPoint.StartAsync内でLifetimeScope.EnqueueParent(rootScope)を使うと、それが
+        // 解除されるタイミング(ChangeScene()のawait完了)が自分自身のAwake()完了より後になるとは限らず、
+        // 親の解決がタイミング依存になる。EnqueueParentの共有スタックに依存せず、常にRootLifetimeScopeを
+        // 直接探すことでこのタイミング依存を無くす。
         protected override LifetimeScope FindParent() => Find<RootLifetimeScope>();
 
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterComponent(pageContainer);
             builder.RegisterComponent(modalContainer);
-            // LifetimeScope自身はVContainerが自動的にRegisterInstance<LifetimeScope>(this)する
-            // (LifetimeScope.cs参照)ため、ここで明示的に登録する必要はない
+            builder.RegisterComponent(overlayContainer);
+            // シーンのスコープに置き、シーンのUnloadと一緒に積んでいた画面のPresenterも破棄させる。
             builder.Register<IScreenNavigator, ScreenNavigator>(Lifetime.Singleton);
             builder.RegisterEntryPoint<HomeEntryPoint>();
         }
@@ -49,7 +44,7 @@ namespace Atlas.DI
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
-            await screenNavigator.PushPageAsync<HomePage>();
+            await screenNavigator.PushPageAsync<HomePresenter>();
         }
     }
 }

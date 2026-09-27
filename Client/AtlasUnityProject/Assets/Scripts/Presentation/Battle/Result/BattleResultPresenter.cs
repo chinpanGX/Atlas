@@ -1,13 +1,12 @@
-using System;
 using Atlas.Application.Address;
-using Atlas.Navigation;
 using Cysharp.Threading.Tasks;
 using R3;
-using VContainer.Unity;
+using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Battle
 {
-    public sealed class BattleResultPresenter : IInitializable, IDisposable
+    [AssetAddress(AddressDefinition.BattleResultModal)]
+    public sealed class BattleResultPresenter : IScreenWithArgs<BattleResultViewDto>
     {
         private readonly BattleResultModal view;
         private readonly BattleResultViewDto initialDto;
@@ -21,7 +20,7 @@ namespace Atlas.Presentation.Battle
             this.sceneNavigator = sceneNavigator;
         }
 
-        public void Initialize()
+        public UniTask InitializeAsync()
         {
             view.Refresh(initialDto);
 
@@ -31,6 +30,7 @@ namespace Atlas.Presentation.Battle
                 .Take(1)
                 .Subscribe(_ => sceneNavigator.ChangeSceneAsync(AddressDefinition.Home).Forget())
                 .AddTo(disposables);
+            return UniTask.CompletedTask;
         }
 
         public void Dispose()

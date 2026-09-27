@@ -3,19 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Atlas.Application;
+using Atlas.Application.Address;
 using Atlas.Domain;
 using Atlas.MasterData.Models;
-using Atlas.Navigation;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
-using VContainer.Unity;
+using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Party
 {
     // 編成の入れ替えはPartyEditorが手元で持つ状態だけを書き換え、戻るボタンで変更があった時だけ
     // POST /edit/party(全置き換え)で保存してから前の画面へ戻る。
-    public sealed class PartyPresenter : IInitializable, IDisposable
+    [AssetAddress(AddressDefinition.PartyPage)]
+    public sealed class PartyPresenter : IPresenter
     {
         private readonly PartyPage view;
         private readonly IPartyService partyService;
@@ -45,7 +46,7 @@ namespace Atlas.Presentation.Party
             this.screenNavigator = screenNavigator;
         }
 
-        public void Initialize()
+        public UniTask InitializeAsync()
         {
             var pachimons = pachimonService.GetAll();
             pachimonDtos = pachimons.ToDictionary(p => p.PlayerPachimonId, CreatePachimonDto);
@@ -76,6 +77,7 @@ namespace Atlas.Presentation.Party
             view.OnBackButtonClicked
                 .SubscribeAwait(async (_, ct) => await SaveAndBackAsync(ct), AwaitOperation.Drop)
                 .AddTo(disposables);
+            return UniTask.CompletedTask;
         }
 
         private void OnSlotClicked(int slot)
@@ -124,7 +126,7 @@ namespace Atlas.Presentation.Party
             }
 
             cancellation.ThrowIfCancellationRequested();
-            await screenNavigator.PopPageAsync();
+            await screenNavigator.PopPageAsync(this);
         }
 
         private void RefreshParty()

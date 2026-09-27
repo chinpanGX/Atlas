@@ -1459,7 +1459,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2335618679631994310}
   - component: {fileID: 1778798508794894767}
-  - component: {fileID: 2503384085488673561}
   m_Layer: 5
   m_Name: PartyPage
   m_TagString: Untagged
@@ -1521,23 +1520,6 @@ MonoBehaviour:
   pachimonListView: {fileID: 3902035057964560086}
   pachimonInfoView: {fileID: 7149994351562890707}
   backButton: {fileID: 1426086230231355308}
---- !u!114 &2503384085488673561
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2692340557861726254}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 602774f6c074d13713d5a863f4b5f7d4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Party.PartyPageLifetimeScope
-  parentReference:
-    TypeName: 
-  autoRun: 0
-  autoInjectGameObjects: []
-  view: {fileID: 1778798508794894767}
 --- !u!1 &2916807795759576228
 GameObject:
   m_ObjectHideFlags: 0

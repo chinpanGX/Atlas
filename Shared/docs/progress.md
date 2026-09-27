@@ -59,14 +59,21 @@
 #### 画面遷移・DI・アーキテクチャ
 
 - [x] Bootstrap / Home / Battle の3シーン構成。シーン単位は`ISceneNavigator`、シーン内はUSNのPage/Modal
-- [x] `IScreenNavigator`(Push時にViewDtoを渡し、Pop時に結果を型付きで受け取る)
-- [x] Page prefabに子`LifetimeScope`を持たせるDI方式、Presenterは`RegisterEntryPoint`で構築
+- [x] 画面遷移をUSNのフォーク(chinpanGX/UnityScreenNavigator、`#develop`)のPresenter起点方式へ移行。
+  Presenterの型でPush(`[AssetAddress]`でprefabを解決)し、`ScreenNavigator`がPushごとにヘッドレスな子スコープで
+  Presenterを解決する。Page/Modal prefabの子`LifetimeScope`・`PageLifetimeScope<TViewDto>`・`ResultModal`/`ResultPage`・
+  Atlas独自の`IScreenNavigator`/`ScreenNavigator`/`SceneNavigator`/`TransitionQueue`は廃止。Pop結果は
+  `IPresenter.CompleteAsync`+`WaitForPopAsync<TResult>`。Home/BattleシーンにOverlayContainerを追加(未使用)。
+  遷移の直列化(`TransitionQueue`)とPresenterの破棄(子スコープに`Scoped`で登録し、スコープごとDispose)はフォーク側で持ち、
+  二重Popの防止(`SwitchSelectPresenter.CloseAsync`)・遷移完了を待つシーン切り替え(`TransitionAwareSceneNavigator`)は
+  アプリ側で持つ(design/client-architecture.md「DIによる結線とライフサイクル」)
+- [x] (旧方式)Page prefabに子`LifetimeScope`を持たせるDI方式、Presenterは`RegisterEntryPoint`で構築
 - [x] Connection抽象(`IXxxConnection`)でMock/Realを切り替える構成
 - [x] 画面をまたぐ通知に`IMessageBroker`(ZeroMessenger)を導入
 - [x] `ScreenNavigator`のPop結果通知タイミングの不具合を修正(遷移アニメーション完了後に通知)
 - [x] `SceneNavigator`のシーン破棄タイミングを調整(Page/Modalの遷移完了を待ってからUnload)
-- [x] Pop結果を`ResultModal<TResult>`/`ResultPage<TResult>`に移行(結果の型を画面の型に持たせてコンパイル時に検査、最上位ではなく自分を閉じる、Complete以外の閉じ方でも待機が終わる)
-- [x] 遷移の直列化(`TransitionQueue`): コンテナごとに、Navigatorの Push/Pop と`ResultModal`/`ResultPage`の
+- [x] (旧方式)Pop結果を`ResultModal<TResult>`/`ResultPage<TResult>`に移行(結果の型を画面の型に持たせてコンパイル時に検査、最上位ではなく自分を閉じる、Complete以外の閉じ方でも待機が終わる)
+- [x] 遷移の直列化(`TransitionQueue`、現在はフォーク側): コンテナごとに、Navigatorの Push/Pop と`ResultModal`/`ResultPage`の
   自分を閉じるPopを要求順に1つずつ実行する(遷移中の遷移要求が例外で失敗しなくなった)。
   EditModeテスト`TransitionQueueTests`(順番・失敗後も続く・コンテナ破棄でキャンセル)。Play Modeで、
   Pushの完了を待たずにPopを重ねる/自分を閉じるPopとPush・Popを重ねる、の2通りを確認。
@@ -189,8 +196,13 @@
   - 原因は`Scene 'BootstrapTest' couldn't be loaded because it has not been added to the active build profile`。
     テスト用の`BootstrapTest`シーンを、有効なビルドプロファイルのシーン一覧に入れる必要がある
     (出荷ビルドに入れない方法も合わせて決める)
+  - 一時的にシーン一覧で有効にすると動く(交代・投了の2件は成功)。残る`ClickingBattleButtonOnHome_PropagatesToBattleLogic`は、
+    テストが引く`OpponentCanvas/LayoutRoot/Image/CurrentHpPercentage`がprefab側では`OpponentCanvas/LayoutRoot/CurrentHpPercentage`に
+    なっていて`GameObject.Find`がnullを返すため失敗する(テストのパスが古い)
 - [ ] **C-16 `AddressDefinition.cs`の再生成**
-  - AddressDefinitionGeneratorで生成した定数に`ScoutPage`/`ScoutConfirmModal`/`OpponentSwitchingModal`が無い(画面は型名で読み込むため動作には影響しない)
+  - 現在の`AddressDefinition.cs`には`ScoutPage`/`ScoutConfirmModal`/`OpponentSwitchingModal`も含まれている。
+    画面遷移のフォーク移行でPresenterの`[AssetAddress(AddressDefinition.Xxx)]`がこの定数を使うようになったため、
+    Page/Modal prefabを追加したら必ず再生成する(定数が無いとコンパイルエラーで気づける)
 
 ---
 

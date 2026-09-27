@@ -162,7 +162,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3747619069998851179}
   - component: {fileID: 843417388073689366}
-  - component: {fileID: 8079215432463380597}
   m_Layer: 5
   m_Name: OpponentSwitchingModal
   m_TagString: Untagged
@@ -207,23 +206,6 @@ MonoBehaviour:
   _animationContainer:
     _enterAnimations: []
     _exitAnimations: []
---- !u!114 &8079215432463380597
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6831170769281101025}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5a0e59c007c14779b3c266b1a7445a96, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Battle.OpponentSwitchingModalLifetimeScope
-  parentReference:
-    TypeName: 
-  autoRun: 0
-  autoInjectGameObjects: []
-  view: {fileID: 843417388073689366}
 --- !u!1 &8328512411978289948
 GameObject:
   m_ObjectHideFlags: 0

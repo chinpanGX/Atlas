@@ -714,7 +714,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5144565302549956158}
   - component: {fileID: 7287010570172743420}
-  - component: {fileID: 3744107099310421607}
   m_Layer: 5
   m_Name: ScoutPage
   m_TagString: Untagged
@@ -776,23 +775,6 @@ MonoBehaviour:
   backButton: {fileID: 8519180077801507541}
   candidateListView: {fileID: 3014241956418099615}
   pachimonInfoView: {fileID: 1845777786465812571}
---- !u!114 &3744107099310421607
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3511805738729480931}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f78201a49e151e49a426f9645b72e66, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Scout.ScoutPageLifetimeScope
-  parentReference:
-    TypeName: 
-  autoRun: 0
-  autoInjectGameObjects: []
-  view: {fileID: 7287010570172743420}
 --- !u!1 &3941420762098893874
 GameObject:
   m_ObjectHideFlags: 0

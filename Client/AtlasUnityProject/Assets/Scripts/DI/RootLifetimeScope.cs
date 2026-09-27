@@ -11,6 +11,7 @@ using Cysharp.Threading.Tasks;
 using Supplement.Core;
 using Supplement.ZeroMessenger;
 using UnityEngine;
+using UnityScreenNavigator;
 using VContainer;
 using VContainer.Unity;
 
@@ -38,8 +39,9 @@ namespace Atlas.DI
             // ApiRequestは生成コードの静的ヘルパーでDIを通らないため、ロガーはここで直接差し込む。
             // リリースビルドでは通信内容をログに残さない。
             // (Debug.isDebugBuildはEditorと開発ビルドでtrue)
-            ApiRequest.Logger = UnityEngine.Debug.isDebugBuild ? new UnityApiRequestLogger() : null;
-            builder.RegisterAddressablesLoader();
+            ApiRequest.Logger = Debug.isDebugBuild ? new UnityApiRequestLogger() : null;
+            builder.Register<Supplement.Loader.AddressablesLoader.AddressablesAssetLoader>(Lifetime.Singleton)
+                .As<Supplement.Loader.Abstractions.IAssetLoader, Supplement.Loader.Abstractions.ISceneLoader>();
             builder.RegisterEncryptedFileStorage();
             if (SaveDataDirectory.Resolve() is { } saveDataDirectory)
             {
@@ -48,7 +50,8 @@ namespace Atlas.DI
             }
             builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
             builder.Register<IMasterDataService, MasterDataService>(Lifetime.Singleton);
-            builder.Register<ISceneNavigator, SceneNavigator>(Lifetime.Singleton);
+            builder.Register<SceneNavigator>(Lifetime.Singleton);
+            builder.Register<ISceneNavigator, TransitionAwareSceneNavigator>(Lifetime.Singleton);
             builder.Register<BattleEntryStore>(Lifetime.Singleton);
 
             builder.Register<AccessTokenStore>(Lifetime.Singleton);
@@ -147,10 +150,7 @@ namespace Atlas.DI
             await signInService.SignInAsync();
 
             // HomeLifetimeScope.FindParentが直接RootLifetimeScopeを探すため、ここで
-            // LifetimeScope.EnqueueParentを使う必要は無い(むしろHomeシーンの
-            // HomeEntryPointが同期的に開始するPushPageAsync<HomePage>のネストした
-            // EnqueueParentと競合し、シーン切り替え完了(ChangeSceneのawait解除)の
-            // タイミングでスタックを壊す不具合があったため使わない)。
+            // LifetimeScope.EnqueueParentを使う必要は無い。
             await sceneNavigator.ChangeSceneAsync(AddressDefinition.Home, cancellation);
         }
     }

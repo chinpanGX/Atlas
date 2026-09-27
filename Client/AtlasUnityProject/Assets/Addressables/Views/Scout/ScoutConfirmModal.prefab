@@ -679,7 +679,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4884175627324629879}
   - component: {fileID: 1910854442742150532}
-  - component: {fileID: 6254077351146632706}
   m_Layer: 5
   m_Name: ScoutConfirmModal
   m_TagString: Untagged
@@ -727,23 +726,6 @@ MonoBehaviour:
   messageText: {fileID: 1195184292929055491}
   yesButton: {fileID: 4338187186231408883}
   noButton: {fileID: 1068584319785590304}
---- !u!114 &6254077351146632706
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8056450588213867964}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b6eaed1eac7fd4f4e847d46884e8c28b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Scout.ScoutConfirmModalLifetimeScope
-  parentReference:
-    TypeName: 
-  autoRun: 0
-  autoInjectGameObjects: []
-  view: {fileID: 1910854442742150532}
 --- !u!1 &8250400777371525015
 GameObject:
   m_ObjectHideFlags: 0

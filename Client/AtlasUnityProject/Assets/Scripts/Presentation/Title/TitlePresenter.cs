@@ -1,10 +1,12 @@
-using System;
+using Atlas.Application.Address;
+using Cysharp.Threading.Tasks;
 using R3;
-using VContainer.Unity;
+using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Title
 {
-    public sealed class TitlePresenter : IInitializable, IDisposable
+    [AssetAddress(AddressDefinition.TitlePage)]
+    public sealed class TitlePresenter : IScreenWithArgs<TitleViewDto>
     {
         private readonly TitlePage view;
         private readonly TitleViewDto initialDto;
@@ -16,13 +18,14 @@ namespace Atlas.Presentation.Title
             this.initialDto = initialDto;
         }
 
-        public void Initialize()
+        public UniTask InitializeAsync()
         {
             view.Refresh(initialDto);
 
             view.OnStartButtonClicked
                 .Subscribe(_ => view.Refresh(new TitleViewDto { Message = "Started!" }))
                 .AddTo(disposables);
+            return UniTask.CompletedTask;
         }
 
         public void Dispose()
