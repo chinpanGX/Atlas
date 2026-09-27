@@ -150,10 +150,12 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
 
 | 方法 | 手順 | 向いている用途 |
 |---|---|---|
-| A. 対戦相手ボット | `cd BattleServer && dotnet run --project BattleBot -- --loop` を起動しておき、UnityでBattleボタンを押す | 普段の動作確認(Editor 1つでよい) |
+| A. 対戦相手ボット | リポジトリ直下で `make bot`(別ターミナル)を起動しておき、UnityでBattleボタンを押す | 普段の動作確認(Editor 1つでよい) |
 | B. Multiplayer Play Mode | Window > Multiplayer > Multiplayer Play Mode で追加のEditorインスタンス(Player 2)を有効にし、両方でBattleボタンを押す | 両方の画面を見ながら確認したいとき |
 | C. ビルド+Editor | スタンドアロンビルドを起動し、EditorとそれぞれでBattleボタンを押す(ビルドを複数起動するなら `-saveSlot 2` 等を付ける) | 最終確認 |
 
+- `make bot`は`make dev`と同じく.NET 10 SDKを明示して`dotnet run --project BattleBot -- --loop`を実行する
+  (素の`dotnet`はGit BashのPATHでUnity付属の.NET 8 SDKが先に見つかり、`NETSDK1045`で失敗することがある)
 - ボットの引数: `--loop`(対戦が終わるたびに再びマッチングに並ぶ)、`--count N`(N体同時に動かす。`--count 2`でボット同士が
   対戦し、Unity無しでREST・マッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(既定`http://127.0.0.1:3000`)。
   ボットは起動のたびに新しいプレイヤーを作る(DBにボットのプレイヤーが増える)
