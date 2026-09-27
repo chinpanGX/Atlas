@@ -17,6 +17,8 @@ namespace Atlas.Presentation.Battle
     // design/battle.md「Stage 1」。技はコマンドUIのボタン、交代は交代ボタン→SwitchSelectModalで選ぶ。
     // 瀕死による強制交代も同じModal(やめるボタン無し)で選ばせる。相手が強制交代中はOpponentSwitchingModalを出して待つ。
     // 決着(OnBattleEnd)後はBattleResultModalを出し、そこからHomeシーンへ戻る。
+    // 行動を送るとコマンドを隠し、届いたターン結果は行動順に1文ずつメッセージ枠へ流す(HP等の表示もその文に合わせて更新する)。
+    // 流し終えてからコマンドを戻し、強制交代・相手の交代待ち・結果Modalへ進む。
     [AssetAddress(AddressDefinition.BattlePage)]
     public sealed class BattlePresenter : IScreenWithArgs<BattleViewDto>
     {
@@ -42,6 +44,12 @@ namespace Atlas.Presentation.Battle
         private bool opponentSwitching;
         private OpponentSwitchingPresenter openOpponentSwitching;
         private bool pushingOpponentSwitchingModal;
+        // ターン結果・決着の演出。届いた順に1つずつ流す(演出中に次の結果が届いても割り込ませない)。
+        private UniTask eventPlayback = UniTask.CompletedTask;
+        // 流し終えていない演出の数。0になるまで行動を受け付けない。
+        private int pendingPlaybacks;
+        // 次に届くターン結果が強制交代ターンのものか(前のターン結果で誰かが倒れて交代を求められた)。
+        private bool nextTurnIsForcedSwitch;
 
         private string selfPlayerId;
         private string opponentPlayerId;
@@ -122,7 +130,8 @@ namespace Atlas.Presentation.Battle
             disposables.Dispose();
         }
 
-        private bool CanAct => matchStarted && !battleEnded && !awaitingTurnResult && !forcedSwitchRequired && !opponentSwitching;
+        private bool CanAct => matchStarted && !battleEnded && !awaitingTurnResult && !forcedSwitchRequired && !opponentSwitching
+                               && pendingPlaybacks == 0;
 
         private void RefreshCommandsInteractable()
         {
@@ -147,6 +156,7 @@ namespace Atlas.Presentation.Battle
         {
             awaitingTurnResult = true;
             RefreshCommandsInteractable();
+            view.ShowMessage(BattleMessageBuilder.WaitingForOpponent);
             try
             {
                 await send();
@@ -156,6 +166,7 @@ namespace Atlas.Presentation.Battle
                 // 送れなかった場合はターン結果が届かないため、ロックを戻して再入力できるようにする。
                 UnityEngine.Debug.LogError($"[Battle] 行動の送信に失敗しました: {e.Message}");
                 awaitingTurnResult = false;
+                view.ShowCommandPanel();
                 RefreshCommandsInteractable();
             }
         }
@@ -288,10 +299,11 @@ namespace Atlas.Presentation.Battle
             battleEnded = true;
             opponentSwitching = false;
             RefreshCommandsInteractable();
-            ShowBattleResultAsync(payload).Forget();
+            // 決着したターンの演出を流し終えてから結果Modalを出す。
+            EnqueuePlayback(_ => ShowBattleResultAsync(payload));
         }
 
-        private async UniTaskVoid ShowBattleResultAsync(BattleEndPayload payload)
+        private async UniTask ShowBattleResultAsync(BattleEndPayload payload)
         {
             await CloseSwitchModalAsync();
             await CloseOpponentSwitchingModalAsync();
@@ -314,25 +326,152 @@ namespace Atlas.Presentation.Battle
 
         private void HandleTurnResult(TurnResultPayload payload)
         {
+            EnqueuePlayback(cancellation => PlayTurnResultAsync(payload, cancellation));
+        }
+
+        // 演出を前の演出の後ろに並べる。MockBattleConnectionは行動の送信中に同期的にターン結果を発火し、
+        // 通信対戦でもターン結果の直後に決着が届くため、演出中に次の出来事が来ても順番どおりに流す。
+        private void EnqueuePlayback(Func<CancellationToken, UniTask> play)
+        {
+            pendingPlaybacks++;
+            RefreshCommandsInteractable();
+            eventPlayback = PlayAfterAsync(eventPlayback, play, lifetimeCancellation.Token).Preserve();
+        }
+
+        private async UniTask PlayAfterAsync(UniTask previous, Func<CancellationToken, UniTask> play,
+            CancellationToken cancellation)
+        {
+            await previous;
+            try
+            {
+                await play(cancellation);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+            finally
+            {
+                pendingPlaybacks--;
+                // 画面の破棄で止まった場合はViewに触らない。
+                if (!cancellation.IsCancellationRequested)
+                {
+                    RefreshCommandsInteractable();
+                }
+            }
+        }
+
+        private async UniTask PlayTurnResultAsync(TurnResultPayload payload, CancellationToken cancellation)
+        {
+            // 選択中にターンが進んだ(制限時間切れ等)交代選択Modalは、演出の前にCanceledで閉じる。
+            await CloseSwitchModalAsync();
+
+            var isForcedSwitchTurn = nextTurnIsForcedSwitch;
+            nextTurnIsForcedSwitch = payload.PlayersRequiringForcedSwitch.Length > 0;
             foreach (var action in payload.Actions)
             {
-                ApplyAction(action);
+                await PlayActionAsync(action, isForcedSwitchTurn, cancellation);
             }
-
-            view.Refresh(BuildUiState());
 
             awaitingTurnResult = false;
             forcedSwitchRequired = payload.PlayersRequiringForcedSwitch.Contains(selfPlayerId);
             opponentSwitching = payload.PlayersRequiringForcedSwitch.Contains(opponentPlayerId);
-            view.ShowCommandPanel();
-            RefreshCommandsInteractable();
 
-            if (openSwitchSelect is not null || forcedSwitchRequired)
+            // 決着したターンは最後の文を出したまま結果Modalへ進む。
+            if (battleEnded)
             {
-                HandleSwitchPhaseAsync(forcedSwitchRequired).Forget();
+                return;
+            }
+
+            view.ShowCommandPanel();
+            if (forcedSwitchRequired)
+            {
+                SelectAndSwitchAsync(isForced: true, cancellation).Forget();
             }
 
             SyncOpponentSwitchingModalAsync().Forget();
+        }
+
+        private async UniTask PlayActionAsync(ActionResult action, bool isForcedSwitchTurn, CancellationToken cancellation)
+        {
+            var actorIsSelf = action.PlayerId == selfPlayerId;
+            switch (action.Type)
+            {
+                case ActionType.Move:
+                    await PlayMoveAsync(action, actorIsSelf, cancellation);
+                    break;
+                case ActionType.Switch:
+                    ApplyAction(action);
+                    view.Refresh(BuildUiState());
+                    await view.PlayMessageAsync(
+                        BattleMessageBuilder.SentOut(actorIsSelf, ActivePachimonName(actorIsSelf)), cancellation);
+                    break;
+                case ActionType.Skip:
+                    // 強制交代ターンで交代を待っていた側と、同じターンに先に倒れた側の非行動は出さない
+                    // (前者は行動の機会が無く、後者は倒れた時点で伝えているため)。
+                    if (!isForcedSwitchTurn && !IsActivePachimonFainted(actorIsSelf))
+                    {
+                        await view.PlayMessageAsync(
+                            BattleMessageBuilder.CouldNotAct(actorIsSelf, ActivePachimonName(actorIsSelf)), cancellation);
+                    }
+
+                    break;
+            }
+        }
+
+        // 技名 → (HP・PPを反映) → 外れ/急所/効果 → 倒れた、の順に流す。
+        private async UniTask PlayMoveAsync(ActionResult action, bool actorIsSelf, CancellationToken cancellation)
+        {
+            var moveName = masterDataService.Database.MovesDataTable.FindByMoveId(int.Parse(action.MoveId)).Name;
+            await view.PlayMessageAsync(
+                BattleMessageBuilder.MoveUsed(actorIsSelf, ActivePachimonName(actorIsSelf), moveName), cancellation);
+
+            ApplyAction(action);
+            view.Refresh(BuildUiState());
+
+            if (!action.Hit)
+            {
+                await view.PlayMessageAsync(BattleMessageBuilder.Missed, cancellation);
+                return;
+            }
+
+            if (action.Critical)
+            {
+                await view.PlayMessageAsync(BattleMessageBuilder.Critical, cancellation);
+            }
+
+            var targetIsSelf = !actorIsSelf;
+            if (BattleMessageBuilder.Effectiveness(action.Effectiveness, targetIsSelf,
+                    ActivePachimonName(targetIsSelf)) is { } effectiveness)
+            {
+                await view.PlayMessageAsync(effectiveness, cancellation);
+            }
+
+            if (action.TargetFainted)
+            {
+                await view.PlayMessageAsync(
+                    BattleMessageBuilder.Fainted(targetIsSelf, ActivePachimonName(targetIsSelf)), cancellation);
+            }
+        }
+
+        private string ActivePachimonName(bool isSelf)
+        {
+            if (isSelf)
+            {
+                return masterDataService.Database.PachimonDataTable.FindByPachimonId(selfPachimonIdBySlot[selfActiveIndex]).Name;
+            }
+
+            return opponentPachimonIdBySlot[opponentActiveIndex] is { } id
+                ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).Name
+                : "???";
+        }
+
+        private bool IsActivePachimonFainted(bool isSelf)
+        {
+            return isSelf ? selfFaintedBySlot[selfActiveIndex] : opponentHpPercentBySlot[opponentActiveIndex] <= 0;
         }
 
         // opponentSwitchingに合わせてOpponentSwitchingModalを出し入れする。MockBattleConnectionは相手の交代を
@@ -368,17 +507,6 @@ namespace Atlas.Presentation.Battle
             var opponentSwitchingPresenter = openOpponentSwitching;
             openOpponentSwitching = null;
             await screenNavigator.PopModalAsync(opponentSwitchingPresenter);
-        }
-
-        // 選択中にターンが進んだ(制限時間切れ等)ModalはCanceledで閉じてから、強制交代が必要なら
-        // 改めて(やめられない)Modalを出す。
-        private async UniTaskVoid HandleSwitchPhaseAsync(bool forced)
-        {
-            await CloseSwitchModalAsync();
-            if (forced)
-            {
-                await SelectAndSwitchAsync(isForced: true, lifetimeCancellation.Token);
-            }
         }
 
         // Move: 対象は行動側の相手。Switch: 対象は行動側自身の交代先
@@ -450,9 +578,7 @@ namespace Atlas.Presentation.Battle
             var selfMaxHp = PachimonStatCalculator.CalculateHp(selfPachimon.BaseHp);
 
             var opponentHpPercent = opponentHpPercentBySlot[opponentActiveIndex];
-            var opponentName = opponentPachimonIdBySlot[opponentActiveIndex] is { } id
-                ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).Name
-                : "???";
+            var opponentName = ActivePachimonName(isSelf: false);
 
             return new BattleUIStateDto
             {

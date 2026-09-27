@@ -138,6 +138,9 @@
 - [x] `RealtimeBattleConnection`(MagicOnion)でBattleServerへ接続。`RootLifetimeScope`の`Use Battle Server`でMockと切り替え
 - [x] Multiplayer Play Mode(`com.unity.multiplayer.playmode` 3.0.0)の導入
 - [x] PlayModeテスト`BattlePagePlayModeTests`(Mock接続: 対戦・交代・投了 → 結果 → Home復帰)
+- [x] ターンの演出(テキスト): 行動を送るとコマンド欄を隠し、`turn_result`を行動順に1文ずつメッセージ枠に流す
+  (HPもその文に合わせて更新。一定時間で自動送り・タップで早送り)。強制交代・相手の交代待ち・結果Modalは流し終えてから出す
+  (design/battle.md「クライアントUI」)
 - [x] Multiplayer Play Modeで、Unity Client同士の実サーバー(Server + BattleServer)対戦を確認(旧C-1)。
   マッチング → BattleServerへの接続 → 決着まで通った
 - [x] 相手の場のパチモン名が、プレイヤー間で食い違う問題を修正。相手が既に公開済みの枠へ交代し直すと

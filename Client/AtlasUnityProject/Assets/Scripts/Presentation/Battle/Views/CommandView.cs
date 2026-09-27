@@ -45,6 +45,12 @@ namespace Atlas.Presentation.Battle
             movePanel.SetActive(false);
         }
 
+        // 行動を選び終えてからターンの演出が終わるまでは、コマンド全体を隠してメッセージ枠に場所を譲る。
+        public void SetVisible(bool visible)
+        {
+            gameObject.SetActive(visible);
+        }
+
         private void ShowMovePanel()
         {
             commandPanel.SetActive(false);
