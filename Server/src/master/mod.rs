@@ -14,7 +14,7 @@ pub use generated::{
 ///
 /// APIサーバーが起動時に参照するマスタデータの実体はMySQL(`cache::MasterData::load`)
 /// であり、これらのJSONは`seed_master_data`コマンドがDBへ投入する際のシードデータとして
-/// 利用する(詳細は`Shared/docs/design/architecture.md`の「マスターデータ運用」を参照)。
+/// 利用する。
 const PACHIMON_JSON: &str = include_str!("../../master_data/pachimon.json");
 const MOVE_GROUPS_JSON: &str = include_str!("../../master_data/move_groups.json");
 const MOVES_JSON: &str = include_str!("../../master_data/moves.json");

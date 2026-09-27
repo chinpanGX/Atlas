@@ -13,8 +13,8 @@ namespace Atlas.BattleServer.Auth
     // Expiredの場合も署名は検証済みでClaimsが入る(再接続時の判定に使う、BattleHub.JoinAsync参照)。
     public sealed record BattleTokenValidationResult(BattleTokenStatus Status, BattleTokenClaims? Claims);
 
-    // battle_token(JWT, HS256)の検証。共有シークレットはRust側と同じBATTLE_TOKEN_SECRETを使う
-    // (docs/design/battle.md「battleTokenの実装方式」参照)。
+    // battle_token(JWT, HS256)の検証。共有シークレットはRust側と同じBATTLE_TOKEN_SECRETを使う。
+    // claimsはmatch_id・player_id・exp。期限切れ(署名は正当)は再接続にだけ使えるよう、無効とは区別して返す。
     public sealed class BattleTokenValidator
     {
         public const string SecretConfigKey = "BATTLE_TOKEN_SECRET";
@@ -28,9 +28,9 @@ namespace Atlas.BattleServer.Auth
         private const string MatchIdClaim = "match_id";
         private const string PlayerIdClaim = "player_id";
 
-        private readonly JsonWebTokenHandler _handler = new();
-        private readonly TokenValidationParameters _parameters;
-        private readonly TokenValidationParameters _parametersIgnoringLifetime;
+        private readonly JsonWebTokenHandler handler = new();
+        private readonly TokenValidationParameters parameters;
+        private readonly TokenValidationParameters parametersIgnoringLifetime;
 
         public BattleTokenValidator(IConfiguration configuration)
         {
@@ -51,7 +51,7 @@ namespace Atlas.BattleServer.Auth
             }
 
             var key = new SymmetricSecurityKey(keyBytes);
-            _parameters = new TokenValidationParameters
+            parameters = new TokenValidationParameters
             {
                 IssuerSigningKey = key,
                 ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
@@ -61,13 +61,13 @@ namespace Atlas.BattleServer.Auth
                 RequireExpirationTime = true,
                 ClockSkew = ClockSkew,
             };
-            _parametersIgnoringLifetime = _parameters.Clone();
-            _parametersIgnoringLifetime.ValidateLifetime = false;
+            parametersIgnoringLifetime = parameters.Clone();
+            parametersIgnoringLifetime.ValidateLifetime = false;
         }
 
         public async Task<BattleTokenValidationResult> ValidateAsync(string token)
         {
-            var result = await _handler.ValidateTokenAsync(token, _parameters);
+            var result = await handler.ValidateTokenAsync(token, parameters);
             if (result.IsValid)
             {
                 return ToResult(BattleTokenStatus.Valid, result);
@@ -79,7 +79,7 @@ namespace Atlas.BattleServer.Auth
             }
 
             // 期限切れ以外(署名・アルゴリズム等)は正しいことを確認した上でClaimsを返す。
-            var ignoringLifetime = await _handler.ValidateTokenAsync(token, _parametersIgnoringLifetime);
+            var ignoringLifetime = await handler.ValidateTokenAsync(token, parametersIgnoringLifetime);
             return ignoringLifetime.IsValid
                 ? ToResult(BattleTokenStatus.Expired, ignoringLifetime)
                 : new BattleTokenValidationResult(BattleTokenStatus.Invalid, null);

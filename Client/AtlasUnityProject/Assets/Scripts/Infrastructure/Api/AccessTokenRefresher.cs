@@ -5,7 +5,7 @@ using Cysharp.Threading.Tasks;
 
 namespace Atlas.Infrastructure.Api
 {
-    // アクセストークンの発行・再発行をまとめて担う(design/outgame.md「デバイス認証」補足)。
+    // アクセストークンの発行・再発行をまとめて担う。トークンを書き込むのはこのクラスだけにする。
     // リフレッシュトークンは無く、device_id + secret_keyによるPOST /devices/authenticateの
     // 再実行がリフレッシュを兼ねる。
     //

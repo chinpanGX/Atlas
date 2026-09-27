@@ -15,7 +15,7 @@ use crate::service::{player_item_service, player_service, scout_service};
 use crate::state::AppState;
 
 /// スカウトバナー1件分のレスポンスDTO。排出率(`rate_table`)は含めない
-/// (`Shared/docs/design/scout.md`参照)。
+/// (抽選確率の生値をクライアントに渡さないため)。
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BannerDto {

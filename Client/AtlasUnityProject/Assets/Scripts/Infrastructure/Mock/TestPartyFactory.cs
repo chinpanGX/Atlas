@@ -12,9 +12,8 @@ namespace Atlas.Infrastructure.Mock
     public sealed record PartyMember(int PachimonId, PachimonState State, IReadOnlyList<string> MoveIds);
 
     // マスターデータ(pachimon/moves/move_group_moves)からAtlas.BattleCoreの選出3体を組み立てる。
-    // player_pachimon(プレイヤー所持データ)がまだ存在しないため、種族のbase値を
-    // そのまま使い、努力値(EV)は0として扱う。テスト・Mock対戦用の暫定実装(design/battle.md
-    // 「Stage 1」参照)。
+    // Mock対戦ではplayer_pachimon(プレイヤー所持データ)を使わないため、種族値だけから能力を求め、
+    // 努力値(EV)は0として扱う。技はその種族の技グループの先頭から最大4つ。テスト・Mock対戦用。
     public static class TestPartyFactory
     {
         public static IReadOnlyList<PartyMember> BuildParty(MemoryDatabase database, IReadOnlyList<int> pachimonIds)

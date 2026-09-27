@@ -267,7 +267,7 @@ paths:
       - player
       summary: |-
         所持パチモンの技を付け替えるAPIハンドラ。グループ内の候補技(`move_group_moves`)から
-        選択する(`Shared/docs/design/outgame.md`「10. 技の付け替え」参照)。
+        選択する。何度でも付け替えられる。
       description: |-
         # Errors
         未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`
@@ -301,7 +301,7 @@ paths:
       - player
       summary: |-
         バトル用パーティ(1-6体)を編成するAPIハンドラ。既存の編成は全置き換えされる
-        (`Shared/docs/design/outgame.md`「9. パーティ編成」のバリデーション参照)。
+        (リクエストに含まれない枠は解除される)。
       description: |-
         # Errors
         未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`
@@ -514,7 +514,7 @@ components:
       type: object
       description: |-
         スカウトバナー1件分のレスポンスDTO。排出率(`rate_table`)は含めない
-        (`Shared/docs/design/scout.md`参照)。
+        (抽選確率の生値をクライアントに渡さないため)。
       required:
       - bannerId
       - name
@@ -687,7 +687,7 @@ components:
       type: object
       description: |-
         パーティ編成1割当分のレスポンスDTO。`partySlotId`は割当自体のULID
-        (`Shared/docs/design/outgame.md`参照)。パーティに入っていないslotはこのリソースに
+        (編成し直すたびに作り直す)。パーティに入っていないslotはこのリソースに
         含まれない(行自体が存在しないため、`nullable`を使わずに「未編成」を表現できる)。
       required:
       - partySlotId
@@ -734,7 +734,7 @@ components:
       type: object
       description: |-
         プレイヤーの永続データの差分。`playerDiff`を返す全APIで共通利用する
-        (`Shared/docs/design/outgame.md`参照)。各リソースは影響が無い場合、
+        (クライアントがAPIごとに反映処理を書かずに済むよう、形をそろえる)。各リソースは影響が無い場合、
         `upserted`/`removed`が両方空の状態で含まれる。
       required:
       - items
@@ -781,7 +781,7 @@ components:
       type: object
       description: |-
         所持パチモン1体分の、覚えている技のレスポンスDTO。`playerPachimonMoveId`は割当自体のULID
-        (`Shared/docs/design/outgame.md`参照)。`playerPachimonId`は、`pachimon`側とのネストを
+        (`playerDiff`の`removed`でIDを指せるようにするため)。`playerPachimonId`は、`pachimon`側とのネストを
         解消して`PlayerDiffDto`上の独立したリソースとして扱うために持つ。
       required:
       - playerPachimonMoveId

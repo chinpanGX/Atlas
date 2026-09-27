@@ -6,7 +6,7 @@ pub struct PlayerPachimon {
 }
 
 /// `player_pachimon_moves`の1行分(覚えている技)。割当自体を`player_pachimon_move_id`(ULID)で
-/// 一意に参照できる(他テーブルと同様の方針、Shared/docs/design/outgame.md参照)。
+/// 一意に参照できる(`playerDiff`の`removed`でIDを指せるようにするため、他テーブルと同様の方針)。
 /// `player_pachimon_id`を持つことで、この行単体でどの個体に紐づく技かを特定できる。
 #[derive(Debug, Clone)]
 pub struct PlayerPachimonMove {

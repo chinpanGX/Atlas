@@ -1,6 +1,6 @@
 namespace Atlas.BattleServer.Battle
 {
-    // 対戦進行・結果報告に関わる時間設定。既定値はdocs/design/battle.mdの仮値。
+    // 対戦進行・結果報告に関わる時間設定。既定値は仮の値で、プレイしながら調整する前提。
     // 自動テストで待ち時間を短くするために差し替えられるようにしている(運用時は既定値のまま使う想定)。
     public sealed class BattleTimingOptions
     {

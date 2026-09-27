@@ -8,7 +8,7 @@ using MasterMemory;
 
 namespace Atlas.Infrastructure.Mock
 {
-    // design/battle.md「Stage 1(クライアント単体)」。ネットワークを介さず、Atlas.BattleCoreを
+    // BattleServerに接続しないオフライン用の対戦(RootLifetimeScopeのUse Battle Serverがオフのとき)。ネットワークを介さず、Atlas.BattleCoreを
     // プロセス内でそのまま呼び出して両プレイヤー分の行動を解決する。対戦相手は簡易AIで代替する。
     // player_pachimon(プレイヤー所持データ)を使わないため、パーティは固定のPachimonIdで、選出IDも
     // PlayerPachimonIdではなくPachimonIdの文字列として扱い、TestPartyFactoryでマスターデータから直接組み立てる。
@@ -21,8 +21,8 @@ namespace Atlas.Infrastructure.Mock
         private const string SelfPlayerId = "mock-self";
         private const string OpponentPlayerId = "mock-opponent";
 
-        // 自分・対戦相手のパーティは固定で、対戦相手は先頭3体を選出する(design/battle.md「battleToken/matchIdも
-        // この段階ではダミー値で構わない」と同じ考え方で、Stage 1ではパーティも固定で構わない)。
+        // 自分・対戦相手のパーティは固定で、対戦相手は先頭3体を選出する(Mock対戦では
+        // battleToken/matchIdもダミー値で、パーティも固定で構わない)。
         private static readonly int[] SelfPartyPachimonIds = { 1001, 1002, 1003, 1004, 1005, 1006 };
         private static readonly int[] OpponentPartyPachimonIds = { 1004, 1005, 1006, 1007, 1008, 1009 };
 
@@ -70,7 +70,7 @@ namespace Atlas.Infrastructure.Mock
                 new BattleSide(selfMembers.Select(m => m.State).ToList()),
                 new BattleSide(opponentMembers.Select(m => m.State).ToList()));
 
-            // design/battle.md「PachimonSlot」: 自分は常に全枠公開、相手は最初に場に出た1体だけ公開。
+            // BattleServerと同じ見せ方: 自分は常に全枠公開、相手は最初に場に出た1体だけ公開。
             opponentRevealed = new bool[opponentMembers.Count];
             opponentRevealed[state.Player2.ActiveIndex] = true;
             var selfRevealed = selfMembers.Select(_ => true).ToArray();
@@ -132,7 +132,7 @@ namespace Atlas.Infrastructure.Mock
             return true;
         }
 
-        // design/battle.md「Stage 1」の簡易AI: 使用可能な技からランダムに1つ選ぶ。強さ・タイプ
+        // 簡易AI(BattleBotと同じ方針): 使用可能な技からランダムに1つ選ぶ。強さ・タイプ
         // 相性は考慮しない。自発的な交代はせず、強制交代時のみ選出3体のうち生存している先頭の
         // パチモンに交代する。
         private PlayerAction ChooseOpponentAction()
@@ -203,7 +203,7 @@ namespace Atlas.Infrastructure.Mock
         }
 
         // Move: targetは行動側の相手側アクティブ個体。Switch: targetは行動側自身の交代先個体
-        // (BattleEngine.ExecuteSwitchのTargetRemainingHpと同じ意味、design/battle.md参照)。
+        // (BattleEngine.ExecuteSwitchのTargetRemainingHpと同じ意味)。
         private int ResolveTargetHpPercent(BattleActionOutcome outcome)
         {
             if (outcome.Kind == BattleActionKind.Skip)

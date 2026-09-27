@@ -1542,9 +1542,45 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 3242322500402729347}
     m_Modifications:
+    - target: {fileID: 1726621233981161859, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2881482162451277565, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2881482162451277565, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2881482162451277565, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2881482162451277565, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2881482162451277565, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 160
+      objectReference: {fileID: 0}
+    - target: {fileID: 2881482162451277565, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 82
+      objectReference: {fileID: 0}
+    - target: {fileID: 3239098873221825396, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3263813094309530332, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
       propertyPath: m_Name
       value: CellTemplate
+      objectReference: {fileID: 0}
+    - target: {fileID: 4065937772576121361, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+      propertyPath: m_Name
+      value: Image
       objectReference: {fileID: 0}
     - target: {fileID: 6330466114591894956, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
       propertyPath: m_Pivot.x
@@ -1627,7 +1663,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 8040928152212531468, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+    - {fileID: 7045506537357355748, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
+    - {fileID: 4389170930706473782, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f4e0dbd9ee9763f4ca126e529a92d1f8, type: 3}

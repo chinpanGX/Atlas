@@ -410,8 +410,7 @@ async fn test_select_candidate_out_of_range_index(pool: MySqlPool) {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
-/// 他プレイヤーが作成したrollへのselectが404になることを確認する
-/// (`Shared/docs/design/scout.md`の「rollIdが呼び出し元プレイヤー自身のものであること」の検証)。
+/// 他プレイヤーが作成したrollへのselectが404になることを確認する(自分のロールしか選べない)。
 #[sqlx::test]
 async fn test_select_candidate_not_owned(pool: MySqlPool) {
     seed_items_master(&pool).await;

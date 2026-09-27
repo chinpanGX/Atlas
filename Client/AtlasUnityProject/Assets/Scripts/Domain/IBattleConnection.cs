@@ -3,7 +3,7 @@ using Cysharp.Threading.Tasks;
 
 namespace Atlas.Domain
 {
-    // design/battle.md「IBattleConnection / Payload定義」参照。Client側の画面・進行制御は
+    // BattleServerとの対戦の接続。IBattleHub/IBattleHubReceiver(Shared/BattleContracts)と対になる。Client側の画面・進行制御は
     // このインターフェースのみに依存し、Atlas.BattleCoreやDomain.MasterDataを直接知らない。
     // MockBattleConnection/RealtimeBattleConnectionはこれを実装する。
     public interface IBattleConnection
@@ -28,7 +28,7 @@ namespace Atlas.Domain
 
     public sealed record MoveRequest(string MoveId);
 
-    // 選出画面の表示内容(design/battle.md「パチモン選出」)。両者の参加が揃った時点で届く。SelfPartyは自分の
+    // 選出画面の表示内容。両者の参加が揃った時点で届く。SelfPartyは自分の
     // パーティ(枠番号順)で、SubmitSelectionAsyncにはここから1〜MaxSelectionCount体選んで送る。相手のパーティは
     // どのパチモンかだけ分かる(個体ID・技は送られない)。RemainingSecondsは選出の残り時間(選出中の再接続で
     // 再送された場合は経過分を引いた値)。SelectionSubmittedは自分が選出を送信済みか。
@@ -52,7 +52,7 @@ namespace Atlas.Domain
         string PlayerId, PachimonSlot[] SelectedPachimon, int ActivePachimonIndex);
 
     // 選出3体のうち「場に出た(=公開された)」枠だけがIsRevealed=true。Selfは常に全枠true、
-    // Opponentは初期状態でActivePachimonIndexの1体だけtrue(design/battle.md参照)。
+    // Opponentは初期状態でActivePachimonIndexの1体だけtrue。一度公開された枠は控えに戻っても公開のまま。
     public sealed record PachimonSlot(bool IsRevealed, PachimonBattleState State);
 
     // Levelは持たない(全パチモン共通の固定値のためUIが固定表示すればよい)。HpPercentは0〜100の

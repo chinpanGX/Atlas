@@ -14,7 +14,7 @@ using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Battle
 {
-    // design/battle.md「Stage 1」。参加するとOnSelectionStartが届くのでSelectionModalで選出させ、選んだ内容を送る。
+    // 対戦画面。参加するとOnSelectionStartが届くのでSelectionModalで選出させ、選んだ内容を送る。
     // 相手の選出が済む(OnMatchStart)まではSelectionModalのまま待たせる。
     // 技はコマンドUIのボタン、交代は交代ボタン→SwitchSelectModalで選ぶ。
     // 瀕死による強制交代も同じModal(やめるボタン無し)で選ばせる。相手が強制交代中はOpponentSwitchingModalを出して待つ。
@@ -291,7 +291,7 @@ namespace Atlas.Presentation.Battle
         }
 
         // Presenterはターン結果を待たない。結果はOnTurnResultイベント経由でHandleTurnResultに届き、
-        // そこで入力ロックを解除する(design/client-architecture.mdのイベント駆動更新に合わせる)。
+        // そこで入力ロックを解除する(イベントで届いた結果から画面を更新する)。
         // MockBattleConnectionは送信処理の中で同期的にOnTurnResultを発火するため、ロックは送信前に掛ける。
         private async UniTask SendActionAsync(Func<UniTask> send)
         {
@@ -654,7 +654,7 @@ namespace Atlas.Presentation.Battle
         }
 
         // Move: 対象は行動側の相手。Switch: 対象は行動側自身の交代先
-        // (MockBattleConnection.ResolveTargetHpPercentと同じ解釈、design/battle.md参照)。
+        // (MockBattleConnection.ResolveTargetHpPercentと同じ解釈)。
         private void ApplyAction(ActionResult action)
         {
             var actorIsSelf = action.PlayerId == selfPlayerId;
@@ -697,7 +697,7 @@ namespace Atlas.Presentation.Battle
             }
         }
 
-        // 技を選んだ時点で命中/外れに関わらずPPを1消費する(design/battle.md「PP消費」、サーバーと同じ規則)。
+        // 技を選んだ時点で命中/外れに関わらずPPを1消費する(Atlas.BattleCoreと同じ規則)。
         private void ConsumeSelfPp(string moveId)
         {
             var moveIndex = Array.FindIndex(selfMoveSets[selfActiveIndex].Moves, m => m.MoveId == moveId);

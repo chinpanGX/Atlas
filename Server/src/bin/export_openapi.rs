@@ -1,9 +1,8 @@
 // handlerの#[utoipa::path]注釈から生成したOpenAPI仕様書を
 // Shared/api/openapi.yaml へ書き出すコマンド。
 //
-// api-codegen(Unity C#側のDTO/通信APIクラス生成、Shared/docs/feature-api-codegen.md参照)
-// の入力となる想定。api-codegen自体は未実装で、現時点ではこのyamlは
-// Swagger UI(/swagger-ui)と同じ仕様書をファイルとして確認する用途。
+// api-codegen(Unity C#側のDTO/通信APIクラスの生成ツール)の入力になる。
+// API(handler/DTO)を変えたらこのコマンドとapi-codegenで生成し直す。
 //
 // 実行方法: cargo run --bin export_openapi (Server/ が作業ディレクトリである前提)
 use Server::openapi::ApiDoc;

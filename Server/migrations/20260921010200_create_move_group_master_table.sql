@@ -5,7 +5,7 @@
 -- UNIQUE(group_id, move_id)相当の制約はこの行の代理キー(unique_id)で代替している。
 --
 -- is_initial: スカウトで個体が生成される際、この値がTRUEの技をそのまま初期習得技として
--- 複製する(Shared/docs/design/scout.md参照)。
+-- 複製する。
 CREATE TABLE move_group_master (
     unique_id BIGINT PRIMARY KEY,
     group_id BIGINT NOT NULL,

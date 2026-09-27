@@ -1,4 +1,4 @@
--- プレイヤー所持アイテムテーブル(Shared/docs/design/outgame.md参照)。
+-- プレイヤー所持アイテムテーブル(ジェム等の所持数)。
 --
 -- 所持数0のアイテムは行自体を持たない(nullableを避け、「未所持」を行の不在で表現する)。
 CREATE TABLE player_items (

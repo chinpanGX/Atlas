@@ -2,65 +2,107 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## プロジェクト概要
+Atlasは、デバイス認証(ゲスト型)で始めるリアルタイム対戦モンスター収集ゲーム。Unityクライアント・Rustの
+APIサーバー・C#/MagicOnionのバトルサーバーで構成する。このファイルにはプロジェクト全体に共通する
+アーキテクチャとコーディングルールを書き、各プロジェクト固有のものはそれぞれのCLAUDE.mdに書く。
 
-Atlasは、クライアント(Unity)とサーバー(Rust)を組み合わせた、デバイス認証・チャット・スカウト・
-対戦マッチング・リアルタイムバトル(C#/MagicOnion)を持つオンラインゲームバックエンドのプロジェクト。
-デバイス認証(ゲスト型)で始める、リアルタイム対戦モンスター収集ゲーム。詳細は [README.md](README.md) を参照。
+- [Server/CLAUDE.md](Server/CLAUDE.md) — APIサーバー(Rust/axum)
+- [BattleServer/CLAUDE.md](BattleServer/CLAUDE.md) — バトルサーバー(C#/MagicOnion)、`Shared/BattleCore`・`Shared/BattleContracts`
+- [Client/AtlasUnityProject/CLAUDE.md](Client/AtlasUnityProject/CLAUDE.md) — Unityクライアント
 
-### システム構成
+環境構築・起動手順・コマンドは[DEVELOPMENT.md](DEVELOPMENT.md)、ゲームの仕様は[Shared/docs/game-spec.md](Shared/docs/game-spec.md)、
+設計の詳細は[Shared/docs/design.md](Shared/docs/design.md)、実装状況は[Shared/docs/progress.md](Shared/docs/progress.md)。
+
+## アーキテクチャ
 
 ```
 Unity Client
-   │ REST (HTTP)              │ gRPC/StreamingHub (MagicOnion)
-   ▼                          ▼
-Rust/Axum API Server    C#/MagicOnion Server
-(認証/スカウト/チャット/     (リアルタイム対戦のみ)
- マッチング/DB書き込み)          │
-   ▲──────── 内部API(結果報告) ──┘
+   │ REST (HTTP/JSON)              │ MagicOnion (gRPC / StreamingHub)
+   ▼                               ▼
+APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
+ 認証・プレイヤー・スカウト・      対戦の進行のみ(状態はメモリ上)
+ チャット・マッチング・DB書き込み        │
+   ▲─────────── 内部API(REST) ──────────┘  パーティ・選出個体の取得、結果報告
    │
- MySQL (唯一のデータストア、書き込みはRust経由に統一)
+ MySQL(唯一のデータストア。書き込みはAPIサーバーだけが行う)
 ```
 
-MySQLが唯一のデータストア。書き込みはRust/Axumサーバー経由に統一されており、
-C#/MagicOnionサーバー(リアルタイム対戦)はRust側への内部APIでバトル結果を報告する。
+- **DBへの書き込みはAPIサーバーに一本化する**。バトルサーバーはDBを持たず、必要なデータは内部API
+  (`/internal/battle/*`、`X-Internal-Secret`で認証)で取得し、結果も内部APIで報告する
+- **対戦の判定はバトルサーバーが権威を持つ**。クライアントは結果を受け取って表示するだけ。HPは%でしか送らない等、
+  判定に使う生の値はクライアントに渡さない
+- バトルサーバーの参加資格は、APIサーバーがマッチ成立時に発行する短命JWT(`battle_token`)で確かめる
+- サーバーは1台構成(ローカルでの動作)を前提にする。マッチングの待機列や対戦状態はプロセスのメモリに持つ
+- ダメージ計算・ターン処理(`Atlas.BattleCore`)と通信契約(`Atlas.BattleContracts`)は、`Shared/`に置いた同じ
+  ソースをClient(Unityのローカルパッケージ)とBattleServer(csproj)の両方がコンパイルする
 
-## リポジトリ構成
+### リポジトリ構成
 
 ```
 Atlas/
-├── Client/                 # Unityクライアント(実装状況は Shared/docs/progress.md 参照)
-├── Server/                 # Rustバックエンド(REST API、実装中) — 詳細は Server/CLAUDE.md 参照
-├── BattleServer/           # C#/MagicOnionのリアルタイム対戦サーバー(Atlas.BattleCoreをDLLとして参照)
-├── Shared/                 # クライアント/サーバー間の共有定義(マスターデータスキーマ、設計書)
-├── master-data-pipeline/   # マスターデータ生成パイプライン(サブモジュール、自作)
-├── api-codegen/            # OpenAPI仕様書→Unity向けDTO・通信APIクライアント生成ツール(サブモジュール、自作)
-├── Supplement/              # Unity共通ユーティリティパッケージ(サブモジュール、自作)
-└── UnityScreenNavigator/   # 画面遷移ライブラリUSNのフォーク(サブモジュール、developブランチ)。Clientは`file:`で参照
+├── Client/AtlasUnityProject/  Unityクライアント
+├── Server/                    APIサーバー(Rust/axum)
+├── BattleServer/              バトルサーバー(C#/MagicOnion)、対戦相手ボット(BattleBot/)、テスト
+├── Shared/
+│   ├── BattleCore/            ダメージ計算・ターン処理(Unityパッケージ + BattleServerのcsprojから参照)
+│   ├── BattleContracts/       Client⇔BattleServerの通信契約(同上)
+│   ├── master-data/           マスターデータのスキーマとCSV(正本)
+│   ├── api/openapi.yaml       APIサーバーのOpenAPI仕様書(生成物)
+│   └── docs/                  仕様概要書・設計書・進捗・構想・メモ
+├── master-data-pipeline/      マスターデータの生成ツール(submodule、自作)
+├── api-codegen/               OpenAPI → Unity向けDTO・通信クライアントの生成ツール(submodule、自作)
+├── Supplement/                Unity共通ユーティリティ(submodule、自作)
+└── UnityScreenNavigator/      画面遷移ライブラリ(USN)のフォーク(submodule、developブランチ)
 ```
 
-`master-data-pipeline` / `api-codegen` / `Supplement` / `UnityScreenNavigator` はgit submodule([.gitmodules](.gitmodules))。
+### 生成物とその正本
 
-ローカル環境の設定(Server/BattleServerで共有するシークレット等)・起動順・よく使うコマンドは
-[DEVELOPMENT.md](DEVELOPMENT.md)にまとめている。
+生成物は手で編集しない(再生成で上書きされる)。正本を変えたら生成し直す。
 
-## 設計書
+| 正本 | 生成物 | 生成方法 |
+|---|---|---|
+| `Shared/master-data/`(スキーマ・CSV) | Rustの型・JSON、C#の型・`masterdata.bytes`(Client・BattleServer) | `master-data-pipeline`スキル。Rust側はさらに`seed_master_data`でDBへ投入 |
+| APIサーバーのハンドラ・DTO(`utoipa`の注釈) | `Shared/api/openapi.yaml` → Clientの`Infrastructure/Api/Generated/` | `api-codegen`スキル |
+| Addressablesの登録 | Clientの`AddressDefinition.cs` | Unityのジェネレーター |
 
-- [Shared/docs/design/architecture.md](Shared/docs/design/architecture.md) — 全体構成・命名規則・マスターデータ設計などの横断的な内容
-- [Shared/docs/design/client-architecture.md](Shared/docs/design/client-architecture.md) — Unity Client側の画面遷移・DI・Mock/Real切り替えの枠組み
-- [Shared/docs/design/outgame.md](Shared/docs/design/outgame.md) / [scout.md](Shared/docs/design/scout.md) / [battle.md](Shared/docs/design/battle.md) — 機能別設計書
-- `Server/docs/notes/design.md` — サーバー全体構成(MagicOnion含む)
-- `Server/docs/notes/api-design.md` — REST API仕様・DB設計
+## 共通のコーディングルール
 
-## 設計上のポイント
+### コメント
 
-- **デバイス認証**: 会員登録なしのゲスト型認証。`secret_key`はArgon2でハッシュ化して保存し、1つの`device_id`につき有効なアクセストークンは常に1つ(再認証時は上書き)
-- **マスターデータ管理**: 正はMySQL。`master-data-pipeline`(スプレッドシート→CI→DB seed)で投入し、APIサーバーは起動時にDBから全マスタを読み込んでメモリキャッシュする方針(常時ポーリングでの無停止反映は現時点で導入しない判断)
-- **コード生成ツールの自作**: `master-data-pipeline`と`api-codegen`は、既存OSS(`api-codegen`なら`openapi-generator`/`NSwag`)を検討した上で自作した、特定プロジェクトに依存しない汎用ツール
+- **コメントにドキュメントへの参照を書かない**(「design.md「〇〇」参照」「設計書の〇〇を実装した」など)。
+  ドキュメントの構成を変えるたびにコードまで直すことになるため。コメントには、実装内容の概要と、
+  コードから読み取れない注意点(なぜそうしているか)を、ドキュメントに依存せず実装に即して書く
+- 仕様の根拠を示したいときも、ドキュメント名ではなく内容を書く(例: 「交代は技より先に処理されるため」)
+- C#・Rust・SQL(マイグレーション)・YAML(マスターデータのスキーマ)のどれでも同じ
+- クラス名・メソッド名を読めば分かることを繰り返すだけのコメントは書かない
+
+### 命名
+
+- DB・Rust: `snake_case`。マスタは修飾語なし、プレイヤーの所持データは`player_`を付ける(`pachimon` / `player_pachimon`)
+- 「ポケモン」にあたる語は`pachimon`で統一する(商標と混同しないための独自名)
+- REST APIのJSONは`camelCase`(Rustは`serde(rename_all = "camelCase")`で変換し、内部は`snake_case`)
+- C#は型・メソッド・プロパティが`PascalCase`。private フィールドは`camelCase`(アンダースコアを付けない)、
+  private の`const`・`static readonly`は`PascalCase`。Client・BattleServer・`Shared/`で共通
+- C#の命名ルールはリポジトリ直下の`.editorconfig`に書いている(Supplementの`.editorconfig`と同じルール)。
+  Riderで警告になり、BattleServerは`Directory.Build.props`の`EnforceCodeStyleInBuild`で`dotnet build`でも警告(IDE1006)になる
+
+### データの表し方
+
+- **APIのレスポンスに`nullable`を使わない**(`api-codegen`が対応していないため。ツール側に対応を足すのではなく、
+  APIとスキーマの側で表現を工夫する)。「無い」ことは行が無いことで、値の無い文字列は空文字で表す。
+  MagicOnion(MessagePack)の通信契約は`nullable`を使ってよい
+- プレイヤーの操作で生成するデータのIDはULID(DBは`CHAR(26)`)。パーティの枠や覚えている技のような「割当」も、
+  行ごとにULIDを持つ独立したエンティティにする
+- 所持データを変えるAPIは、レスポンスに共通の形の`playerDiff`(リソース種別ごとの`upserted`/`removed`)を含める。
+  クライアントは受け取った差分を手元のデータに反映する
+- ジェムのような数量は`players`の列にせず、`items`マスタと`player_items`で持つ
 
 ## 作業時の注意
 
-- Serverディレクトリで作業する場合は [Server/CLAUDE.md](Server/CLAUDE.md) を参照
 - マスターデータのスキーマ/CSVを変更したら `master-data-pipeline` スキルで生成物を再配置する
-- Server側のAPI(handler/DTO)を追加・変更したら `api-codegen` スキルでUnity向け型を再生成する
-- 機能実装・API変更・マスターデータ追加を行った後は `atlas-design-docs-sync` スキルでどの設計書を更新すべきか確認する
+  (テーブル・Enumの追加は `master-data-schema-add` スキル)
+- APIサーバーのAPI(handler/DTO)を追加・変更したら `api-codegen` スキルでUnity向け型を再生成する
+- MySQLコンテナ・マイグレーション・DBのリセットは `server-dev-env` スキル
+- 適用済みのマイグレーションのSQLを書き換えると、ローカルDBの`_sqlx_migrations`のチェックサムと合わなくなる。
+  書き換えた場合は、ファイルのSHA-384でチェックサムを更新するか、DBを作り直す
+- 機能実装・API変更・マスターデータ追加を行った後は `atlas-design-docs-sync` スキルでどのドキュメントを更新すべきか確認する

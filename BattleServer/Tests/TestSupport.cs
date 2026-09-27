@@ -21,15 +21,15 @@ namespace Atlas.BattleServer.Tests
         public const string TokenSecret = "test-battle-token-secret-0123456789abcdef";
         public const string InternalSecret = "test-internal-api-secret";
 
-        private readonly WebApplicationFactory<Program> _factory;
-        private readonly GrpcChannel _channel;
-        private readonly List<IBattleHub> _hubs = [];
+        private readonly WebApplicationFactory<Program> factory;
+        private readonly GrpcChannel channel;
+        private readonly List<IBattleHub> hubs = [];
 
         public FakeApiServerHandler ApiServer { get; } = new();
 
         public BattleServerTestHost(Action<BattleTimingOptions>? configureTiming = null)
         {
-            _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+            factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             {
                 builder.UseSetting("BATTLE_TOKEN_SECRET", TokenSecret);
                 builder.UseSetting(BattleResultReporter.SecretConfigKey, InternalSecret);
@@ -47,17 +47,17 @@ namespace Atlas.BattleServer.Tests
                 });
             });
 
-            _channel = GrpcChannel.ForAddress(_factory.Server.BaseAddress, new GrpcChannelOptions
+            channel = GrpcChannel.ForAddress(factory.Server.BaseAddress, new GrpcChannelOptions
             {
-                HttpHandler = _factory.Server.CreateHandler(),
+                HttpHandler = factory.Server.CreateHandler(),
             });
         }
 
         public async Task<(IBattleHub Hub, TestReceiver Receiver)> ConnectAsync()
         {
             var receiver = new TestReceiver();
-            var hub = await StreamingHubClient.ConnectAsync<IBattleHub, IBattleHubReceiver>(_channel, receiver);
-            _hubs.Add(hub);
+            var hub = await StreamingHubClient.ConnectAsync<IBattleHub, IBattleHubReceiver>(channel, receiver);
+            hubs.Add(hub);
             return (hub, receiver);
         }
 
@@ -89,7 +89,7 @@ namespace Atlas.BattleServer.Tests
 
         public async ValueTask DisposeAsync()
         {
-            foreach (var hub in _hubs)
+            foreach (var hub in hubs)
             {
                 try
                 {
@@ -101,8 +101,8 @@ namespace Atlas.BattleServer.Tests
                 }
             }
 
-            _channel.Dispose();
-            await _factory.DisposeAsync();
+            channel.Dispose();
+            await factory.DisposeAsync();
         }
     }
 
@@ -110,7 +110,7 @@ namespace Atlas.BattleServer.Tests
 
     public sealed class TestReceiver : IBattleHubReceiver
     {
-        private readonly object _gate = new();
+        private readonly object gate = new();
 
         public List<SelectionStartPayload> SelectionStarts { get; } = [];
         public List<BattleStartPayload> Starts { get; } = [];
@@ -119,19 +119,19 @@ namespace Atlas.BattleServer.Tests
         public int OpponentDisconnectedCount { get; private set; }
         public int OpponentReconnectedCount { get; private set; }
 
-        public void OnSelectionStart(SelectionStartPayload payload) { lock (_gate) SelectionStarts.Add(payload); }
-        public void OnMatchStart(BattleStartPayload payload) { lock (_gate) Starts.Add(payload); }
-        public void OnTurnResult(TurnResultPayload payload) { lock (_gate) Turns.Add(payload); }
-        public void OnBattleEnd(BattleEndPayload payload) { lock (_gate) Ends.Add(payload); }
-        public void OnOpponentDisconnected() { lock (_gate) OpponentDisconnectedCount++; }
-        public void OnOpponentReconnected() { lock (_gate) OpponentReconnectedCount++; }
+        public void OnSelectionStart(SelectionStartPayload payload) { lock (gate) SelectionStarts.Add(payload); }
+        public void OnMatchStart(BattleStartPayload payload) { lock (gate) Starts.Add(payload); }
+        public void OnTurnResult(TurnResultPayload payload) { lock (gate) Turns.Add(payload); }
+        public void OnBattleEnd(BattleEndPayload payload) { lock (gate) Ends.Add(payload); }
+        public void OnOpponentDisconnected() { lock (gate) OpponentDisconnectedCount++; }
+        public void OnOpponentReconnected() { lock (gate) OpponentReconnectedCount++; }
 
         public async Task WaitForAsync(Func<TestReceiver, bool> condition, int timeoutSeconds = 10)
         {
             var until = DateTime.UtcNow.AddSeconds(timeoutSeconds);
             while (DateTime.UtcNow < until)
             {
-                lock (_gate)
+                lock (gate)
                 {
                     if (condition(this))
                     {
@@ -150,7 +150,7 @@ namespace Atlas.BattleServer.Tests
     // ResponsesにキューされたステータスをFIFOで返す(空なら200)。
     public sealed class FakeApiServerHandler : HttpMessageHandler
     {
-        private readonly ConcurrentQueue<HttpStatusCode> _responses = new();
+        private readonly ConcurrentQueue<HttpStatusCode> responses = new();
 
         public ConcurrentQueue<ReceivedRequest> Received { get; } = new();
 
@@ -158,7 +158,7 @@ namespace Atlas.BattleServer.Tests
         {
             foreach (var statusCode in statusCodes)
             {
-                _responses.Enqueue(statusCode);
+                responses.Enqueue(statusCode);
             }
         }
 
@@ -167,7 +167,7 @@ namespace Atlas.BattleServer.Tests
             var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
             var secret = request.Headers.TryGetValues(BattleResultReporter.SecretHeaderName, out var values) ? values.Single() : "";
             Received.Enqueue(new ReceivedRequest(request.RequestUri!.AbsolutePath, secret, body));
-            return new HttpResponseMessage(_responses.TryDequeue(out var status) ? status : HttpStatusCode.OK);
+            return new HttpResponseMessage(responses.TryDequeue(out var status) ? status : HttpStatusCode.OK);
         }
 
         public async Task WaitForCountAsync(int count, int timeoutSeconds = 10)

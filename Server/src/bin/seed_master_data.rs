@@ -2,8 +2,7 @@
 //
 // master-data-pipelineが生成したmaster_data/*.jsonをMySQLへUPSERTする。APIサーバー自体は
 // 起動時にDBからマスタを読み込みメモリキャッシュを参照する設計のため、マスタ更新時は
-// このコマンドを実行してDBへ反映したのち、サーバーを再起動して反映する(詳細は
-// Shared/docs/design/architecture.mdの「マスターデータ運用」参照)。
+// このコマンドを実行してDBへ反映したのち、サーバーを再起動して反映する(無停止での反映はしない)。
 //
 // move_groups → moves → move_group_moves → pachimon → starter_party_slots → itemsの順で投入する
 // (move_group_moves/pachimon/starter_party_slotsの外部キー制約を満たすため。itemsは他テーブルに

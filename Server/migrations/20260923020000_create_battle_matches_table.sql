@@ -1,4 +1,4 @@
--- 対戦テーブル(Shared/docs/design/battle.md「DB設計」参照)。
+-- 対戦テーブル(1対戦1行)。
 --
 -- マッチ成立時(POST /battle/queue)にstatus='in_progress'で作成し、
 -- BattleServerからの結果報告(POST /internal/battle/result)でstatus='finished'に更新する。

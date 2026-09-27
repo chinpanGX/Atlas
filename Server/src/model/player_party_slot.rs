@@ -2,7 +2,7 @@
 ///
 /// 割当自体をULIDで一意に識別する独立したエンティティとして扱う。割当が無いslotは
 /// 行自体が存在しないため、`Option`を介した`nullable`表現を避けられる
-/// (`Shared/docs/design/outgame.md`参照)。
+/// (`api-codegen`が`nullable`に対応していないため)。
 pub struct PlayerPartySlot {
     pub party_slot_id: String,
     pub player_id: String,

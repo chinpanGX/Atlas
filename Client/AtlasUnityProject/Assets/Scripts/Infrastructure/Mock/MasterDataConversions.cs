@@ -5,8 +5,8 @@ using Atlas.MasterData.Enums;
 namespace Atlas.Infrastructure.Mock
 {
     // Domain.MasterData(PachimonType/MoveCategory/TypeEffectiveness)とAtlas.BattleCore
-    // (ElementType/MoveCategory/EffectivenessResult)の間の型変換。design/battle.md
-    // 「実効ステータス計算」参照。この変換はAtlas.BattleCoreに依存しない呼び出し側
+    // (ElementType/MoveCategory/EffectivenessResult)の間の型変換。Atlas.BattleCoreはマスタの型を知らないため、
+    // この変換は呼び出し側
     // (Client Mock)の責務であり、TestPartyFactory/MasterDataTypeChartから共通で使う。
     internal static class MasterDataConversions
     {

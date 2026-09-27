@@ -15,7 +15,8 @@ namespace Atlas.BattleServer.Battle
     // Client側のMock(Atlas.Infrastructure.Mock.TestPartyFactory/MasterDataTypeChart)と同じ変換。
     public static class LoadoutBuilder
     {
-        // design/battle.md「実効ステータス計算」のlevel(固定値)。
+        // 経験値によるレベルアップが無いため、全パチモン共通の固定レベル。Client側の
+        // PachimonStatCalculator.FixedLevelと同じ値にしておく必要がある。
         public const int FixedLevel = 50;
 
         public static ParticipantLoadout Build(MemoryDatabase database, OwnedPachimon owned)
@@ -110,21 +111,21 @@ namespace Atlas.BattleServer.Battle
         };
 
         // type_chartマスタは単体タイプ同士の組み合わせのみ持つ(複合タイプの掛け合わせはBattleCoreの
-        // DamageCalculatorが2回引いて計算する、design/architecture.md参照)。
+        // DamageCalculatorが2回引いて計算する)。
         private sealed class MasterDataTypeChart : ITypeChart
         {
-            private readonly Dictionary<(ElementType Attack, ElementType Defend), EffectivenessResult> _table = new();
+            private readonly Dictionary<(ElementType Attack, ElementType Defend), EffectivenessResult> table = new();
 
             public MasterDataTypeChart(MemoryDatabase database)
             {
                 foreach (var row in database.TypeChartDataTable.All)
                 {
-                    _table[(ToElementType(row.AttackType), ToElementType(row.DefendType))] = ToEffectivenessResult(row.Effectiveness);
+                    table[(ToElementType(row.AttackType), ToElementType(row.DefendType))] = ToEffectivenessResult(row.Effectiveness);
                 }
             }
 
             public EffectivenessResult GetEffectiveness(ElementType attackType, ElementType defendType) =>
-                _table[(attackType, defendType)];
+                table[(attackType, defendType)];
         }
     }
 }

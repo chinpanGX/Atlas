@@ -18,9 +18,9 @@ using VContainer.Unity;
 namespace Atlas.DI
 {
     /// <summary>
-    /// Bootstrapシーンの常駐スコープ。design/client-architecture.md「シーン構成」参照。
+    /// Bootstrapシーンの常駐スコープ。Bootstrapシーンは一度もアンロードしないため、
     /// アプリ生存期間中ずっと存在し、Home/BattleシーンのLifetimeScopeの親になる。
-    /// 各IXxxRepositoryのMock/Real登録、各IXxxServiceの登録もここで行う構成ルート
+    /// 各IXxxConnectionのMock/Real登録、各IXxxRepository/IXxxServiceの登録もここで行う構成ルート
     /// (Composition Root)。Atlas.Presentationとは別アセンブリに分離し、Presenter自身は
     /// Atlas.Infrastructureを直接参照しない。
     /// </summary>

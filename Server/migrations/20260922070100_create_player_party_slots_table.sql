@@ -1,4 +1,4 @@
--- パーティ編成テーブル(Shared/docs/design/outgame.md参照)。
+-- パーティ編成テーブル(1プレイヤー6行まで)。
 --
 -- パーティへの割当自体を、player_pachimonのparty_slot(nullable INT)属性としてではなく、
 -- 独立したエンティティ(ULIDを持つ行)として表現する。API応答でnullableを避けられる

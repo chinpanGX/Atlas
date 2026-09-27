@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-/// 紹介の候補1体分(Shared/docs/design/scout.md参照)。`scout_rolls.candidates`(JSON配列)の
+/// 紹介の候補1体分。`scout_rolls.candidates`(JSON配列)の
 /// 要素として保存し、そのままAPIレスポンスの候補としても使う。
 ///
 /// `rarity`は`"S"/"A"/"B"/"C"`の文字列(`ScoutBanner.rate_table`と同じ表現)。

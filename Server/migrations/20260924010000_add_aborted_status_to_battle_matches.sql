@@ -1,4 +1,4 @@
--- battle_matches.statusに'aborted'(勝者なしで終了)を追加する(Shared/docs/design/battle.md「DB設計」参照)。
+-- battle_matches.statusに'aborted'(勝者なしで終了)を追加する。
 --
 -- 'aborted'になるのは次の2通り。どちらもwinner_idはNULLのまま、gemsも付与しない。
 -- - BattleServerが勝者なし(winnerIdが空文字)で結果を報告した(両者未選出・両者放置等)

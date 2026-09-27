@@ -1,4 +1,4 @@
--- スカウトバナーマスタ(Shared/docs/design/scout.md参照)。
+-- スカウトバナーマスタ(排出率・紹介1回の値段・開催期間)。
 --
 -- master-data-pipelineの対象外とし、専用のseedバイナリ(seed_scout_banners)で
 -- Rust側から直接INSERT/UPSERTする運用とする。理由は2つ:

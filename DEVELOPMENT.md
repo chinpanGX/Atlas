@@ -31,12 +31,21 @@ Unity Client ──REST──▶ Server(Rust/Axum)      http://127.0.0.1:3000
 | Unity | 6000.6.2f1 | Client | Unity Hubで確認 |
 | Docker Desktop | — | Server / BattleServer / Client(通しで動かす場合) | `docker compose version` |
 | Rust | edition 2024対応(1.85以上) | Server | `cargo --version` |
-| make | — | Server | `make --version`(Git Bashには無いので導入が必要。[Server/docs/setup.md](Server/docs/setup.md)「0.」参照) |
+| make | — | Server | `make --version`(Git Bashには無いので導入が必要。下記「makeの導入」参照) |
 | sqlx-cli | — | Server | `sqlx --version`(`cargo install sqlx-cli --no-default-features --features mysql`) |
 | .NET SDK | 10 | BattleServer / api-codegen / master-data-pipeline | `dotnet --version` |
 | Python | 3.10以上 | master-data-pipeline | `python --version`(`pip install -r master-data-pipeline/requirements.txt`) |
 
 Client担当でも、実際のサーバーにつないで動かすならServer・BattleServerを起動できる状態にしておく。
+
+### makeの導入(Git Bash)
+
+Git Bashには`make`が含まれていないため、次のどれかで入れる。入れた後はGit Bashを開き直す。
+
+- Chocolatey(推奨、管理者権限のPowerShell): `choco install make`
+- Scoop: `scoop install make`
+- 手動: [ezwinports](https://sourceforge.net/projects/ezwinports/files/)の`make-4.x-without-guile-w32-bin.zip`を解凍し、
+  `bin/make.exe`を`C:\Program Files\Git\usr\bin\`にコピーする
 
 ## 2. リポジトリの取得
 
@@ -162,7 +171,8 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
 - ボットの引数: `--loop`(対戦が終わるたびに再びマッチングに並ぶ)、`--count N`(N体同時に動かす。`--count 2`でボット同士が
   対戦し、Unity無しでREST・マッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(既定`http://127.0.0.1:3000`)。
   ボットは起動のたびに新しいプレイヤーを作る(DBにボットのプレイヤーが増える)。パーティは開発用API`POST /debug/randomize_party`で
-  pachimonマスタから重複なしの6体・技も候補技からランダムに組み直し、そのうち先頭3体で対戦する
+  pachimonマスタから重複なしの6体・技も候補技からランダムに組み直す。選出は、BattleServerから届くパーティ
+  (`OnSelectionStart`)からランダムに3体を選ぶ
 - B・Cでは、同じPCで2人分を動かすとセーブデータ(`deviceCredentials`)が同じになり、自分自身とマッチングしようとして
   しまうため、インスタンスごとに保存先を分けている(`Assets/Scripts/DI/SaveDataDirectory.cs`)。Editor本体は既定の`SaveData`、
   Multiplayer Play Modeの追加インスタンスは`SaveData_VP_<id>`、ビルドは`SaveData_Build`(`-saveSlot N`で`SaveData_Build_N`)
@@ -172,7 +182,7 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
 
 ### Server(Rust) — 作業ディレクトリ `Server/`
 
-詳細: [Server/CLAUDE.md](Server/CLAUDE.md)、初回構築: [Server/docs/setup.md](Server/docs/setup.md)
+詳細: [Server/CLAUDE.md](Server/CLAUDE.md)、cargoのコマンド: [Shared/docs/notes/cargo-commands.md](Shared/docs/notes/cargo-commands.md)
 
 ```bash
 make up / make down / make restart   # MySQLコンテナの起動・停止
@@ -185,7 +195,8 @@ cargo test                           # テスト(MySQLコンテナの起動が�
 cargo run --bin export_openapi       # Shared/api/openapi.yaml を再生成(api-codegenの入力)
 ```
 
-- `sqlx`はMySQLに接続できないと`cargo build`自体が失敗する。先に`make up`する
+- ビルドにMySQLは要らない(SQLは実行時に組み立てる`sqlx::query`で、コンパイル時に検査するマクロは使っていない)。
+  `cargo run`・`cargo test`は実行時にMySQLへつなぐため、先に`make up`する
 - ログレベル: `RUST_LOG="info,Server=debug"`でリクエスト/レスポンスのボディ、
   `RUST_LOG="info,Server=debug,sqlx::query=debug"`でSQLも出る
 - `cargo run`中は`target/debug/Server.exe`がロックされ、`cargo test`等のビルドが
@@ -251,7 +262,7 @@ cd master-data-pipeline
 cd Server && cargo run --bin export_openapi   # Shared/api/openapi.yaml を更新
 cd ../api-codegen
 dotnet run -- generate                         # DTO・APIクライアントを生成
-dotnet run -- copy                             # Client側(Assets/Scripts/Domain.Api/)へ配置
+dotnet run -- copy                             # Client側(Assets/Scripts/Infrastructure/Api/Generated/)へ配置
 ```
 
 OpenAPIの`nullable`には対応しない(Rust側で`Option<T>`をレスポンスに含めない)。
@@ -260,7 +271,7 @@ OpenAPIの`nullable`には対応しない(Rust側で`Option<T>`をレスポン�
 
 | 症状 | 原因・対処 |
 |---|---|
-| `cargo build`/`cargo test`が失敗する(DB接続エラー) | MySQLコンテナが起動していない → `make up` |
+| `cargo run`/`cargo test`が失敗する(DB接続エラー) | MySQLコンテナが起動していない → `make up` |
 | `cargo test`等で`Server.exe`の削除が「アクセスが拒否されました」 | `cargo run`中のサーバーがファイルをロックしている → 停止するか`CARGO_TARGET_DIR`を変える |
 | BattleServerが`BATTLE_TOKEN_SECRET must be set` / `must be at least 32 bytes`で起動しない | user-secrets(または環境変数)が未設定・短すぎる → 「3. 共通の設定」 |
 | 対戦に入れない(`JoinAsync`が`InvalidToken`) | `BATTLE_TOKEN_SECRET`がServerとBattleServerで違う、またはトークン取得から30秒以上経っている |

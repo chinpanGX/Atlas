@@ -1,4 +1,4 @@
--- スカウトの紹介記録(Shared/docs/design/scout.md参照)。
+-- スカウトの紹介記録(候補10体と、そのうちどれを選んだか)。
 --
 -- candidatesに選択結果も含めて記録するため、紹介履歴と入手履歴を兼ねる。
 CREATE TABLE scout_rolls (

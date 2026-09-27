@@ -31,19 +31,19 @@ namespace Atlas.BattleServer.Internal
         private const string PartyPath = "/internal/battle/party";
 
         // シングルトン(BattleCoordinator)から使うため、HttpClientは都度IHttpClientFactoryから取得する。
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly MemoryDatabase _database;
-        private readonly string _secret;
+        private readonly IHttpClientFactory httpClientFactory;
+        private readonly MemoryDatabase database;
+        private readonly string secret;
 
         public ITypeChart TypeChart { get; }
 
         public ApiParticipantDataSource(IHttpClientFactory httpClientFactory, MemoryDatabase database, IConfiguration configuration)
         {
-            _httpClientFactory = httpClientFactory;
-            _database = database;
+            this.httpClientFactory = httpClientFactory;
+            this.database = database;
             // 結果報告(BattleResultReporter)は未設定なら送信を諦めるだけだが、こちらは無いと対戦を
             // 始められないため、未設定なら起動時に失敗させる(Program.csで起動時に解決している)。
-            _secret = configuration[BattleResultReporter.SecretConfigKey] is { Length: > 0 } secret
+            this.secret = configuration[BattleResultReporter.SecretConfigKey] is { Length: > 0 } secret
                 ? secret
                 : throw new InvalidOperationException($"{BattleResultReporter.SecretConfigKey} is not set");
             TypeChart = LoadoutBuilder.BuildTypeChart(database);
@@ -77,18 +77,18 @@ namespace Atlas.BattleServer.Internal
             }
 
             return body.Pachimon
-                .Select(p => LoadoutBuilder.Build(_database, new OwnedPachimon(p.PachimonId, p.EffortValues, p.MoveIds)))
+                .Select(p => LoadoutBuilder.Build(database, new OwnedPachimon(p.PachimonId, p.EffortValues, p.MoveIds)))
                 .ToList();
         }
 
         private async Task<HttpResponseMessage> PostAsync<T>(string path, T body)
         {
-            var client = _httpClientFactory.CreateClient(BattleResultReporter.HttpClientName);
+            var client = httpClientFactory.CreateClient(BattleResultReporter.HttpClientName);
             using var message = new HttpRequestMessage(HttpMethod.Post, path)
             {
                 Content = JsonContent.Create(body),
             };
-            message.Headers.Add(BattleResultReporter.SecretHeaderName, _secret);
+            message.Headers.Add(BattleResultReporter.SecretHeaderName, secret);
             return await client.SendAsync(message);
         }
     }

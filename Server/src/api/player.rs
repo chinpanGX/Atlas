@@ -55,7 +55,7 @@ pub struct PlayerPachimonDto {
 }
 
 /// 所持パチモン1体分の、覚えている技のレスポンスDTO。`playerPachimonMoveId`は割当自体のULID
-/// (`Shared/docs/design/outgame.md`参照)。`playerPachimonId`は、`pachimon`側とのネストを
+/// (`playerDiff`の`removed`でIDを指せるようにするため)。`playerPachimonId`は、`pachimon`側とのネストを
 /// 解消して`PlayerDiffDto`上の独立したリソースとして扱うために持つ。
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -67,7 +67,7 @@ pub struct PlayerPachimonMoveDto {
 }
 
 /// パーティ編成1割当分のレスポンスDTO。`partySlotId`は割当自体のULID
-/// (`Shared/docs/design/outgame.md`参照)。パーティに入っていないslotはこのリソースに
+/// (編成し直すたびに作り直す)。パーティに入っていないslotはこのリソースに
 /// 含まれない(行自体が存在しないため、`nullable`を使わずに「未編成」を表現できる)。
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -120,7 +120,7 @@ pub struct PartySlotsDiffDto {
 }
 
 /// プレイヤーの永続データの差分。`playerDiff`を返す全APIで共通利用する
-/// (`Shared/docs/design/outgame.md`参照)。各リソースは影響が無い場合、
+/// (クライアントがAPIごとに反映処理を書かずに済むよう、形をそろえる)。各リソースは影響が無い場合、
 /// `upserted`/`removed`が両方空の状態で含まれる。
 #[derive(Serialize, ToSchema, Default)]
 #[serde(rename_all = "camelCase")]
@@ -244,7 +244,7 @@ pub struct SetPartyRequest {
 }
 
 /// バトル用パーティ(1-6体)を編成するAPIハンドラ。既存の編成は全置き換えされる
-/// (`Shared/docs/design/outgame.md`「9. パーティ編成」のバリデーション参照)。
+/// (リクエストに含まれない枠は解除される)。
 ///
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`
@@ -308,7 +308,7 @@ pub struct EditPachimonMoveRequest {
 }
 
 /// 所持パチモンの技を付け替えるAPIハンドラ。グループ内の候補技(`move_group_moves`)から
-/// 選択する(`Shared/docs/design/outgame.md`「10. 技の付け替え」参照)。
+/// 選択する。何度でも付け替えられる。
 ///
 /// # Errors
 /// 未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`

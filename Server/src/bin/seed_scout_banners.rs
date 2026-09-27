@@ -1,6 +1,7 @@
 // スカウトバナー投入コマンド。
 //
-// scout_bannersはmaster-data-pipelineの対象外(Shared/docs/design/scout.md参照)のため、
+// scout_bannersはmaster-data-pipelineの対象外(開催期間を持つ運用寄りのデータで、排出率をクライアントに
+// 配らないため)のため、
 // このコマンドから直接DBへINSERT/UPSERTする。期間限定バナーの運用ツールは作らず、
 // end_atを十分先の未来日付にした「常設バナー」を最低1件投入する
 // (常設バナーが常に1件は開催中である状態を保証し、レギュラースカウトが常に実行できるようにする)。

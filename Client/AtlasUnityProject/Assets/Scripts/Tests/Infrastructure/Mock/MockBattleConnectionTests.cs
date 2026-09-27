@@ -107,9 +107,8 @@ namespace Atlas.Infrastructure.Mock.Tests
         }
 
         // テスト用の簡易「自分側」進行役。OnTurnResultのActionResultだけから自パーティの
-        // 生死・アクティブ枠を追跡し、次に送るMoveId/交代先を決める。design/battle.md
-        // 「PP制限(UI側)」等と同様、Clientは自分のパチモンの技一覧を静的マスタから
-        // 把握できる前提(TestPartyFactoryで組み立てたPartyMemberをそのまま使う)。
+        // 生死・アクティブ枠を追跡し、次に送るMoveId/交代先を決める。BattlePresenterと同じく
+        // ターン結果の差分から状態をローカルで更新する。技一覧はTestPartyFactoryで組み立てたPartyMemberをそのまま使う。
         private sealed class SelfDriver
         {
             private readonly List<int> partySlotToPachimonId;

@@ -8,7 +8,7 @@ namespace Atlas.Infrastructure
 {
     public sealed class SignInService : ISignInService
     {
-        // ニックネーム入力画面は未実装のため固定値を使う(design/outgame.md「サインアップ」参照)。
+        // ニックネーム入力画面は未実装のため、サインアップでは固定値を使う。
         private const string DefaultNickname = "プレイヤー";
 
         private readonly IDeviceCredentialsRepository credentialsRepository;

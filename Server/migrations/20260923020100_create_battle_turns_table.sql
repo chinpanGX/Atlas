@@ -1,4 +1,4 @@
--- 対戦ログテーブル(Shared/docs/design/battle.md「DB設計」参照)。
+-- 対戦ログテーブル。
 --
 -- 1ターン内の行動ごとに1行。action_data/result_dataはBattleServerから届いたJSONをそのまま保存する。
 CREATE TABLE battle_turns (

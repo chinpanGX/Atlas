@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-/// スカウトバナー(Shared/docs/design/scout.md参照)。
+/// スカウトバナー(`scout_banners`テーブルの1行)。
 ///
 /// `rate_table`はレアリティ別排出率(合計1.0)。キーは`"S"/"A"/"B"/"C"`の文字列で、
 /// `master::generated::Rarity`の`Serialize`/`Deserialize`(数値専用)とは別物として扱う

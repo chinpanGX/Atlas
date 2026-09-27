@@ -2,90 +2,89 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Rust/Axum製のREST APIサーバー。全体像は [ルートのCLAUDE.md](../CLAUDE.md) を参照。
+Rust/axum製のREST APIサーバー。プロジェクト全体のアーキテクチャと共通ルールは[ルートのCLAUDE.md](../CLAUDE.md)。
+環境構築・コマンドは[DEVELOPMENT.md](../DEVELOPMENT.md)と`server-dev-env`スキル。
 
-## セットアップ・開発環境操作
+## アーキテクチャ
 
-MySQL Dockerコンテナの起動・マイグレーション・リセットなどは `server-dev-env` スキルを使う
-(`make setup` / `make up` / `make db-reset` 等)。DB接続情報は`.env`の`DATABASE_URL`(`dotenvy`)。
-`.env`には`battle_token`署名用の`BATTLE_TOKEN_SECRET`と、内部API(BattleServer→Rust)用の
-`INTERNAL_API_SECRET`も必須(未設定だと起動・テストがpanicする)。
-`sqlx`はコンパイル時クエリチェックを行うため、**MySQLコンテナが起動していないと`cargo build`/
-`cargo check`自体が失敗する**。
-
-## よく使うコマンド
-
-全て`Server/`ディレクトリ(`Cargo.toml`と同じ階層)で実行する。
-
-```bash
-cargo check                              # コンパイル確認のみ(高速)
-cargo build
-
-cargo run                                # APIサーバー本体(src/main.rs)を起動
-cargo run --bin seed_master_data         # マスタデータをJSON→DBへUPSERT投入
-cargo run --bin seed_scout_banners       # 常設スカウトバナーをDBへUPSERT投入
-cargo run --example setup_check          # 環境構築確認用の最小サーバー
-
-cargo test                               # 全テスト実行
-cargo test --test device_api_test        # 特定の結合テストファイルのみ
-cargo test test_register_device          # テスト関数名で部分一致絞り込み
-cargo test -- --nocapture                 # 成功時もprintln!等を表示
-
-cargo fmt
-```
-
-テストは`#[sqlx::test]`を使い、実行ごとに独立したテスト用DBを自動作成・破棄するため
-(既存`atlas_dev`データは汚さない)、MySQLコンテナ(`make up`)が起動している必要がある。
-
-コマンドの詳細・注意点は `docs/notes/cargo-commands.md` / `docs/notes/cargo-examples.md` を参照。
-
-## アーキテクチャ: レイヤード構成
+### レイヤー
 
 ```
-api/       リクエスト/レスポンスの型定義とハンドラ(utoipaでOpenAPI注釈)
-service/   認証処理・DB操作などのコアロジック
-model/     DBテーブルに対応するデータ構造
-extractor  要認証エンドポイント共通の認証チェック(axumのFromRequestParts)
+routes.rs   ルーティング(create_router)。エンドポイントを足すときはここに.route(...)を足す
+api/        リクエスト/レスポンスの型とハンドラ。utoipaでOpenAPIの注釈を付ける
+service/    業務処理とDBアクセス
+model/      DBのテーブルに対応する構造体
+master/     マスターデータの型(generated/、生成物)と起動時に読み込むキャッシュ(cache.rs)
 ```
 
-- ルーティングは`routes.rs`に集約(`create_router`)。エンドポイント追加時はここに`.route(...)`を足す
-- `AuthenticatedDevice`(`extractor.rs`)が`Authorization: Bearer <token>`を検証し、`device_id`を
-  ハンドラ引数として渡す。要認証エンドポイントは引数にこれを追加するだけでよい
-- エラーは`AppError`(`error.rs`)に集約し、`IntoResponse`でHTTPステータスに変換
-- `AppState`(`state.rs`)が`MySqlPool`・`Arc<MasterData>`・マッチング待機列(プロセスメモリ)を保持し、`with_state`で全ハンドラに共有
-- OpenAPI仕様は`openapi.rs`の`ApiDoc`(utoipa)から生成され、`/swagger-ui`で確認可能。
-  `cargo run --bin export_openapi`で`api.yaml`として出力する(Unity向けコード生成`api-codegen`の入力)
+| ファイル | 役割 |
+|---|---|
+| `extractor.rs` | 認証。`AuthenticatedDevice`(`Authorization: Bearer`を検証して`device_id`を渡す)と`InternalService`(内部APIの`X-Internal-Secret`を定数時間で比較する)。ハンドラの引数に足すだけで認証が掛かる |
+| `error.rs` | `AppError` → HTTPステータス(`BadRequest`→400、`Unauthorized`→401、`NotFound`→404、`Conflict`→409、`InternalError`→500) |
+| `state.rs` | `AppState`(DB接続プール・`Arc<MasterData>`・マッチングの待機列)。`with_state`で全ハンドラに共有する |
+| `openapi.rs` | `ApiDoc`(utoipa)。`/swagger-ui`で確認でき、`export_openapi`で`Shared/api/openapi.yaml`に出力する。内部APIは載せない |
+| `http_log.rs` | リクエスト/レスポンスの本文のログ(`RUST_LOG`で出し分け) |
+| `main.rs` | 起動。マスタの読み込み、結果報告が届かない対戦を打ち切る定期処理(`battle_service::spawn_stale_match_cleanup`)の起動 |
 
-現在実装済みの機能領域: `auth` / `battle`(マッチング) / `chat` / `device` / `internal`(BattleServerからの
-内部API、OpenAPIには載せない) / `player` / `scout`
-(`src/api/*.rs` / `src/service/*.rs` に対応)。
+機能ごとに`api/*.rs`と`service/*.rs`が対応する: `auth` / `battle`(マッチング) / `chat` / `debug`(開発用) /
+`device` / `internal`(BattleServerからの内部API) / `player` / `scout`。
 
-## マスターデータ
+### 状態の持ち方
 
-- `src/master/generated/*.rs`は`master-data-pipeline`が生成する型定義(手で編集しない)
-- `src/master/cache.rs`が起動時にDBから全マスタを読み込み`MasterData`としてメモリ保持する
-  (無停止反映は非対応。マスタ更新後はサーバー再起動が必要)
-- `seed_master_data`(`src/bin/seed_master_data.rs`)は`move_groups`/`moves`/`move_group_moves`/
-  `pachimon`/`starter_party_slots`/`items`の6テーブルを投入する(`type_chart`はJSON生成のみでDB未投入)。
-  新しいテーブルを投入対象にする場合は`master-data-schema-add`スキルの手順に従い、
+- マスターデータは起動時にDBから全件読み込み、`Arc<MasterData>`としてメモリに持つ。リクエストのたびに
+  マスタのテーブルへ問い合わせない。更新の反映は`seed_master_data`での再投入とサーバーの再起動で行う
+- マッチングの待機列と成立した結果は、DBではなく`AppState`のメモリに持つ(1台構成のため)。
+  `POST /battle/queue`の中で同期的に組み、バックグラウンドタスクは使わない
+- マスターデータの生成物(`src/master/generated/`、`master_data/*.json`)は手で編集しない。
+  `seed_master_data`が投入するテーブルを増やすときは`master-data-schema-add`スキルに従い、
   `seed_master_data.rs`(必要なら`cache.rs`も)を拡張する
-- `scout_banners`はマスターデータの対象外で、`seed_scout_banners`が常設バナーを投入する。
-  `make db-reset`後は2つのseedとサーバー再起動が必要(`server-dev-env`スキル参照)
-- スキーマ/CSV変更時の生成・配置フローは`master-data-pipeline`スキルを使う
+- スカウトのバナー(`scout_banners`)はマスターデータの対象外で、`seed_scout_banners`が投入する
 
-## マイグレーション
+## コーディングルール
 
-`migrations/`配下に追加してから`make migrate`(`sqlx migrate run`)を実行する。
-取り消しは`make migrate-revert`。
+### API
 
-## テスト構成
+- 識別子もなるべくURLのパスではなくリクエストの本文に置く(`/edit/party`、`/chat/send`のようなRPC寄りの命名)
+- レスポンスの型に`Option<T>`を使わない(`nullable`になり`api-codegen`が扱えない)。無いことは空の配列・空文字・
+  行が無いことで表す
+- 所持データを変えるAPIは`PlayerDiffDto`(`api/player.rs`)を返す。変化の無い種別も空配列で必ず含める
+- ハンドラ・DTOには`#[utoipa::path(...)]`/`ToSchema`を付け、`openapi.rs`の`ApiDoc`に登録する(タグも必須。
+  `api-codegen`がタグ単位でクライアントを作るため)。内部API(`api/internal.rs`)は登録しない
+- API(ハンドラ・DTO)を変えたら`api-codegen`スキルでUnity向けの型を生成し直す
 
-- `tests/{auth,battle,chat,device,player,scout}_api_test.rs`: `tower::ServiceExt::oneshot`によるAPIレベル結合テスト
-- `tests/master_data_test.rs`や一部のservice層テストは`sqlx::test`を使い実DBを必要とする
-- DB不要な単体テストは`src/`内の`#[cfg(test)] mod tests`にある
+### エラーとトランザクション
 
-## API変更時の連携
+- エラーは`AppError`で返す。DBのエラーは`.map_err(|_| AppError::InternalError)?`で変換する(DBの詳細を
+  クライアントへ返さない)
+- 複数のテーブルを書き換える処理は1つのトランザクションにまとめる(プレイヤー作成と初期付与、スカウトの消費と
+  候補の保存、結果報告と報酬付与など)。トランザクション内で呼ぶ関数は`&mut Transaction<'_, MySql>`を受け取る
+- 同時に届くと二重に処理されるもの(結果報告)は、対象の行を`SELECT ... FOR UPDATE`でロックしてから確かめる
+- SQLは実行時に組み立てる`sqlx::query`/`query_as`を使う(コンパイル時に検査するマクロ`query!`は使っていない)
 
-`api`配下のhandler/DTOを追加・変更したら、Unity側のDTO・通信クライアントが古くなるため
-`api-codegen`スキルで再生成する。機能追加・変更後は`atlas-design-docs-sync`スキルで
-`docs/notes/design.md` / `docs/notes/api-design.md`等の更新要否を確認する。
+### ドキュメントコメント
+
+- 公開する関数・型には`///`で概要を書き、失敗する関数には`# Errors`節でどの`AppError`をいつ返すかを書く
+- ハンドラのドキュメントコメントはOpenAPIの説明文になる(`Shared/api/openapi.yaml`に出る)
+
+### Lint・フォーマット
+
+- `Cargo.toml`の`[lints.clippy]`: `unwrap_used`・`expect_used`は警告(起動処理・seedでは意図して使う)、
+  `dbg_macro`・`todo`・`unimplemented`は禁止
+- フォーマットは`make fmt`(`make fmt-check`で確認)。**生の`cargo fmt`は使わない**。生成物
+  (`src/master/generated/`)の並びが変わり、次に生成したときとの差分が出続けるため(`rustfmt`の除外指定は
+  stableでは効かないので、`make fmt`が生成物を除いたファイルに対して実行する)
+
+### マイグレーション
+
+- `migrations/`に追加してから`make migrate`で適用する。取り消しは`make migrate-revert`
+- 適用済みのマイグレーションの中身を変えると(コメントも含む)、DBに記録されたチェックサムと合わなくなり
+  `sqlx migrate run`が失敗する。スキーマの変更は新しいマイグレーションで行い、コメントだけを直した場合は
+  ローカルDBの`_sqlx_migrations.checksum`をファイルのSHA-384で更新する(またはDBを作り直す)
+
+## テスト
+
+- `tests/*_api_test.rs`: `tower::ServiceExt::oneshot`でRouterに直接リクエストを送るAPIの結合テスト。
+  各ファイルの先頭に、そのファイルのテストの一覧と確かめる内容を書いている
+- `#[sqlx::test]`はテストごとに独立したDBを作って捨てる(`atlas_dev`を汚さない)。MySQLコンテナが起動している必要がある
+- マスタが要るテストは、必要な行だけをテストの中でDBへ直接入れる(`seed_test_master_data`等)
+- DB不要な単体テストは`src/`内の`#[cfg(test)] mod tests`に置く

@@ -2,7 +2,7 @@
 using Atlas.BattleCore;
 using MessagePack;
 
-// docs/design/battle.md「IBattleConnection / Payload定義」をそのままコードに起こしたもの。
+// IBattleHub/IBattleHubReceiverでやり取りするPayload(MessagePackでシリアライズする)。
 // EffectivenessResult/BattleEndReasonはAtlas.BattleCoreの同名enum(定義も同一)をそのまま使う。
 namespace Atlas.BattleContracts
 {

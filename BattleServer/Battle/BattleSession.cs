@@ -39,7 +39,7 @@ namespace Atlas.BattleServer.Battle
         public int ConsecutiveIdleTurns { get; set; }
     }
 
-    // 1対戦分のサーバー側の状態(docs/design/battle.mdでBattleStateと呼んでいるもの)。
+    // 1対戦分のサーバー側の状態(参加者・パーティ・選出・盤面・タイマー・行動ログ)。
     // Atlas.BattleCore.BattleStateとの名前衝突を避けるためBattleSessionとし、盤面はCoreに持つ。
     // 全フィールドはGateを取得した状態でのみ読み書きする。
     public sealed class BattleSession(string matchId)

@@ -7,7 +7,7 @@ use ulid::Ulid;
 use crate::error::AppError;
 use crate::service::player_item_service::{self, GEM_ITEM_ID};
 
-/// 対戦勝利報酬のgems(固定、`Shared/docs/design/battle.md`「報酬設計(gems)」参照)。
+/// 対戦勝利報酬のgems(固定。運用中に調整する想定が無いためマスタにせず定数で持つ)。
 pub const BATTLE_WIN_REWARD_GEMS: i32 = 50;
 
 /// `battle_matches.status`: 対戦中(マッチ成立〜結果報告まで)

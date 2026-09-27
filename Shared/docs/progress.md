@@ -15,8 +15,8 @@
 | 領域 | 状況 |
 |---|---|
 | クライアント(Unity) | 認証〜サインイン、Home、パーティ編成、スカウト、マッチング〜対戦〜結果までは実装済み。サインイン・スカウト・Unity同士の対戦(Multiplayer Play Mode)は実サーバーにつないで確認済み。チャット・技の付け替え・ニックネーム入力の画面は未着手 |
-| APIサーバー(Rust/Axum) | 設計書にあるAPIはすべて実装済み(結合テスト62件)。残りはコンテナ化とテスト環境の不具合 |
-| バトルサーバー(C#/MagicOnion) | Hub一式・切断と再接続・制限時間・結果報告・選出個体の実データ化・強制交代ターンまで実装済み(xUnit 33件)。ボット同士・Unity Client同士の実サーバー対戦で確認済み |
+| APIサーバー(Rust/Axum) | 設計書にあるAPIはすべて実装済み(結合テスト65件)。残りはコンテナ化とテスト環境の不具合 |
+| バトルサーバー(C#/MagicOnion) | Hub一式・切断と再接続・制限時間・結果報告・選出フェーズ(パーティの見せ合い)・選出個体の実データ化・強制交代ターンまで実装済み(xUnit 37件)。ボット同士・Unity Client同士の実サーバー対戦で確認済み |
 | 共通(マスターデータ・コード生成) | パイプラインはClient/Server/BattleServerの3か所へ配置済み。技の種類が少ない |
 
 ## 次に進める順番
@@ -32,7 +32,7 @@
 
 ## 1. クライアント(Unity)
 
-`Client/AtlasUnityProject`(Unity 6.6)。設計は[design/client-architecture.md](design/client-architecture.md)。
+`Client/AtlasUnityProject`(Unity 6.6)。設計は[design.md](design.md)「6. クライアント」。
 
 ### 実施済み
 
@@ -40,7 +40,7 @@
 
 - [x] Unityプロジェクトの作成、利用ライブラリの導入、コンパイル確認
   - VContainer / UniTask / R3 / UnityScreenNavigator / MagicOnion.Client / YetAnotherHttpHandler /
-    MessagePack / MasterMemory / ZeroMessenger / ZLinq / LitMotion / Supplement(submodule) / UnityScreenNavigatorのフォーク(submodule)。導入経路はarchitecture.md「クライアント利用ライブラリ」
+    MessagePack / MasterMemory / ZeroMessenger / ZLinq / LitMotion / Supplement(submodule) / UnityScreenNavigatorのフォーク(submodule)。導入経路はdesign.md「6.1 採用ライブラリ」
   - MasterMemory等はUPM版にSource Generatorが無いため、NuGetForUnityでNuGet版を`Assets/Packages/`に配置
 - [x] マスターデータの組み込み(`Scripts/MasterData/`の単一アセンブリ`Atlas.MasterData`、`masterdata.bytes`はAddressablesで配布)
 - [x] REST APIクライアントの組み込み(`api-codegen`で生成し`Infrastructure/Api/`へ配置、`uloop compile`で0エラー)
@@ -67,7 +67,7 @@
   `IPresenter.CompleteAsync`+`WaitForPopAsync<TResult>`。Home/BattleシーンにOverlayContainerを追加(未使用)。
   遷移の直列化(`TransitionQueue`)とPresenterの破棄(子スコープに`Scoped`で登録し、スコープごとDispose)はフォーク側で持ち、
   二重Popの防止(`SwitchSelectPresenter.CloseAsync`)・遷移完了を待つシーン切り替え(`TransitionAwareSceneNavigator`)は
-  アプリ側で持つ(design/client-architecture.md「DIによる結線とライフサイクル」)
+  アプリ側で持つ(design.md「6.3 画面の構成」)
 - [x] (旧方式)Page prefabに子`LifetimeScope`を持たせるDI方式、Presenterは`RegisterEntryPoint`で構築
 - [x] Connection抽象(`IXxxConnection`)でMock/Realを切り替える構成
 - [x] 画面をまたぐ通知に`IMessageBroker`(ZeroMessenger)を導入
@@ -78,7 +78,7 @@
   自分を閉じるPopを要求順に1つずつ実行する(遷移中の遷移要求が例外で失敗しなくなった)。
   EditModeテスト`TransitionQueueTests`(順番・失敗後も続く・コンテナ破棄でキャンセル)。Play Modeで、
   Pushの完了を待たずにPopを重ねる/自分を閉じるPopとPush・Popを重ねる、の2通りを確認。
-  連打は対象外(遷移中はUSNが入力を止め、遷移前の連打はPresenterで捨てる。design/client-architecture.md「遷移の直列化」)
+  連打は対象外(遷移中はUSNが入力を止め、遷移前の連打はPresenterで捨てる。design.md「6.4 画面遷移」)
 - [x] UIをScreen Space - Camera(UICamera)に統一、1920x1080基準、横向き固定
 - [x] VContainerが新規`*LifetimeScope.cs`を空テンプレートで上書きする問題に対応(旧C-15)。
   `VContainerSettings.DisableScriptModifier`はEditモードでは効かないことを実機検証で確認
@@ -133,7 +133,7 @@
 - [x] コマンドUI: たたかう/こうたい のメニュー、技4つ(タイプ・残りPP表示、PP0は押せない)
 - [x] 交代UI(`SwitchSelectModal`、瀕死時の強制交代も同じModal)、行動送信後の入力ロック
 - [x] 決着処理(`BattleResultModal`、投了確認Modal → `ForfeitAsync`)、Homeへ戻る
-- [x] Home⇔Battleのシーン分離(選出の受け渡しはRoot常駐の`BattleEntryStore`)
+- [x] Home⇔Battleのシーン分離(マッチ情報の受け渡しはRoot常駐の`BattleEntryStore`)
 - [x] 通信契約を`Shared/BattleContracts/`(`Atlas.BattleContracts`)に切り出してBattleServerと共有
 - [x] マッチング: `MatchmakingModal`(キャンセル可) → `ApiBattleMatchmaker`(`POST /battle/queue` + 1秒ごとの`GET /battle/queue/status`)
 - [x] `RealtimeBattleConnection`(MagicOnion)でBattleServerへ接続。`RootLifetimeScope`の`Use Battle Server`でMockと切り替え
@@ -141,7 +141,7 @@
 - [x] PlayModeテスト`BattlePagePlayModeTests`(Mock接続: 対戦・交代・投了 → 結果 → Home復帰)
 - [x] ターンの演出(テキスト): 行動を送るとコマンド欄を隠し、`turn_result`を行動順に1文ずつメッセージ枠に流す
   (HPもその文に合わせて更新。一定時間で自動送り・タップで早送り)。強制交代・相手の交代待ち・結果Modalは流し終えてから出す
-  (design/battle.md「クライアントUI」)
+  (design.md「6.8 バトル画面」)
 - [x] HPゲージの演出: 技でHPが変わるとゲージと数値が少しずつ減り(LitMotion)、減り終わってから次の文へ進む。
   残りHPでゲージの色を変える(緑/黄(半分以下)/赤(2割以下))。交代先のパチモンは即時に切り替える。
   交代選択Modal・パーティ編成画面のHPゲージは従来どおり単色(緑)
@@ -154,6 +154,11 @@
   入力を止める。次のターン結果か決着で閉じる。`MockBattleConnection`も同じルールにした
   (プレイヤーの強制交代ターンでは簡易AIは行動せず、簡易AIの強制交代は続けて処理する)。
   EditModeテスト`MockBattleConnectionTests`で強制交代ターンの行動(交代とSkip)を確認
+- [x] 選出画面(`SelectionModal`/`SelectionPresenter`): 参加後に届く`OnSelectionStart`で開き、自分のパーティから
+  3体を選ぶ(選んだ順が選出の並び)。残り時間、相手のパーティ(種族のみ)、タップしたパチモンの詳細
+  (`PachimonInfoView`)を表示する。「けってい」後は相手の選出が済む(`OnMatchStart`)までModalのまま待つ。
+  マッチング時の自動選出(`BattleMatch.SelectedPlayerPachimonIds`)は廃止。候補・相手の枠はパーツprefab
+  `SelectionCandidate`/`SelectionOpponent`。`MockBattleConnection`も参加時に固定パーティで`OnSelectionStart`を送る
 
 ### TODO
 
@@ -174,15 +179,12 @@
   - `TurnTimeLimitSeconds`をもとに残り秒数をカウントダウン表示する
   - `OnOpponentDisconnected`/`OnOpponentReconnected`を購読して「相手の接続を待っています」を表示する(イベントは`IBattleConnection`にあるが、Presenterでは未購読)
 - [ ] **C-6 通信エラー共通の仕組み(通信基盤と合わせて実装)**
-  - 実装案は design/client-architecture.md「通信エラーダイアログ・Loading(設計案、未実装)」の「実装案」。
+  - 設計案は design.md「6.9 通信エラーダイアログ・Loading(設計案)」。段階ごとの詳しい実装案は、統合前の`design/client-architecture.md`(git履歴)にある。
     段階1 api-codegen(タイムアウト・キャンセル) → 段階2 Server(`/scout/rolls`の二重送信防止) →
     段階3 `ApiCallExecutor` → 段階4〜5 システムレイヤー(Bootstrap常駐のダイアログ・Loading、EventSystemの移動) →
     段階6 捕まえ漏れの通知 → 段階7 各画面への適用
   - 「決めること」(タイトルへの意味・リトライ上限・Loadingの自動表示・捕まえ漏れの通知・タイムアウト秒数)の確定待ち
   - 現状の問題: リトライが無く通信の失敗はほぼログのみ、タイムアウトが無い、`/scout/rolls`は送り直すとジェムが二重に引かれる
-- [ ] **C-18 画面遷移フレームワークの残り**
-  - Toast、戻るボタンの一元管理、まとめて行う遷移(Rebase・PopOrReplace等)。Atlasで必要になった時点で追加する
-  - 共通パッケージとしての切り出しは、APIが固まってから行う
 - [ ] **C-8 チャット画面**
   - `IChatConnection`(`POST /chat/send`・`GET /chat/poll`)と画面を作る。Connectionは`SendAsync`で包む
 - [ ] **C-9 技の付け替え画面(View)**
@@ -198,11 +200,6 @@
   - 実機・モバイル向けにはGeneratorの導入かResolverの事前生成が必要
 - [ ] **C-13 パチモンのサムネイル画像**
   - `PachimonDto.Thumbnail`がnullのため、単色のプレースホルダで表示している
-- [ ] **C-17 PlayModeテストが動かない**
-  - `BattlePagePlayModeTests`の3件が、SetUpで「Bootstrap起動からHome表示までに時間がかかりすぎました」で失敗する
-  - 原因は`Scene 'BootstrapTest' couldn't be loaded because it has not been added to the active build profile`。
-    テスト用の`BootstrapTest`シーンを、有効なビルドプロファイルのシーン一覧に入れる必要がある
-    (出荷ビルドに入れない方法も合わせて決める)
   - 一時的にシーン一覧で有効にすると動く(交代・投了の2件は成功)。残る`ClickingBattleButtonOnHome_PropagatesToBattleLogic`は、
     テストが引く`OpponentCanvas/LayoutRoot/Image/CurrentHpPercentage`がprefab側では`OpponentCanvas/LayoutRoot/CurrentHpPercentage`に
     なっていて`GameObject.Find`がnullを返すため失敗する(テストのパスが古い)
@@ -215,7 +212,7 @@
 
 ## 2. APIサーバー(Rust/Axum)
 
-`Server/`。詳細は[Server/CLAUDE.md](../../Server/CLAUDE.md)、`Server/docs/notes/api-design.md`。
+`Server/`。詳細は[Server/CLAUDE.md](../../Server/CLAUDE.md)、[design.md](design.md)「3. APIサーバー」。
 
 ### 実施済み
 
@@ -240,6 +237,7 @@
 | GET | /battle/queue/status | マッチング状況(成立時に`battle_token`) |
 | POST | /internal/battle/result | 対戦結果の記録(BattleServer専用、OpenAPI対象外) |
 | POST | /internal/battle/loadouts | 選出個体の所持データ取得(BattleServer専用、OpenAPI対象外) |
+| POST | /internal/battle/party | 選出候補(パーティ編成)の取得(BattleServer専用、OpenAPI対象外) |
 
 #### 機能・仕組み
 
@@ -266,14 +264,14 @@
   - 原因は未調査。直るまでは「テスト62件」が今の環境で全部通るとは言えない
 - [ ] **S-2 APIサーバーのコンテナ化**
   - Dockerfileのマルチステージビルド + `SQLX_OFFLINE`(`.sqlx`オフラインキャッシュ)、composeのprofileで開発時の`cargo run`と併用する
-  - Windows上のDockerではビルドが遅くデバッグもしにくいため見送り中。デプロイ方式を決めるときに行う(design/battle.mdのBattleServer側も同じ判断)
+  - Windows上のDockerではビルドが遅くデバッグもしにくいため見送り中。デプロイ方式を決めるときに行う(design.md「7.1 構成」のBattleServer側も同じ判断)
 
 ---
 
 ## 3. バトルサーバー(C#/MagicOnion)
 
 `BattleServer/`(ASP.NET Core + `MagicOnion.Server` 7.11.0)と、共通のバトルロジック`Shared/BattleCore/`(`Atlas.BattleCore`)。
-設計は[design/battle.md](design/battle.md)。
+設計は[design.md](design.md)「7. バトルサーバー」。
 
 ### 実施済み
 
@@ -293,6 +291,9 @@
 - [x] 選出の制限時間(2分)、放置(ターンタイムアウトが3連続で敗北)。両者該当なら勝者なし
 - [x] `BattleResultReporter`: `/internal/battle/result`へ報告(通信エラー・5xxは1秒/5秒/15秒で再送、409は成功扱い)
 - [x] 選出個体の実データ化: `/internal/battle/loadouts`で所持データを取得し(所持チェックはRust側)、マスタから`LoadoutBuilder`で組み立て
+- [x] 選出フェーズ: 参加時に`/internal/battle/party`でパーティを取得し、両者が揃ったら`OnSelectionStart`で
+  自分のパーティ・相手のパーティ(種族のみ)・選出数・残り秒数を送る。選出中の再接続では再接続者にだけ再送。
+  選出がパーティ外の個体なら`InvalidArgument`。BattleBotは`OnSelectionStart`を受けてパーティからランダムに3体を選ぶ
 - [x] マスターデータの読み込み(`BattleServer/MasterData/`、起動時に`MemoryDatabase`)
 - [x] `BattleTimingOptions`で制限時間類を差し替え可能に(テスト用)
 - [x] 対戦相手ボット`BattleServer/BattleBot/`(REST + MagicOnionで自動対戦、`--loop`/`--count`)
@@ -301,7 +302,7 @@
 - [x] ボット2体で実サーバーを通した対戦(マッチング → 強制交代 → 全滅決着 → 結果記録)を確認
 - [x] 強制交代ターン: 前のターンで瀕死になった側の交代だけを受け付け、相手の行動は`FailedPrecondition`で拒否する。
   交代が届いた時点でターンを解決し、時間切れは倒れた側の敗北(`Forfeit`)。放置の回数には数えない。
-  `Atlas.BattleCore`は変更なし(design/battle.md「瀕死・交代」)。BattleBotも相手の強制交代中は待つようにした。
+  `Atlas.BattleCore`は変更なし(design.md「7.4 対戦の進行」)。BattleBotも相手の強制交代中は待つようにした。
   結合テストに`ForcedSwitchTimeout_PlayerWhoDidNotSwitchLoses`・`ForcedSwitchTurn_DoesNotCountAsIdleForWaitingPlayer`を追加
 - [x] ローカル一括起動`make dev`(リポジトリ直下の`Makefile`): MySQL起動+マイグレーション → Server・BattleServerを並列起動。
   BattleServerの共有シークレットは`Server/.env`の値を環境変数で渡すため、user-secretsの設定は不要になった(旧B-1)。

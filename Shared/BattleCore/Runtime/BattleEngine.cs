@@ -4,8 +4,7 @@ using System.Collections.Generic;
 namespace Atlas.BattleCore
 {
     // Atlas.BattleCoreの唯一の公開エントリポイント。呼び出し側(Client Mock/バトルサーバーの
-    // Hub実装)はターン処理Section以下の内部構造(Section/Event/EventHandler)を知らなくてよい
-    // (docs/design/battle.md「内部構造(Section / Event / EventHandler)」参照)。
+    // Hub実装)はターン処理Section以下の内部構造(Section/Event/EventHandler)を知らなくてよい。
     public static class BattleEngine
     {
         public static TurnResult ProcessTurn(

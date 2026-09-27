@@ -1,0 +1,7 @@
+<Project>
+  <!-- リポジトリ直下の.editorconfig(命名ルール等)を、IDEだけでなくdotnet buildでも警告として出す。
+       BattleServer/以下の全プロジェクト(Shared/BattleCore・Shared/BattleContractsのcsprojを含む)に効く。 -->
+  <PropertyGroup>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+</Project>

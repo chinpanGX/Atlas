@@ -1,4 +1,4 @@
--- スターター編成マスタテーブル(Shared/docs/design/outgame.md参照)。
+-- スターター編成マスタテーブル(新規プレイヤーに複製する固定の6体)。
 --
 -- master-data-pipelineが生成するmaster_data/starter_party_slots.jsonの内容を
 -- `cargo run --bin seed_master_data`でUPSERTする。新規プレイヤー作成時にこの内容を

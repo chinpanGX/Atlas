@@ -1,6 +1,6 @@
-# 技マスタ(Shared/docs/design.md の「マスターデータ設計」に対応)。
+# 技マスタ。技の追加効果(状態異常・能力変化)は持たない。
 #
-# base_power: design.md では状態技(category=status)の場合NULL可としているが、
+# base_power: 状態技(category=status)は威力を持たないが、
 # このパイプラインはnullable型が無いため、状態技を追加する際は0を割り当てる運用とする
 # (現状のデータには状態技は含まれていない)。
 name: moves

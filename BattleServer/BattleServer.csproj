@@ -4,8 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- BATTLE_TOKEN_SECRET/INTERNAL_API_SECRETはdotnet user-secretsで設定する(Development環境で自動的に読み込まれる)。
-         手順はリポジトリ直下のDEVELOPMENT.md参照 -->
+    <!-- BATTLE_TOKEN_SECRET/INTERNAL_API_SECRETはdotnet user-secrets(Development環境で自動的に読み込まれる)か、
+         同名の環境変数で渡す。値はServer/.envと同じにする -->
     <UserSecretsId>atlas-battleserver</UserSecretsId>
     <!-- Tests/・BattleCore/・BattleContracts/・BattleBot/・MasterData/は別プロジェクトのため取り込まない -->
     <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**;BattleCore/**;BattleContracts/**;BattleBot/**;MasterData/**</DefaultItemExcludes>

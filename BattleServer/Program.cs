@@ -7,8 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options =>
 {
     // WORKAROUND: 開発中はHTTP/2のみを受け付け、非TLSでの接続を許可する
-    // (Cysharp公式ChatAppサンプルと同じ設定)。architecture.mdの「サーバーは1台構成
-    // (ローカル動作を想定)」に合わせた開発時設定であり、デプロイ方式を決める際に見直す。
+    // (Cysharp公式ChatAppサンプルと同じ設定)。サーバー1台・ローカルでの動作を想定した開発時の設定で、
+    // デプロイ方式を決める際に見直す。
     options.ConfigureEndpointDefaults(endpointOptions =>
     {
         endpointOptions.Protocols = HttpProtocols.Http2;

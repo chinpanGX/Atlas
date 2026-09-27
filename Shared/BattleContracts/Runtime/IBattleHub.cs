@@ -3,7 +3,7 @@ using MagicOnion;
 
 namespace Atlas.BattleContracts
 {
-    // docs/design/battle.md「MagicOnion Hub設計(C#側)」の契約。Client側のIBattleConnectionは
+    // BattleServerとUnity Clientの通信契約。Client側のIBattleConnectionは
     // このHub/Receiverと対になるメソッド構成を持つ。
     // Shared/BattleContracts(Unityのローカルパッケージ)に置き、BattleServer(BattleServer/BattleContracts/
     // Atlas.BattleContracts.csproj経由)とUnity Client(RealtimeBattleConnection)の両方から参照する。
@@ -24,7 +24,7 @@ namespace Atlas.BattleContracts
         void OnBattleEnd(BattleEndPayload payload);
 
         // IBattleConnectionのOnOpponentDisconnected/OnOpponentReconnectedに対応する
-        // (docs/design/battle.md「再接続時の盤面復元」)。
+        // (切断から60秒の猶予中は、両者とも行動できない)。
         void OnOpponentDisconnected();
         void OnOpponentReconnected();
     }

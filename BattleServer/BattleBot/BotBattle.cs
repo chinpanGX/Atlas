@@ -7,7 +7,7 @@ using MagicOnion.Client;
 namespace Atlas.BattleBot
 {
     // BattleServerに接続して1対戦を最後まで行う。選出はパーティからランダム、技は使えるもの(PPが残っているもの)から
-    // ランダム、強制交代(瀕死)の時は生存している先頭の控えに交代する(design/battle.mdの簡易AIと同じ方針)。
+    // ランダム、強制交代(瀕死)の時は生存している先頭の控えに交代する(ClientのMockBattleConnectionの簡易AIと同じ方針)。
     //
     // 受信(IBattleHubReceiver)はMagicOnionの受信処理から呼ばれるため、その中でHubを呼ばず、
     // イベントをChannelに積んでRunAsyncのループで1つずつ処理する。

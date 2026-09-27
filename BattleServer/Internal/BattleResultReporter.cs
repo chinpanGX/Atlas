@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Atlas.BattleServer.Internal
 {
-    // POST /internal/battle/result のリクエストボディ(docs/design/battle.md「4. 対戦結果記録(内部API)」)。
+    // POST /internal/battle/result のリクエストボディ(Server/src/api/internal.rsのBattleResultRequestと同じ形)。
     // JsonContent.Createのデフォルト(JsonSerializerDefaults.Web)でcamelCaseになる。
     // Player1Id/Player2IdはBattleServer側の順番(先にJoinAsyncした側がPlayer1)で、Rust側の
     // battle_matches.player1_id/player2_idとは一致するとは限らないため、Rust側はIDで突き合わせる。
@@ -45,10 +45,10 @@ namespace Atlas.BattleServer.Internal
         private const string ResultPath = "/internal/battle/result";
 
         // シングルトン(BattleCoordinator)から使うため、HttpClientは都度IHttpClientFactoryから取得する。
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly string? _secret;
-        private readonly TimeSpan[] _retryDelays;
-        private readonly ILogger<BattleResultReporter> _logger;
+        private readonly IHttpClientFactory httpClientFactory;
+        private readonly string? secret;
+        private readonly TimeSpan[] retryDelays;
+        private readonly ILogger<BattleResultReporter> logger;
 
         public BattleResultReporter(
             IHttpClientFactory httpClientFactory,
@@ -56,10 +56,10 @@ namespace Atlas.BattleServer.Internal
             IOptions<BattleTimingOptions> timingOptions,
             ILogger<BattleResultReporter> logger)
         {
-            _httpClientFactory = httpClientFactory;
-            _secret = configuration[SecretConfigKey];
-            _retryDelays = timingOptions.Value.ResultReportRetryDelays;
-            _logger = logger;
+            this.httpClientFactory = httpClientFactory;
+            secret = configuration[SecretConfigKey];
+            retryDelays = timingOptions.Value.ResultReportRetryDelays;
+            this.logger = logger;
         }
 
         // 失敗してもバトル自体(クライアントへのOnBattleEnd)には影響させず、ログに残すのみ。
@@ -70,9 +70,9 @@ namespace Atlas.BattleServer.Internal
         // その対戦はRust側で終了扱いにならない)。
         public async Task ReportAsync(BattleResultRequest request)
         {
-            if (string.IsNullOrEmpty(_secret))
+            if (string.IsNullOrEmpty(secret))
             {
-                _logger.LogWarning(
+                logger.LogWarning(
                     "{SecretKey} is not set; skipped reporting battle result. matchId={MatchId} winnerId={WinnerId}",
                     SecretConfigKey, request.MatchId, request.WinnerId);
                 return;
@@ -85,13 +85,13 @@ namespace Atlas.BattleServer.Internal
                     return;
                 }
 
-                if (attempt >= _retryDelays.Length)
+                if (attempt >= retryDelays.Length)
                 {
-                    _logger.LogError("Gave up reporting battle result. matchId={MatchId}", request.MatchId);
+                    logger.LogError("Gave up reporting battle result. matchId={MatchId}", request.MatchId);
                     return;
                 }
 
-                await Task.Delay(_retryDelays[attempt]);
+                await Task.Delay(retryDelays[attempt]);
             }
         }
 
@@ -104,44 +104,44 @@ namespace Atlas.BattleServer.Internal
                 {
                     Content = JsonContent.Create(request),
                 };
-                message.Headers.Add(SecretHeaderName, _secret);
+                message.Headers.Add(SecretHeaderName, secret);
 
-                using var response = await _httpClientFactory.CreateClient(HttpClientName).SendAsync(message);
+                using var response = await httpClientFactory.CreateClient(HttpClientName).SendAsync(message);
                 int status = (int)response.StatusCode;
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("Reported battle result. matchId={MatchId}", request.MatchId);
+                    logger.LogInformation("Reported battle result. matchId={MatchId}", request.MatchId);
                     return true;
                 }
 
                 if (response.StatusCode == HttpStatusCode.Conflict)
                 {
-                    _logger.LogInformation("Battle result was already recorded. matchId={MatchId}", request.MatchId);
+                    logger.LogInformation("Battle result was already recorded. matchId={MatchId}", request.MatchId);
                     return true;
                 }
 
                 if (status is >= 400 and < 500)
                 {
-                    _logger.LogError(
+                    logger.LogError(
                         "Battle result was rejected. matchId={MatchId} status={StatusCode} body={Body}",
                         request.MatchId, status, await response.Content.ReadAsStringAsync());
                     return true;
                 }
 
-                _logger.LogWarning(
+                logger.LogWarning(
                     "Failed to report battle result. matchId={MatchId} status={StatusCode} attempt={Attempt}",
                     request.MatchId, status, attempt + 1);
                 return false;
             }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
             {
-                _logger.LogWarning(e, "Failed to report battle result. matchId={MatchId} attempt={Attempt}", request.MatchId, attempt + 1);
+                logger.LogWarning(e, "Failed to report battle result. matchId={MatchId} attempt={Attempt}", request.MatchId, attempt + 1);
                 return false;
             }
             catch (Exception e)
             {
                 // 呼び出し元は完了を待たない(fire-and-forget)ため、想定外の例外もここで止めてログに残す。
-                _logger.LogError(e, "Failed to report battle result. matchId={MatchId}", request.MatchId);
+                logger.LogError(e, "Failed to report battle result. matchId={MatchId}", request.MatchId);
                 return true;
             }
         }

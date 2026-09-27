@@ -1,4 +1,4 @@
-# スターター編成マスタ(Shared/docs/design/outgame.md参照)。
+# スターター編成マスタ。
 #
 # 新規プレイヤー作成時に、この内容をそのまま複製してplayer_pachimon(+初期技)を生成し、
 # player_party_slotsへslot_no通りに割り当てる。選択制ではなく、全プレイヤー共通の単一固定編成。

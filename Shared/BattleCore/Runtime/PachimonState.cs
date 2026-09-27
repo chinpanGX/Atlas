@@ -12,8 +12,8 @@ namespace Atlas.BattleCore
         public int CurrentHp { get; private set; }
         public bool IsFainted => CurrentHp <= 0;
 
-        private readonly int[] _currentPp;
-        public IReadOnlyList<int> CurrentPp => _currentPp;
+        private readonly int[] currentPp;
+        public IReadOnlyList<int> CurrentPp => currentPp;
 
         public PachimonState(ParticipantStats stats, IReadOnlyList<MoveData> moves)
         {
@@ -26,10 +26,10 @@ namespace Atlas.BattleCore
             Moves = moves;
             CurrentHp = stats.Hp;
 
-            _currentPp = new int[moves.Count];
+            currentPp = new int[moves.Count];
             for (int i = 0; i < moves.Count; i++)
             {
-                _currentPp[i] = moves[i].MaxPp;
+                currentPp[i] = moves[i].MaxPp;
             }
         }
 
@@ -44,12 +44,12 @@ namespace Atlas.BattleCore
         // 同じ方針でフェイルファストする。
         internal void ConsumeMovePp(int moveIndex)
         {
-            if (_currentPp[moveIndex] <= 0)
+            if (currentPp[moveIndex] <= 0)
             {
                 throw new ArgumentException("PPが残っていない技は選択できません。", nameof(moveIndex));
             }
 
-            _currentPp[moveIndex]--;
+            currentPp[moveIndex]--;
         }
     }
 }

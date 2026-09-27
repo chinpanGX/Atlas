@@ -8,7 +8,7 @@ use crate::model::player::Player;
 use crate::service::{player_item_service, player_pachimon_service};
 
 /// signup時にitem_id=1(ジェム)として初期付与する数量
-/// (`Shared/docs/design/outgame.md`「報酬設計(gems)」参照。スカウトの紹介コスト150/回の2回分)。
+/// (スカウトの紹介コスト150/回の2回分。初回起動時点でスカウトを試せるようにする)。
 const STARTER_GEMS: i32 = 300;
 
 /// 新しいプレイヤーを作成し、デバイスに紐付ける。
@@ -16,7 +16,7 @@ const STARTER_GEMS: i32 = 300;
 /// 1つの`device_id`につきプレイヤーは1件のみ(`players.device_id`はUNIQUE)。
 /// 既に作成済みの`device_id`で呼び出された場合はUNIQUE制約違反となる。
 /// 作成と同時に`starter_party_slots`マスタの内容をそのまま複製して初期パーティを付与し、
-/// 対戦可能な状態でゲームを開始できるようにする(`Shared/docs/design/outgame.md`参照)。
+/// 対戦可能な状態でゲームを開始できるようにする。
 /// プレイヤー作成〜初期パーティ付与までは1トランザクションで行い、途中失敗時は
 /// 「プレイヤーはいるがパーティが空」という不整合を防ぐ。
 ///

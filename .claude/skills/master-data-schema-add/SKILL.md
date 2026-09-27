@@ -64,6 +64,6 @@ Enum追加のみ(既存テーブルの列が参照するだけ)の場合はこ�
 
 `atlas-design-docs-sync` スキルを参照。最低限:
 
-- `Shared/docs/design/architecture.md` の「マスターデータ設計」節にテーブル/Enumの説明を追記
+- `Shared/docs/design.md` の「5.2 テーブル」節にテーブル/Enumの説明を追記
 - `Shared/docs/progress.md` の「4. 共通」(マスターデータ内容の表・TODO)を更新
   (特にstep 4のDBキャッシュ対応が未着手なら「今回発見したギャップ」的に明記する)

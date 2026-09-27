@@ -4,7 +4,7 @@ namespace Atlas.BattleServer.Battle
 {
     // master-data-pipelineが配置したmasterdata.bytes(MasterData/Atlas.MasterData.csprojが出力先へコピー)を
     // 読み込んでMemoryDatabaseを構築する。起動時に1回だけ読み込み、更新の反映は再起動で行う
-    // (Rust側・Clientと同じ方針、architecture.md「マスターデータ運用」参照)。
+    // (Rust側・Clientも同じく起動時の1回だけ読み込む)。
     public static class MasterDatabaseFactory
     {
         public const string PathConfigKey = "MasterData:Path";

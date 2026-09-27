@@ -5,7 +5,7 @@ using Atlas.BattleBot;
 //   dotnet run --project BattleBot -- --loop            対戦が終わるたびに再びマッチングに並ぶ(Unityの対戦相手を常駐させる)
 //   dotnet run --project BattleBot -- --count 2         ボット2体を同時に動かす(ボット同士で対戦し、サーバー全体を通しで確認する)
 //   dotnet run --project BattleBot -- --api http://127.0.0.1:3000
-// 事前にAPIサーバー(Server/)とBattleServerを起動しておく(DEVELOPMENT.md参照)。
+// 事前にAPIサーバー(Server/)とBattleServerを起動しておく。
 
 var apiUrl = "http://127.0.0.1:3000";
 var count = 1;

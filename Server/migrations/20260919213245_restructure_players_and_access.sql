@@ -1,4 +1,4 @@
--- api-design.md改訂に伴うスキーマ変更:
+-- デバイス(端末の識別)とプレイヤー(ゲームデータの持ち主)を分けるためのスキーマ変更:
 -- player_idをdevicesから分離してplayersテーブルへ、access_tokensはdevice_idをPKに、
 -- messagesはmessage_id(ULID)/player_id参照に変更する。
 

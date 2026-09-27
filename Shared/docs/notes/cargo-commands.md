@@ -1,12 +1,12 @@
 # メモ: よく使うcargoコマンド一覧
 
-開発時に日常的に使うコマンドをまとめる。初回セットアップの手順自体は`setup.md`を参照。
+開発時に日常的に使うコマンドをまとめる。セットアップの手順はリポジトリ直下の[DEVELOPMENT.md](../../../DEVELOPMENT.md)を参照。
 
 ## 前提
 
 以下のコマンドは全て`Atlas/Server`ディレクトリ(`Cargo.toml`と同じ階層)で実行する。
 DBに繋ぐコマンド(`cargo run`本体、テスト)は、事前に`make up`でMySQLコンテナを起動し、
-`.env`に`DATABASE_URL`が設定されていることが前提(`setup.md`参照)。
+`.env`に`DATABASE_URL`が設定されていることが前提(DEVELOPMENT.md「3. 共通の設定」参照)。
 
 ## ビルド
 
@@ -21,7 +21,7 @@ cargo check           # コンパイルできるかだけを高速にチェッ�
 ```bash
 cargo run                              # 本体のAPIサーバー(src/main.rs)を起動
 cargo run --bin seed_master_data       # マスタデータをJSON→DBへUPSERT投入するコマンド
-cargo run --example setup_check        # 環境構築確認用の最小サーバー(setup.md参照)
+cargo run --example setup_check        # 環境構築確認用の最小サーバー(server-init.md参照)
 ```
 
 `src/bin/`配下のファイルは`cargo run --bin <ファイル名(拡張子無し)>`、`examples/`配下は

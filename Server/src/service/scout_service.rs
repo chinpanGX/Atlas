@@ -148,7 +148,7 @@ pub async fn create_roll(
     ))
 }
 
-/// 候補10体を独立に抽選する(`Shared/docs/design/scout.md`の「抽選ロジック」参照)。
+/// 候補10体を独立に抽選する(`rate_table`の重みでレアリティを決め、そのレアリティの種族から等確率で選ぶ)。
 fn roll_candidates(
     master: &MasterData,
     rate_table: &HashMap<String, f64>,

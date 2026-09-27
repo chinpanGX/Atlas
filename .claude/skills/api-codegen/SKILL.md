@@ -51,7 +51,7 @@ dotnet run -- copy       # out/generated_csharp -> Client/Assets/Scripts/Domain.
 - 生成コードは`UnityEngine.Networking`(UnityWebRequest)と`Cysharp.Threading.Tasks`(UniTask)に
   依存する。Unityプロジェクト側にUniTaskパッケージが未導入の場合はコンパイルできない
   (2026-09時点、ClientはUnityプロジェクトとして未構築のためコンパイル未確認。詳細は
-  `Shared/docs/feature-api-codegen.md`の残タスク参照)
+  `Shared/docs/notes/feature-api-codegen.md`の残タスク参照)
 
 ## 別プロジェクトで使い回す場合
 

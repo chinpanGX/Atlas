@@ -1,4 +1,4 @@
-# 技グループマスタ(Shared/docs/design.md の「マスターデータ設計」に対応)。
+# 技グループマスタ。
 # 複数のパチモンが同じグループを共有できる設計(pachimon.move_group_id から参照される)。
 #
 # targets: [server] — クライアントコードは pachimon.move_group_id を使って

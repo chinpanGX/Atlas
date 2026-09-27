@@ -5,8 +5,7 @@ using MasterMemory;
 namespace Atlas.Infrastructure.Mock
 {
     // type_chartマスタからAtlas.BattleCore.ITypeChartを構築する。単体タイプ同士の組み合わせしか
-    // 持たない(複合タイプの掛け合わせはDamageCalculator側が2回引いて計算する、
-    // design/architecture.md参照)。
+    // 持たない(複合タイプの掛け合わせはDamageCalculator側が2回引いて計算する)。
     public sealed class MasterDataTypeChart : ITypeChart
     {
         private readonly Dictionary<(ElementType Attack, ElementType Defend), EffectivenessResult> table;
