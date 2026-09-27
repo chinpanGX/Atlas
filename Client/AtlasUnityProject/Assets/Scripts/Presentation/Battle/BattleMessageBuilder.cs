@@ -6,6 +6,7 @@ namespace Atlas.Presentation.Battle
     public static class BattleMessageBuilder
     {
         public const string WaitingForOpponent = "相手の 行動を 待っています…";
+        public const string WaitingForOpponentSelection = "相手の 選出を 待っています…";
         public const string Missed = "しかし 攻撃は はずれた!";
         public const string Critical = "急所に 当たった!";
 

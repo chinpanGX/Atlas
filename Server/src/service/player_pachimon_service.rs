@@ -218,6 +218,38 @@ pub async fn find_battle_loadouts(
         .collect()
 }
 
+/// 対戦の選出候補(パーティ編成中の1体)。
+pub struct BattlePartyMember {
+    pub player_pachimon_id: String,
+    pub pachimon_id: i32,
+}
+
+/// `player_id`の現在のパーティ編成を、slot順にどのパチモンかと合わせて取得する
+/// (BattleServerが選出フェーズの開始時に呼ぶ)。未編成のslotは含まれないため0-6件。
+///
+/// # Errors
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn list_battle_party(
+    pool: &MySqlPool,
+    player_id: &str,
+) -> Result<Vec<BattlePartyMember>, AppError> {
+    let rows: Vec<(String, i32)> = sqlx::query_as(
+        "SELECT pp.player_pachimon_id, pp.pachimon_id FROM player_party_slots ps          JOIN player_pachimon pp ON pp.player_pachimon_id = ps.player_pachimon_id          WHERE ps.player_id = ? ORDER BY ps.slot",
+    )
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(player_pachimon_id, pachimon_id)| BattlePartyMember {
+            player_pachimon_id,
+            pachimon_id,
+        })
+        .collect())
+}
+
 /// 認証済みプレイヤーの現在のパーティ編成(`player_party_slots`)を取得する。
 /// 割当が無いslotは行が存在しないため、返る件数は0-6件。
 ///

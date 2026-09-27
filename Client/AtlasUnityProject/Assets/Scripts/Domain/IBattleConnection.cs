@@ -14,6 +14,7 @@ namespace Atlas.Domain
         UniTask SwitchAsync(int partySlot);
         UniTask ForfeitAsync();
 
+        event Action<SelectionStartPayload> OnSelectionStart;
         event Action<BattleStartPayload> OnMatchStart;
         event Action<TurnResultPayload> OnTurnResult;
         event Action<BattleEndPayload> OnBattleEnd;
@@ -26,6 +27,16 @@ namespace Atlas.Domain
     public sealed record JoinResult(JoinResultStatus Status);
 
     public sealed record MoveRequest(string MoveId);
+
+    // 選出画面の表示内容(design/battle.md「パチモン選出」)。両者の参加が揃った時点で届く。SelfPartyは自分の
+    // パーティ(枠番号順)で、SubmitSelectionAsyncにはここから1〜MaxSelectionCount体選んで送る。相手のパーティは
+    // どのパチモンかだけ分かる(個体ID・技は送られない)。RemainingSecondsは選出の残り時間(選出中の再接続で
+    // 再送された場合は経過分を引いた値)。SelectionSubmittedは自分が選出を送信済みか。
+    public sealed record SelectionStartPayload(
+        PartyPachimon[] SelfParty, int[] OpponentPartyPachimonIds, int MaxSelectionCount, int RemainingSeconds,
+        bool SelectionSubmitted);
+
+    public sealed record PartyPachimon(string PlayerPachimonId, int PachimonId);
 
     // SelfMovesは自分側の選出各枠の技(Self.SelectedPachimonとインデックスが対応)。サーバーが判定に使う
     // 技そのものなので、技の表示・送信は手元の所持データではなくこれを使う。

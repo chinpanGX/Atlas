@@ -10,7 +10,7 @@ namespace Atlas.BattleContracts
     public interface IBattleHub : IStreamingHub<IBattleHub, IBattleHubReceiver>
     {
         Task<JoinResult> JoinAsync(string battleToken, string matchId);
-        Task SubmitSelectionAsync(string[] playerPachimonIds);  // 常に3体固定、クライアントが自動送信
+        Task SubmitSelectionAsync(string[] playerPachimonIds);  // OnSelectionStartのSelfPartyから1〜MaxSelectionCount体
         Task SubmitMoveAsync(MoveRequest move);
         Task SwitchAsync(int partySlot);
         Task ForfeitAsync();
@@ -18,6 +18,7 @@ namespace Atlas.BattleContracts
 
     public interface IBattleHubReceiver
     {
+        void OnSelectionStart(SelectionStartPayload payload);   // 両者の参加が揃ってから発火。選出中の再接続時は再接続者にだけ再送する
         void OnMatchStart(BattleStartPayload payload);   // 選出が揃ってから発火。再接続時は再接続者にだけ再送する
         void OnTurnResult(TurnResultPayload payload);
         void OnBattleEnd(BattleEndPayload payload);

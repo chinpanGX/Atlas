@@ -14,7 +14,9 @@ using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Battle
 {
-    // design/battle.md「Stage 1」。技はコマンドUIのボタン、交代は交代ボタン→SwitchSelectModalで選ぶ。
+    // design/battle.md「Stage 1」。参加するとOnSelectionStartが届くのでSelectionModalで選出させ、選んだ内容を送る。
+    // 相手の選出が済む(OnMatchStart)まではSelectionModalのまま待たせる。
+    // 技はコマンドUIのボタン、交代は交代ボタン→SwitchSelectModalで選ぶ。
     // 瀕死による強制交代も同じModal(やめるボタン無し)で選ばせる。相手が強制交代中はOpponentSwitchingModalを出して待つ。
     // 決着(OnBattleEnd)後はBattleResultModalを出し、そこからHomeシーンへ戻る。
     // 行動を送るとコマンドを隠し、届いたターン結果は行動順に1文ずつメッセージ枠へ流す(HP等の表示もその文に合わせて更新する)。
@@ -25,6 +27,7 @@ namespace Atlas.Presentation.Battle
         private readonly BattlePage view;
         private readonly IBattleConnection connection;
         private readonly IMasterDataService masterDataService;
+        private readonly IPachimonMoveMappingService pachimonMoveMappingService;
         private readonly BattleViewDto initialDto;
         private readonly IScreenNavigator screenNavigator;
         private readonly ISceneNavigator sceneNavigator;
@@ -38,6 +41,12 @@ namespace Atlas.Presentation.Battle
         private bool awaitingTurnResult;
         // 瀕死による強制交代が必要な状態。技は送れず(送ってもサーバー側でスキップ扱い)、交代先の選択待ちになる。
         private bool forcedSwitchRequired;
+        // 表示中のSelectionModal。対戦の開始・決着(選出の時間切れ等)で閉じるために持つ。
+        private SelectionPresenter openSelection;
+        private bool selectionSubmitted;
+        // 選出画面の内容と、選出の締め切り(ローカル時刻)。SelectionModalを開き直す時の残り時間の計算に使う。
+        private SelectionStartPayload selectionPayload;
+        private DateTime selectionDeadline;
         // 表示中のSwitchSelectModal。ターン結果や決着が届いた時に閉じるために持つ。
         private SwitchSelectPresenter openSwitchSelect;
         // 相手が強制交代で交代先を選んでいる状態(強制交代ターン)。相手の交代が済むまで何も送れない。
@@ -71,12 +80,14 @@ namespace Atlas.Presentation.Battle
         private int[] opponentHpPercentBySlot;
 
         public BattlePresenter(
-            BattlePage view, IBattleConnection connection, IMasterDataService masterDataService, BattleViewDto initialDto,
+            BattlePage view, IBattleConnection connection, IMasterDataService masterDataService,
+            IPachimonMoveMappingService pachimonMoveMappingService, BattleViewDto initialDto,
             IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator)
         {
             this.view = view;
             this.connection = connection;
             this.masterDataService = masterDataService;
+            this.pachimonMoveMappingService = pachimonMoveMappingService;
             this.initialDto = initialDto;
             this.screenNavigator = screenNavigator;
             this.sceneNavigator = sceneNavigator;
@@ -84,6 +95,7 @@ namespace Atlas.Presentation.Battle
 
         public UniTask InitializeAsync()
         {
+            connection.OnSelectionStart += HandleSelectionStart;
             connection.OnMatchStart += HandleMatchStart;
             connection.OnTurnResult += HandleTurnResult;
             connection.OnBattleEnd += HandleBattleEnd;
@@ -114,14 +126,143 @@ namespace Atlas.Presentation.Battle
                 // トークン期限切れ(マッチ成立から30秒)やシークレットの食い違い等。対戦できないためHomeへ戻す。
                 UnityEngine.Debug.LogError($"[Battle] BattleServerへの参加に失敗しました: {join.Status}");
                 await sceneNavigator.ChangeSceneAsync(AddressDefinition.Home, cancellation);
+            }
+        }
+
+        // 送信済み(選出中に再接続した場合)なら相手の選出を待つだけ。
+        private void HandleSelectionStart(SelectionStartPayload payload)
+        {
+            selectionPayload = payload;
+            selectionDeadline = DateTime.UtcNow.AddSeconds(payload.RemainingSeconds);
+            if (payload.SelectionSubmitted)
+            {
+                view.ShowMessage(BattleMessageBuilder.WaitingForOpponentSelection);
                 return;
             }
 
-            await connection.SubmitSelectionAsync(initialDto.SelectedPlayerPachimonIds);
+            ShowSelectionAsync(lifetimeCancellation.Token).Forget();
+        }
+
+        // SelectionModalを開き、「けってい」のたびに選出を送る。Modalは対戦の開始・決着でこちらから閉じる。
+        private async UniTaskVoid ShowSelectionAsync(CancellationToken cancellation)
+        {
+            if (openSelection is not null || matchStarted || battleEnded)
+            {
+                return;
+            }
+
+            var selection = await screenNavigator.PushModalAsync<SelectionPresenter, SelectionViewDto>(BuildSelectionDto());
+            openSelection = selection;
+            selection.OnConfirmed.Subscribe(ids => SubmitSelectionAsync(selection, ids).Forget());
+            try
+            {
+                await screenNavigator.WaitForPopAsync<object>(selection, cancellation);
+            }
+            finally
+            {
+                if (openSelection == selection)
+                {
+                    openSelection = null;
+                }
+            }
+
+            // こちらから閉じる前に(背景タップ等で)閉じられた場合は、選出しないと敗北になるため開き直す。
+            // 送信済みなら相手の選出を待つだけ。
+            if (!matchStarted && !battleEnded)
+            {
+                if (selectionSubmitted)
+                {
+                    view.ShowMessage(BattleMessageBuilder.WaitingForOpponentSelection);
+                }
+                else
+                {
+                    ShowSelectionAsync(cancellation).Forget();
+                }
+            }
+        }
+
+        // 送れなかった場合(サーバー側で選出は未確定のまま)は、SelectionModalで「けってい」を押し直せるようにする。
+        private async UniTaskVoid SubmitSelectionAsync(SelectionPresenter selection, string[] playerPachimonIds)
+        {
+            try
+            {
+                await connection.SubmitSelectionAsync(playerPachimonIds);
+                selectionSubmitted = true;
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                UnityEngine.Debug.LogError($"[Battle] 選出の送信に失敗しました: {e.Message}");
+                if (openSelection == selection)
+                {
+                    selection.CancelWaiting();
+                }
+            }
+        }
+
+        private async UniTask CloseSelectionModalAsync()
+        {
+            if (openSelection is null)
+            {
+                return;
+            }
+
+            var selection = openSelection;
+            openSelection = null;
+            await selection.CloseAsync();
+        }
+
+        // 選出画面のPayloadには技が含まれないため、技は手元の所持データから出す(対戦前なので残りPPは最大値)。
+        // 選出中にパーティ編成・技の付け替えはできないため、サーバーが対戦に使う技と食い違わない。
+        private PachimonInfoDto BuildSelectionInfo(PartyPachimon pachimon)
+        {
+            var database = masterDataService.Database;
+            var moves = pachimonMoveMappingService.GetByPlayerPachimonId(pachimon.PlayerPachimonId)
+                .Select(moveMap =>
+                {
+                    var moveId = (int)moveMap.MoveId;
+                    return new PachimonInfoDtoBuilder.MoveInput(
+                        moveMap.Slot, moveId, database.MovesDataTable.FindByMoveId(moveId).MaxPp);
+                });
+            return PachimonInfoDtoBuilder.Build(database, pachimon.PachimonId, moves);
+        }
+
+        private SelectionViewDto BuildSelectionDto()
+        {
+            var database = masterDataService.Database;
+            return new SelectionViewDto
+            {
+                RemainingSeconds = Math.Max(0, (int)Math.Ceiling((selectionDeadline - DateTime.UtcNow).TotalSeconds)),
+                SelectionCount = Math.Min(selectionPayload.MaxSelectionCount, selectionPayload.SelfParty.Length),
+                SelfParty = selectionPayload.SelfParty
+                    .Select(p =>
+                    {
+                        var master = database.PachimonDataTable.FindByPachimonId(p.PachimonId);
+                        return new SelectionCandidateDto
+                        {
+                            PlayerPachimonId = p.PlayerPachimonId,
+                            Name = master.Name,
+                            TypeNames = PachimonTypeNames.ToDisplayNames(master.PrimaryType, master.SecondaryType),
+                            Info = BuildSelectionInfo(p),
+                        };
+                    })
+                    .ToList(),
+                OpponentParty = selectionPayload.OpponentPartyPachimonIds
+                    .Select(id =>
+                    {
+                        var master = database.PachimonDataTable.FindByPachimonId(id);
+                        return new SelectionOpponentDto
+                        {
+                            Name = master.Name,
+                            TypeNames = PachimonTypeNames.ToDisplayNames(master.PrimaryType, master.SecondaryType),
+                        };
+                    })
+                    .ToList(),
+            };
         }
 
         public void Dispose()
         {
+            connection.OnSelectionStart -= HandleSelectionStart;
             connection.OnMatchStart -= HandleMatchStart;
             connection.OnTurnResult -= HandleTurnResult;
             connection.OnBattleEnd -= HandleBattleEnd;
@@ -257,6 +398,8 @@ namespace Atlas.Presentation.Battle
 
         private void HandleMatchStart(BattleStartPayload payload)
         {
+            CloseSelectionModalAsync().Forget();
+
             selfPlayerId = payload.Self.PlayerId;
             opponentPlayerId = payload.Opponent.PlayerId;
 
@@ -305,6 +448,7 @@ namespace Atlas.Presentation.Battle
 
         private async UniTask ShowBattleResultAsync(BattleEndPayload payload)
         {
+            await CloseSelectionModalAsync();
             await CloseSwitchModalAsync();
             await CloseOpponentSwitchingModalAsync();
 

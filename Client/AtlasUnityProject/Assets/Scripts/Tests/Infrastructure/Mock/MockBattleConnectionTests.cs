@@ -38,7 +38,9 @@ namespace Atlas.Infrastructure.Mock.Tests
             TurnResultPayload lastTurn = null;
             var turnResults = new List<TurnResultPayload>();
             BattleEndPayload battleEnd = null;
+            SelectionStartPayload selectionStart = null;
 
+            connection.OnSelectionStart += payload => selectionStart = payload;
             connection.OnMatchStart += payload =>
             {
                 selfPlayerId = payload.Self.PlayerId;
@@ -54,6 +56,9 @@ namespace Atlas.Infrastructure.Mock.Tests
 
             var joinResult = await connection.JoinAsync("dummy-token", "dummy-match");
             Assert.AreEqual(JoinResultStatus.Success, joinResult.Status);
+            Assert.IsNotNull(selectionStart, "OnSelectionStartが発火していない");
+            CollectionAssert.IsSubsetOf(selfIds.Select(id => id.ToString()).ToArray(),
+                selectionStart.SelfParty.Select(p => p.PlayerPachimonId).ToArray());
 
             await connection.SubmitSelectionAsync(selfIds.Select(id => id.ToString()).ToArray());
             Assert.IsNotNull(selfPlayerId, "OnMatchStartが発火していない");

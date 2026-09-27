@@ -6,8 +6,8 @@ using MagicOnion.Client;
 
 namespace Atlas.BattleBot
 {
-    // BattleServerに接続して1対戦を最後まで行う。技は使えるもの(PPが残っているもの)からランダム、
-    // 強制交代(瀕死)の時は生存している先頭の控えに交代する(design/battle.mdの簡易AIと同じ方針)。
+    // BattleServerに接続して1対戦を最後まで行う。選出はパーティからランダム、技は使えるもの(PPが残っているもの)から
+    // ランダム、強制交代(瀕死)の時は生存している先頭の控えに交代する(design/battle.mdの簡易AIと同じ方針)。
     //
     // 受信(IBattleHubReceiver)はMagicOnionの受信処理から呼ばれるため、その中でHubを呼ばず、
     // イベントをChannelに積んでRunAsyncのループで1つずつ処理する。
@@ -30,7 +30,7 @@ namespace Atlas.BattleBot
         }
 
         // 勝者のPlayerIdを返す。
-        public async Task<string> RunAsync(string battleServerUrl, string battleToken, string matchId, string[] selection)
+        public async Task<string> RunAsync(string battleServerUrl, string battleToken, string matchId)
         {
             using var channel = GrpcChannel.ForAddress(battleServerUrl);
             hub = await StreamingHubClient.ConnectAsync<IBattleHub, IBattleHubReceiver>(channel, this);
@@ -42,12 +42,13 @@ namespace Atlas.BattleBot
                     throw new InvalidOperationException($"JoinAsync failed: {join.Status}");
                 }
 
-                await hub.SubmitSelectionAsync(selection);
-
                 await foreach (var e in events.Reader.ReadAllAsync())
                 {
                     switch (e)
                     {
+                        case SelectionStartPayload selection when !selection.SelectionSubmitted:
+                            await SelectAsync(selection);
+                            break;
                         case BattleStartPayload start:
                             HandleStart(start);
                             await ActAsync(forcedSwitch: false);
@@ -73,6 +74,17 @@ namespace Atlas.BattleBot
             {
                 await hub.DisposeAsync();
             }
+        }
+
+        private async Task SelectAsync(SelectionStartPayload selection)
+        {
+            var selected = selection.SelfParty
+                .OrderBy(_ => random.Next())
+                .Take(selection.MaxSelectionCount)
+                .Select(p => p.PlayerPachimonId)
+                .ToArray();
+            Log($"選出: {string.Join(",", selected)} (相手のパーティ: {string.Join(",", selection.OpponentPartyPachimonIds)})");
+            await hub.SubmitSelectionAsync(selected);
         }
 
         private void HandleStart(BattleStartPayload start)
@@ -136,6 +148,7 @@ namespace Atlas.BattleBot
 
         private void Log(string message) => Console.WriteLine($"[{name}] {message}");
 
+        void IBattleHubReceiver.OnSelectionStart(SelectionStartPayload payload) => events.Writer.TryWrite(payload);
         void IBattleHubReceiver.OnMatchStart(BattleStartPayload payload) => events.Writer.TryWrite(payload);
         void IBattleHubReceiver.OnTurnResult(TurnResultPayload payload) => events.Writer.TryWrite(payload);
         void IBattleHubReceiver.OnBattleEnd(BattleEndPayload payload) => events.Writer.TryWrite(payload);

@@ -90,7 +90,19 @@ namespace Atlas.BattleServer.Battle
                         return new JoinOutcome(JoinResultStatus.InvalidToken, null, -1);
                     }
 
-                    session.Participants[slot] = new BattleParticipant(claims.PlayerId);
+                    IReadOnlyList<PartyPachimon> party;
+                    try
+                    {
+                        party = await dataSource.GetPartyAsync(claims.PlayerId);
+                    }
+                    catch (Exception e) when (e is HttpRequestException or TaskCanceledException or InvalidOperationException)
+                    {
+                        // 参加は未確定のまま残るため、クライアントは同じトークンで参加し直せる。
+                        logger.LogError(e, "Failed to load party. matchId={MatchId} playerId={PlayerId}", matchId, claims.PlayerId);
+                        throw new ReturnStatusException(StatusCode.Unavailable, "failed to load party");
+                    }
+
+                    session.Participants[slot] = new BattleParticipant(claims.PlayerId, party);
                 }
 
                 var participant = session.Participants[slot]!;
@@ -104,8 +116,13 @@ namespace Atlas.BattleServer.Battle
                     logger.LogInformation("Player reconnected. matchId={MatchId} playerId={PlayerId}", matchId, claims.PlayerId);
                     session.Group.Except(connectionId).OnOpponentReconnected();
 
-                    // 専用の再同期メソッドは設けず、現在の盤面をOnMatchStartとして再接続者にだけ再送する。
-                    if (session.Phase == BattlePhase.InProgress)
+                    // 専用の再同期メソッドは設けず、選出中ならOnSelectionStartを、対戦中なら現在の盤面を
+                    // OnMatchStartとして再接続者にだけ再送する。
+                    if (session.Phase == BattlePhase.Selecting)
+                    {
+                        session.Group.Single(connectionId).OnSelectionStart(BuildSelectionStartPayload(session, slot));
+                    }
+                    else if (session.Phase == BattlePhase.InProgress)
                     {
                         session.Group.Single(connectionId).OnMatchStart(BuildStartPayload(session, slot));
                         if (session.AllConnected)
@@ -125,8 +142,7 @@ namespace Atlas.BattleServer.Battle
                     }
                     else if (session.Phase == BattlePhase.WaitingForJoin)
                     {
-                        session.Phase = BattlePhase.Selecting;
-                        StartSelectionTimer(session);
+                        StartSelection(session);
                     }
                 }
 
@@ -160,6 +176,11 @@ namespace Atlas.BattleServer.Battle
                     || playerPachimonIds.Distinct().Count() != playerPachimonIds.Length)
                 {
                     throw new ReturnStatusException(StatusCode.InvalidArgument, "invalid selection");
+                }
+
+                if (playerPachimonIds.Any(id => participant.Party.All(p => p.PlayerPachimonId != id)))
+                {
+                    throw new ReturnStatusException(StatusCode.InvalidArgument, "selection contains pachimon not in the party");
                 }
 
                 IReadOnlyList<ParticipantLoadout>? loadouts;
@@ -501,6 +522,36 @@ namespace Atlas.BattleServer.Battle
 
             // ReportAsyncは内部で例外を握りつぶしてログに残すため、完了を待たずにGateを解放してよい。
             _ = reporter.ReportAsync(request);
+        }
+
+        // 両者の参加が揃った時点で呼ぶ。選出の制限時間を張り、両者にそれぞれの選出画面の内容を送る。
+        private void StartSelection(BattleSession session)
+        {
+            session.Phase = BattlePhase.Selecting;
+            session.SelectionDeadline = DateTimeOffset.UtcNow + _timing.SelectionTimeLimit;
+            StartSelectionTimer(session);
+
+            // SelfParty/OpponentPartyPachimonIdsが受信者ごとに異なるため、個別に送る。
+            for (int slot = 0; slot < session.Participants.Length; slot++)
+            {
+                if (session.Participants[slot]!.ConnectionId is { } connectionId)
+                {
+                    session.Group!.Single(connectionId).OnSelectionStart(BuildSelectionStartPayload(session, slot));
+                }
+            }
+        }
+
+        private SelectionStartPayload BuildSelectionStartPayload(BattleSession session, int selfSlot)
+        {
+            var self = session.Participants[selfSlot]!;
+            var opponent = session.Participants[1 - selfSlot]!;
+            var remaining = session.SelectionDeadline - DateTimeOffset.UtcNow;
+            return new SelectionStartPayload(
+                self.Party.ToArray(),
+                opponent.Party.Select(p => p.PachimonId).ToArray(),
+                MaxSelectionCount,
+                Math.Max(0, (int)Math.Ceiling(remaining.TotalSeconds)),
+                self.SelectedIds is not null);
         }
 
         private void StartSelectionTimer(BattleSession session)

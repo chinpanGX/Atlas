@@ -41,6 +41,27 @@ namespace Atlas.BattleServer.Tests
         }
 
         [Fact]
+        public async Task GetPartyAsync_SendsRequestAndReturnsPartyInOrder()
+        {
+            var handler = new StubHandler(HttpStatusCode.OK, """
+                {"pachimon": [
+                  {"playerPachimonId": "ppB", "pachimonId": 1033},
+                  {"playerPachimonId": "ppA", "pachimonId": 1031}
+                ]}
+                """);
+            var dataSource = Create(handler);
+
+            var party = await dataSource.GetPartyAsync("player-1");
+
+            Assert.Equal(["ppB", "ppA"], party.Select(p => p.PlayerPachimonId));
+            Assert.Equal([1033, 1031], party.Select(p => p.PachimonId));
+            Assert.Equal("/internal/battle/party", handler.Path);
+            Assert.Equal(Secret, handler.Secret);
+            using var request = JsonDocument.Parse(handler.Body!);
+            Assert.Equal("player-1", request.RootElement.GetProperty("playerId").GetString());
+        }
+
+        [Fact]
         public async Task ResolveAsync_NotOwned_ReturnsNull()
         {
             var dataSource = Create(new StubHandler(HttpStatusCode.NotFound, ""));

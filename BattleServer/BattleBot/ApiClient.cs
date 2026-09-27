@@ -37,17 +37,10 @@ namespace Atlas.BattleBot
         }
 
         // パーティをマスタからランダムに選んだ6体(重複なし、技もランダム)で組み直す開発用API。
-        // 返ってきたplayerDiffから、パーティの枠番号順に先頭から最大3体のPlayerPachimonIdを返す
-        // (Unityクライアントの自動選出と同じ規則)。
-        public async Task<string[]> RandomizePartyAsync()
+        // 選出はBattleServerから届くパーティ(OnSelectionStart)から選ぶため、レスポンスは使わない。
+        public async Task RandomizePartyAsync()
         {
-            var json = await PostAsync("/debug/randomize_party", null);
-            return json.GetProperty("partySlots").GetProperty("upserted")
-                .EnumerateArray()
-                .OrderBy(slot => slot.GetProperty("slot").GetInt32())
-                .Take(3)
-                .Select(slot => slot.GetProperty("playerPachimonId").GetString()!)
-                .ToArray();
+            await PostAsync("/debug/randomize_party", null);
         }
 
         public async Task JoinQueueAsync()

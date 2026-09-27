@@ -15,6 +15,23 @@ namespace Atlas.BattleContracts
     [MessagePackObject]
     public sealed record MoveRequest([property: Key(0)] string MoveId);
 
+    // 選出画面の表示内容。SelfPartyは自分のパーティ(枠番号順)で、SubmitSelectionAsyncにはここから選んだ
+    // PlayerPachimonIdを送る。相手のパーティはどのパチモンかだけ見せる(個体ID・技・努力値は送らない)。
+    // RemainingSecondsは選出の残り時間(UIのタイマー表示用。再接続時の再送では経過分を引いた値になる)。
+    // SelectionSubmittedは自分が選出を送信済みか(再接続時の再送用。送信済みなら相手の選出を待つだけ)。
+    [MessagePackObject]
+    public sealed record SelectionStartPayload(
+        [property: Key(0)] PartyPachimon[] SelfParty,
+        [property: Key(1)] int[] OpponentPartyPachimonIds,
+        [property: Key(2)] int MaxSelectionCount,
+        [property: Key(3)] int RemainingSeconds,
+        [property: Key(4)] bool SelectionSubmitted);
+
+    [MessagePackObject]
+    public sealed record PartyPachimon(
+        [property: Key(0)] string PlayerPachimonId,
+        [property: Key(1)] int PachimonId);
+
     // TurnTimeLimitSecondsはUIのターンタイマー表示用(サーバー側の実際のタイムアウト判定とは別)。
     // SelfMovesは自分側の選出各枠の技(Self.SelectedPachimonとインデックスが対応)。クライアントは手元の
     // 所持データではなくこれを表示・送信することで、サーバーが判定に使う技と常に一致させる。

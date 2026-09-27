@@ -51,8 +51,8 @@ async Task RunBotAsync(string name, CancellationToken ct)
     await api.AuthenticateAsync(deviceId, secretKey);
     await api.SignUpAsync(name);
     var playerId = await api.SignInAsync();
-    var selection = await api.RandomizePartyAsync();
-    Console.WriteLine($"[{name}] プレイヤー {playerId} を作成しました(選出: {string.Join(",", selection)})");
+    await api.RandomizePartyAsync();
+    Console.WriteLine($"[{name}] プレイヤー {playerId} を作成しました");
 
     do
     {
@@ -74,7 +74,7 @@ async Task RunBotAsync(string name, CancellationToken ct)
 
         try
         {
-            await new BotBattle(name).RunAsync(status.BattleServer, status.BattleToken, status.MatchId, selection);
+            await new BotBattle(name).RunAsync(status.BattleServer, status.BattleToken, status.MatchId);
         }
         catch (Exception e)
         {

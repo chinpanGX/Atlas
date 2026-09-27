@@ -112,12 +112,14 @@ namespace Atlas.BattleServer.Tests
     {
         private readonly object _gate = new();
 
+        public List<SelectionStartPayload> SelectionStarts { get; } = [];
         public List<BattleStartPayload> Starts { get; } = [];
         public List<TurnResultPayload> Turns { get; } = [];
         public List<BattleEndPayload> Ends { get; } = [];
         public int OpponentDisconnectedCount { get; private set; }
         public int OpponentReconnectedCount { get; private set; }
 
+        public void OnSelectionStart(SelectionStartPayload payload) { lock (_gate) SelectionStarts.Add(payload); }
         public void OnMatchStart(BattleStartPayload payload) { lock (_gate) Starts.Add(payload); }
         public void OnTurnResult(TurnResultPayload payload) { lock (_gate) Turns.Add(payload); }
         public void OnBattleEnd(BattleEndPayload payload) { lock (_gate) Ends.Add(payload); }

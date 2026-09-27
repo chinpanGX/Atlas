@@ -10,17 +10,21 @@ namespace Atlas.Infrastructure.Mock
 {
     // design/battle.md「Stage 1(クライアント単体)」。ネットワークを介さず、Atlas.BattleCoreを
     // プロセス内でそのまま呼び出して両プレイヤー分の行動を解決する。対戦相手は簡易AIで代替する。
-    // player_pachimon(プレイヤー所持データ)がまだ無いため、選出パーティはTestPartyFactoryで
-    // マスターデータから直接組み立てる。
+    // player_pachimon(プレイヤー所持データ)を使わないため、パーティは固定のPachimonIdで、選出IDも
+    // PlayerPachimonIdではなくPachimonIdの文字列として扱い、TestPartyFactoryでマスターデータから直接組み立てる。
     public sealed class MockBattleConnection : IBattleConnection
     {
         private const int TurnTimeLimitSeconds = 30;
+        // BattleServerの既定値と同じ。Mockでは時間切れの判定はしない(表示用の値としてだけ送る)。
+        private const int SelectionTimeLimitSeconds = 120;
+        private const int MaxSelectionCount = 3;
         private const string SelfPlayerId = "mock-self";
         private const string OpponentPlayerId = "mock-opponent";
 
-        // 対戦相手の選出3体は固定(design/battle.md「battleToken/matchIdもこの段階ではダミー値で
-        // 構わない」と同じ考え方で、Stage 1では相手パーティも固定で構わない)。
-        private static readonly int[] OpponentPachimonIds = { 1004, 1005, 1006 };
+        // 自分・対戦相手のパーティは固定で、対戦相手は先頭3体を選出する(design/battle.md「battleToken/matchIdも
+        // この段階ではダミー値で構わない」と同じ考え方で、Stage 1ではパーティも固定で構わない)。
+        private static readonly int[] SelfPartyPachimonIds = { 1001, 1002, 1003, 1004, 1005, 1006 };
+        private static readonly int[] OpponentPartyPachimonIds = { 1004, 1005, 1006, 1007, 1008, 1009 };
 
         private readonly MemoryDatabase database;
         private readonly IRandomSource random;
@@ -31,6 +35,7 @@ namespace Atlas.Infrastructure.Mock
         private IReadOnlyList<PartyMember> opponentMembers;
         private bool[] opponentRevealed;
 
+        public event Action<SelectionStartPayload> OnSelectionStart;
         public event Action<BattleStartPayload> OnMatchStart;
         public event Action<TurnResultPayload> OnTurnResult;
         public event Action<BattleEndPayload> OnBattleEnd;
@@ -44,15 +49,22 @@ namespace Atlas.Infrastructure.Mock
             typeChart = new MasterDataTypeChart(database);
         }
 
+        // 対戦相手は常にいる扱いのため、参加と同時に選出を始める。
         public UniTask<JoinResult> JoinAsync(string battleToken, string matchId)
         {
+            OnSelectionStart?.Invoke(new SelectionStartPayload(
+                SelfPartyPachimonIds.Select(id => new PartyPachimon(id.ToString(), id)).ToArray(),
+                OpponentPartyPachimonIds,
+                MaxSelectionCount,
+                SelectionTimeLimitSeconds,
+                SelectionSubmitted: false));
             return UniTask.FromResult(new JoinResult(JoinResultStatus.Success));
         }
 
         public UniTask SubmitSelectionAsync(string[] playerPachimonIds)
         {
             selfMembers = TestPartyFactory.BuildParty(database, playerPachimonIds.Select(int.Parse).ToArray());
-            opponentMembers = TestPartyFactory.BuildParty(database, OpponentPachimonIds);
+            opponentMembers = TestPartyFactory.BuildParty(database, OpponentPartyPachimonIds.Take(MaxSelectionCount).ToArray());
 
             state = new BattleState(
                 new BattleSide(selfMembers.Select(m => m.State).ToList()),

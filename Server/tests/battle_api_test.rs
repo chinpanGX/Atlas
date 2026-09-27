@@ -32,6 +32,10 @@
 // - test_battle_loadouts_success: 指定した順番で、パチモンID・努力値・技(slot順)が返ることを確認
 // - test_battle_loadouts_not_owned: 他プレイヤーの個体・存在しないIDを含むと404になることを確認
 // - test_battle_loadouts_wrong_secret: X-Internal-Secretの不一致・欠落で401になることを確認
+//
+// POST /internal/battle/party (BattleServerが選出候補=パーティ編成を取得する)のテスト。
+// - test_battle_party_success: パーティのslot順に、個体IDとパチモンIDが返ることを確認(パーティ外の所持個体は含まない)
+// - test_battle_party_wrong_secret: X-Internal-Secretの不一致・欠落で401になることを確認
 use axum::{
     Router,
     body::Body,
@@ -972,5 +976,83 @@ async fn test_battle_loadouts_wrong_secret(pool: MySqlPool) {
     let response = battle_loadouts(app.clone(), Some("wrong-secret"), body.clone()).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     let response = battle_loadouts(app, None, body).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+async fn battle_party(app: Router, secret: Option<&str>, body: Value) -> axum::response::Response {
+    let mut builder = Request::builder()
+        .method("POST")
+        .uri("/internal/battle/party")
+        .header("Content-Type", "application/json");
+    if let Some(secret) = secret {
+        builder = builder.header("X-Internal-Secret", secret);
+    }
+
+    app.oneshot(builder.body(Body::from(body.to_string())).unwrap())
+        .await
+        .unwrap()
+}
+
+#[sqlx::test]
+async fn test_battle_party_success(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let (_, player_id) = create_player(app.clone(), "party-secret", "選出太郎").await;
+    let starter_id = owned_pachimon_ids(&pool, &player_id).await.remove(0);
+
+    // スターターをslot 2へ移してslot 1に2体目を置き、パーティ外の3体目も持たせて、
+    // slot順に返ること・パーティ外の個体が含まれないことを確かめる。
+    for id in ["01J0000000000000000000PTY2", "01J0000000000000000000OUT3"] {
+        sqlx::query(
+            "INSERT INTO player_pachimon (player_pachimon_id, player_id, pachimon_id, effort_values)              VALUES (?, ?, 1, ?)",
+        )
+        .bind(id)
+        .bind(&player_id)
+        .bind(json!({"hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0}))
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    sqlx::query("UPDATE player_party_slots SET slot = 2 WHERE player_id = ?")
+        .bind(&player_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO player_party_slots (party_slot_id, player_id, slot, player_pachimon_id)          VALUES ('01J0000000000000000000SLT1', ?, 1, '01J0000000000000000000PTY2')",
+    )
+    .bind(&player_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let response = battle_party(
+        app,
+        Some(&internal_secret()),
+        json!({ "playerId": player_id }),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+
+    assert_eq!(
+        json,
+        json!({
+            "pachimon": [
+                { "playerPachimonId": "01J0000000000000000000PTY2", "pachimonId": 1 },
+                { "playerPachimonId": starter_id, "pachimonId": 1 },
+            ]
+        })
+    );
+}
+
+#[sqlx::test]
+async fn test_battle_party_wrong_secret(pool: MySqlPool) {
+    let app = setup_app(pool.clone()).await;
+    let (_, player_id) = create_player(app.clone(), "party-secret", "選出太郎").await;
+    let body = json!({ "playerId": player_id });
+
+    let response = battle_party(app.clone(), Some("wrong-secret"), body.clone()).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let response = battle_party(app, None, body).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }

@@ -22,6 +22,7 @@ namespace Atlas.Infrastructure.Realtime
         private GrpcChannel channel;
         private Contracts.IBattleHub hub;
 
+        public event Action<SelectionStartPayload> OnSelectionStart;
         public event Action<BattleStartPayload> OnMatchStart;
         public event Action<TurnResultPayload> OnTurnResult;
         public event Action<BattleEndPayload> OnBattleEnd;
@@ -69,6 +70,9 @@ namespace Atlas.Infrastructure.Realtime
             channel?.Dispose();
         }
 
+        void Contracts.IBattleHubReceiver.OnSelectionStart(Contracts.SelectionStartPayload payload) =>
+            UniTask.Post(() => OnSelectionStart?.Invoke(ToDomain(payload)));
+
         void Contracts.IBattleHubReceiver.OnMatchStart(Contracts.BattleStartPayload payload) =>
             UniTask.Post(() => OnMatchStart?.Invoke(ToDomain(payload)));
 
@@ -83,6 +87,14 @@ namespace Atlas.Infrastructure.Realtime
 
         void Contracts.IBattleHubReceiver.OnOpponentReconnected() =>
             UniTask.Post(() => OnOpponentReconnected?.Invoke());
+
+        private static SelectionStartPayload ToDomain(Contracts.SelectionStartPayload payload) =>
+            new(
+                payload.SelfParty.Select(p => new PartyPachimon(p.PlayerPachimonId, p.PachimonId)).ToArray(),
+                payload.OpponentPartyPachimonIds,
+                payload.MaxSelectionCount,
+                payload.RemainingSeconds,
+                payload.SelectionSubmitted);
 
         private static BattleStartPayload ToDomain(Contracts.BattleStartPayload payload) =>
             new(

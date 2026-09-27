@@ -103,8 +103,7 @@ namespace Atlas.DI
                     resolver => new ApiBattleMatchmaker(
                         ApiBaseUrl,
                         resolver.Resolve<AccessTokenStore>(),
-                        resolver.Resolve<AccessTokenRefresher>(),
-                        resolver.Resolve<IPartyService>()),
+                        resolver.Resolve<AccessTokenRefresher>()),
                     Lifetime.Singleton);
                 builder.Register<IBattleConnectionFactory, RealtimeBattleConnectionFactory>(Lifetime.Singleton);
             }

@@ -16,9 +16,12 @@ namespace Atlas.BattleServer.Battle
     // BattleEngine.ProcessTurnへ渡す行動と、報告用に元のMoveIdを合わせて保持する。
     public readonly record struct PendingAction(PlayerAction Action, string? MoveId);
 
-    public sealed class BattleParticipant(string playerId)
+    public sealed class BattleParticipant(string playerId, IReadOnlyList<PartyPachimon> party)
     {
         public string PlayerId { get; } = playerId;
+
+        // 参加(JoinAsync)時点のパーティ編成(選出候補、枠番号順)。対戦中に編成を変えても影響させない。
+        public IReadOnlyList<PartyPachimon> Party { get; } = party;
 
         // 切断中(または猶予中)はnull。
         public Guid? ConnectionId { get; set; }
@@ -55,6 +58,9 @@ namespace Atlas.BattleServer.Battle
         public BattleState? Core { get; set; }
 
         public CancellationTokenSource? SelectionTimer { get; set; }
+
+        // Selectingになった時点で設定される。OnSelectionStartの残り秒数の計算に使う。
+        public DateTimeOffset SelectionDeadline { get; set; }
         public CancellationTokenSource? TurnTimer { get; set; }
 
         // 切断(または未参加)の猶予タイマー。未参加の枠にも張るため、BattleParticipantではなく枠ごとに持つ。

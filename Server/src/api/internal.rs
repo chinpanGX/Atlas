@@ -126,3 +126,48 @@ pub async fn battle_loadouts_handler(
             .collect(),
     }))
 }
+
+/// 選出候補取得APIのリクエストボディ(BattleServer側`PartyRequest`と同じ形)。
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BattlePartyRequest {
+    pub player_id: String,
+}
+
+/// 選出候補取得APIのレスポンス。`pachimon`はパーティのslot順。
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BattlePartyResponse {
+    pub pachimon: Vec<BattlePartyMemberResponse>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BattlePartyMemberResponse {
+    pub player_pachimon_id: String,
+    pub pachimon_id: i32,
+}
+
+/// BattleServerがプレイヤーの参加を受け付けたときに、選出候補(現在のパーティ編成)を返すAPIハンドラ
+/// (`POST /internal/battle/party`)。選出画面で両者に見せるのはどのパチモンかだけなので、
+/// 努力値・技は返さない(選出後に`/internal/battle/loadouts`で選出分だけ取得する)。
+///
+/// # Errors
+/// `X-Internal-Secret`が不一致の場合に`AppError::Unauthorized`を返す。
+pub async fn battle_party_handler(
+    State(state): State<AppState>,
+    _internal: InternalService,
+    Json(req): Json<BattlePartyRequest>,
+) -> Result<Json<BattlePartyResponse>, AppError> {
+    let party = player_pachimon_service::list_battle_party(&state.pool, &req.player_id).await?;
+
+    Ok(Json(BattlePartyResponse {
+        pachimon: party
+            .into_iter()
+            .map(|member| BattlePartyMemberResponse {
+                player_pachimon_id: member.player_pachimon_id,
+                pachimon_id: member.pachimon_id,
+            })
+            .collect(),
+    }))
+}

@@ -17,6 +17,7 @@ namespace Atlas.Application.Address
         public const string Battle = "Battle";
         public const string BattlePage = "BattlePage";
         public const string BattleResultModal = "BattleResultModal";
+        public const string CellTemplate = "CellTemplate";
         public const string CommandCanvas = "CommandCanvas";
         public const string ForfeitConfirmModal = "ForfeitConfirmModal";
         public const string Home = "Home";
@@ -24,15 +25,15 @@ namespace Atlas.Application.Address
         public const string MatchmakingModal = "MatchmakingModal";
         public const string OpponentCanvas = "OpponentCanvas";
         public const string OpponentSwitchingModal = "OpponentSwitchingModal";
-        public const string PartyStatRow1prefab = "Party/StatRow1.prefab";
+        public const string PachimonInfoPanel = "PachimonInfoPanel";
         public const string PartyPage = "PartyPage";
         public const string ScoutConfirmModal = "ScoutConfirmModal";
         public const string ScoutPage = "ScoutPage";
+        public const string SelectionModal = "SelectionModal";
         public const string SelfCanvas = "SelfCanvas";
+        public const string StatRow1 = "StatRow1";
         public const string SwitchSelectModal = "SwitchSelectModal";
         public const string TitlePage = "TitlePage";
-        public const string ViewsPartsCellTemplateprefab = "Views/Parts/CellTemplate.prefab";
-        public const string ViewsPartsPachimonInfoPanelprefab = "Views/Parts/PachimonInfoPanel.prefab";
         public const string white_2x2 = "white_2x2";
     }
 }

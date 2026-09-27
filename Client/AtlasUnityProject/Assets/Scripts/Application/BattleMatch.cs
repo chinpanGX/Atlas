@@ -7,15 +7,12 @@ namespace Atlas.Application
         public readonly string BattleServerUrl;
         // BattleServer接続用の短命トークン(有効期限30秒)。受け取ったらすぐ接続する。
         public readonly string BattleToken;
-        // 選出(パーティの枠番号順に先頭から最大3体)のPlayerPachimonId。
-        public readonly string[] SelectedPlayerPachimonIds;
 
-        public BattleMatch(string matchId, string battleServerUrl, string battleToken, string[] selectedPlayerPachimonIds)
+        public BattleMatch(string matchId, string battleServerUrl, string battleToken)
         {
             MatchId = matchId;
             BattleServerUrl = battleServerUrl;
             BattleToken = battleToken;
-            SelectedPlayerPachimonIds = selectedPlayerPachimonIds;
         }
     }
 }

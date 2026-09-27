@@ -33,6 +33,76 @@ namespace Atlas.BattleServer.Tests
         }
 
         [Fact]
+        public async Task SelectionStart_IsSentToBothAfterBothJoined_WithOpponentPachimonOnly()
+        {
+            await using var host = new BattleServerTestHost();
+            var (a, ra) = await host.ConnectAsync();
+            var (b, rb) = await host.ConnectAsync();
+            await a.JoinAsync(BattleServerTestHost.Token("m", "pA"), "m");
+            await Task.Delay(100);
+            Assert.Empty(ra.SelectionStarts);
+
+            await b.JoinAsync(BattleServerTestHost.Token("m", "pB"), "m");
+            await ra.WaitForAsync(r => r.SelectionStarts.Count == 1);
+            await rb.WaitForAsync(r => r.SelectionStarts.Count == 1);
+
+            var selection = ra.SelectionStarts[0];
+            Assert.Equal(["a1", "a2", "a3", "a4", "a5", "a6"], selection.SelfParty.Select(p => p.PlayerPachimonId));
+            Assert.Equal([1001, 1002, 1003, 1004, 1005, 1006], selection.SelfParty.Select(p => p.PachimonId));
+            Assert.Equal([1001, 1002, 1003, 1004, 1005, 1006], selection.OpponentPartyPachimonIds);
+            Assert.Equal(3, selection.MaxSelectionCount);
+            Assert.Equal(120, selection.RemainingSeconds);
+            Assert.False(selection.SelectionSubmitted);
+            Assert.Equal(["b1", "b2", "b3", "b4", "b5", "b6"], rb.SelectionStarts[0].SelfParty.Select(p => p.PlayerPachimonId));
+        }
+
+        [Fact]
+        public async Task Selection_RejectsPachimonNotInParty()
+        {
+            await using var host = new BattleServerTestHost();
+            var (a, ra) = await host.ConnectAsync();
+            var (b, _) = await host.ConnectAsync();
+            await a.JoinAsync(BattleServerTestHost.Token("m", "pA"), "m");
+            await b.JoinAsync(BattleServerTestHost.Token("m", "pB"), "m");
+
+            // 相手のパーティの個体・パーティに無い個体は選べない
+            await AssertRpcStatus(StatusCode.InvalidArgument, () => a.SubmitSelectionAsync(["a1", "b2"]));
+            await AssertRpcStatus(StatusCode.InvalidArgument, () => a.SubmitSelectionAsync(["a7"]));
+
+            await a.SubmitSelectionAsync(["a4", "a6"]);
+            await b.SubmitSelectionAsync(["b1"]);
+            await ra.WaitForAsync(r => r.Starts.Count == 1);
+            Assert.Equal(2, ra.Starts[0].Self.SelectedPachimon.Length);
+            Assert.Equal("a4", ra.Starts[0].Self.SelectedPachimon[0].State!.PlayerPachimonId);
+        }
+
+        [Fact]
+        public async Task Reconnect_DuringSelection_ResendsSelectionStartToReconnectedPlayerOnly()
+        {
+            await using var host = new BattleServerTestHost();
+            var tokenA = BattleServerTestHost.Token("m", "pA");
+            var (a, ra) = await host.ConnectAsync();
+            var (b, rb) = await host.ConnectAsync();
+            await a.JoinAsync(tokenA, "m");
+            await b.JoinAsync(BattleServerTestHost.Token("m", "pB"), "m");
+            await a.SubmitSelectionAsync(["a1", "a2", "a3"]);
+            await ra.WaitForAsync(r => r.SelectionStarts.Count == 1);
+
+            await a.DisposeAsync();
+            await rb.WaitForAsync(r => r.OpponentDisconnectedCount == 1);
+
+            var (a2, ra2) = await host.ConnectAsync();
+            Assert.Equal(JoinResultStatus.Success, (await a2.JoinAsync(tokenA, "m")).Status);
+            await ra2.WaitForAsync(r => r.SelectionStarts.Count == 1);
+            Assert.True(ra2.SelectionStarts[0].SelectionSubmitted);
+            Assert.InRange(ra2.SelectionStarts[0].RemainingSeconds, 1, 120);
+            Assert.Single(rb.SelectionStarts);
+
+            await b.SubmitSelectionAsync(["b1"]);
+            await ra2.WaitForAsync(r => r.Starts.Count == 1);
+        }
+
+        [Fact]
         public async Task MatchStart_IsSentOnlyAfterBothSelected_AndHidesUnrevealedOpponentSlots()
         {
             await using var host = new BattleServerTestHost();

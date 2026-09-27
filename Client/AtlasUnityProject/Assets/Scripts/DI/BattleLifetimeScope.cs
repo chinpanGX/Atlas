@@ -53,7 +53,6 @@ namespace Atlas.DI
             {
                 MatchId = match.MatchId,
                 BattleToken = match.BattleToken,
-                SelectedPlayerPachimonIds = match.SelectedPlayerPachimonIds,
             });
         }
     }

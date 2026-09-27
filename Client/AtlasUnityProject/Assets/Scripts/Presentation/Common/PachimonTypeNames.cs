@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Atlas.MasterData.Enums;
 
 namespace Atlas.Presentation.Common
@@ -6,6 +7,14 @@ namespace Atlas.Presentation.Common
     // マスタのPachimonTypeは英語の識別子しか持たないため、画面表示用の名前はここで対応させる。
     public static class PachimonTypeNames
     {
+        // パチモンのタイプ(1つまたは2つ)の表示名。SecondaryTypeがNoneなら1つだけ。
+        public static IReadOnlyList<string> ToDisplayNames(PachimonType primaryType, PachimonType secondaryType)
+        {
+            return secondaryType == PachimonType.None
+                ? new[] { ToDisplayName(primaryType) }
+                : new[] { ToDisplayName(primaryType), ToDisplayName(secondaryType) };
+        }
+
         public static string ToDisplayName(PachimonType type) => type switch
         {
             PachimonType.Normal => "ノーマル",

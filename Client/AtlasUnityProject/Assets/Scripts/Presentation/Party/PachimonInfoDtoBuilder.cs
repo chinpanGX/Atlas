@@ -33,16 +33,10 @@ namespace Atlas.Presentation.Party
         {
             var master = database.PachimonDataTable.FindByPachimonId(pachimonId);
 
-            var typeNames = new List<string> { PachimonTypeNames.ToDisplayName(master.PrimaryType) };
-            if (master.SecondaryType != PachimonType.None)
-            {
-                typeNames.Add(PachimonTypeNames.ToDisplayName(master.SecondaryType));
-            }
-
             return new PachimonInfoDto
             {
                 Name = master.Name,
-                TypeNames = typeNames,
+                TypeNames = PachimonTypeNames.ToDisplayNames(master.PrimaryType, master.SecondaryType),
                 Stats = new[]
                 {
                     CreateStatDto("HP", PachimonStatCalculator.CalculateHp(master.BaseHp), master.BaseHp),
