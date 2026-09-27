@@ -22,6 +22,10 @@
 // - test_edit_pachimon_move_invalid_candidate: グループ外の技を指定すると400になることを確認
 // - test_edit_pachimon_move_out_of_range_slot: slotが範囲外(5)だと400になることを確認
 // - test_edit_pachimon_move_not_owned: 他人のplayerPachimonIdを指定すると404になることを確認
+//
+// POST /debug/randomize_party (開発用: ボット向けランダム編成)のテスト。
+// - test_randomize_party: 重複なし6体でslot 1-6が編成し直され、技が候補技から選ばれ、
+//   スターター編成のslotがremovedに入ることを確認
 use axum::{
     Router,
     body::Body,
@@ -768,4 +772,71 @@ async fn test_edit_pachimon_move_not_owned(pool: MySqlPool) {
 
     let response = edit_pachimon_move(app.clone(), &other_token, &owner_pachimon_id, 1, 2).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+/// パーティがpachimonマスタから重複なしの6体で組み直され、各個体の技が技グループの
+/// 候補技から選ばれることを確認する。マスタは7体(全て`move_group_id=1`、候補技は
+/// `move_id=1`/`move_id=2`の2つ)にして、6体を選ぶ余地を残す。
+#[sqlx::test]
+async fn test_randomize_party(pool: MySqlPool) {
+    seed_items_master(&pool).await;
+    seed_test_master_data(&pool).await;
+    sqlx::query(
+        "INSERT INTO pachimon             (pachimon_id, name, primary_type, secondary_type, base_hp, base_atk, base_def,              base_spatk, base_spdef, base_speed, rarity, move_group_id)          VALUES (2, 'テストモン2', 1, 0, 50, 50, 50, 50, 50, 50, 4, 1),                 (3, 'テストモン3', 1, 0, 50, 50, 50, 50, 50, 50, 4, 1),                 (4, 'テストモン4', 1, 0, 50, 50, 50, 50, 50, 50, 4, 1),                 (5, 'テストモン5', 1, 0, 50, 50, 50, 50, 50, 50, 4, 1),                 (6, 'テストモン6', 1, 0, 50, 50, 50, 50, 50, 50, 4, 1),                 (7, 'テストモン7', 1, 0, 50, 50, 50, 50, 50, 50, 4, 1)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO starter_party_slots (slot_no, pachimon_id) VALUES (1, 1)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let state = AppState::from_pool(pool).await;
+    let app = create_router(state);
+
+    let access_token = register_and_authenticate(app.clone(), "randomize-secret").await;
+    signup(app.clone(), &access_token, "ボット").await;
+    let starter = json_body(sign_in(app.clone(), Some(&access_token)).await).await;
+    let starter_slot_id = starter["playerDiff"]["partySlots"]["upserted"][0]["partySlotId"].clone();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/debug/randomize_party")
+                .header(header::AUTHORIZATION, format!("Bearer {access_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = json_body(response).await;
+
+    let pachimon = json["pachimon"]["upserted"].as_array().unwrap();
+    assert_eq!(pachimon.len(), 6);
+    let mut pachimon_ids: Vec<i64> = pachimon
+        .iter()
+        .map(|p| p["pachimonId"].as_i64().unwrap())
+        .collect();
+    pachimon_ids.sort_unstable();
+    pachimon_ids.dedup();
+    assert_eq!(pachimon_ids.len(), 6);
+
+    let moves = json["pachimonMoveMap"]["upserted"].as_array().unwrap();
+    assert_eq!(moves.len(), 12); // 6体 x 候補技2つ
+    for m in moves {
+        assert!([1, 2].contains(&m["moveId"].as_i64().unwrap()));
+    }
+
+    let party_slots = json["partySlots"]["upserted"].as_array().unwrap();
+    let slots: Vec<i64> = party_slots
+        .iter()
+        .map(|s| s["slot"].as_i64().unwrap())
+        .collect();
+    assert_eq!(slots, vec![1, 2, 3, 4, 5, 6]);
+    for (slot, p) in party_slots.iter().zip(pachimon) {
+        assert_eq!(slot["playerPachimonId"], p["playerPachimonId"]);
+    }
+    assert_eq!(json["partySlots"]["removed"], json!([starter_slot_id]));
 }

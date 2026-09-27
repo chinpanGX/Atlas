@@ -46,6 +46,7 @@ impl Modify for SecurityAddon {
         battle::leave_queue_handler,
         battle::queue_status_handler,
         debug::grant_gems_handler,
+        debug::randomize_party_handler,
     ),
     components(schemas(
         device::RegisterDeviceRequest,

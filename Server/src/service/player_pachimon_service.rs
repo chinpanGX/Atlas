@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, MySqlPool, Transaction};
 use ulid::Ulid;
@@ -345,6 +346,111 @@ pub async fn set_party(
 
     result.sort_by_key(|r| r.slot);
     Ok((result, removed))
+}
+
+/// ランダム編成で組むパーティの人数。
+const RANDOM_PARTY_SIZE: usize = 6;
+
+/// 1体が覚えている技の最大数(slot 1-4)。
+const MAX_MOVES: usize = 4;
+
+/// [`randomize_party`]の結果。`playerDiff`の`pachimon`/`pachimonMoveMap`/`partySlots`に対応する。
+pub struct RandomizedParty {
+    pub pachimon: Vec<PlayerPachimon>,
+    pub moves: Vec<PlayerPachimonMove>,
+    pub party_slots: Vec<PlayerPartySlot>,
+    pub removed_party_slot_ids: Vec<String>,
+}
+
+/// 開発用(対戦相手ボット向け)。pachimonマスタから重複なしで6体をランダムに選んで新たに付与し、
+/// 各個体の技は技グループの候補技(`move_group_moves`)からランダムに最大4つ選ぶ。
+/// 既存のパーティ編成は全て解除し、付与した6体でslot 1-6を編成し直す
+/// (以前の所持個体は所持したまま残る)。
+///
+/// # Errors
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn randomize_party(
+    pool: &MySqlPool,
+    master: &MasterData,
+    player_id: &str,
+) -> Result<RandomizedParty, AppError> {
+    // ThreadRngはSendでないため、await前に抽選を済ませてスコープを抜けておく
+    let picks: Vec<(i32, Vec<i32>)> = {
+        let mut rng = rand::thread_rng();
+        master
+            .pachimon
+            .choose_multiple(&mut rng, RANDOM_PARTY_SIZE)
+            .map(|pachimon| {
+                let mut candidates: Vec<i32> = master
+                    .move_group_moves
+                    .iter()
+                    .filter(|row| row.group_id == pachimon.move_group_id)
+                    .map(|row| row.move_id)
+                    .collect();
+                candidates.sort_unstable();
+                candidates.dedup();
+                let moves = candidates
+                    .choose_multiple(&mut rng, MAX_MOVES)
+                    .copied()
+                    .collect();
+                (pachimon.pachimon_id, moves)
+            })
+            .collect()
+    };
+
+    let mut tx = pool.begin().await.map_err(|_| AppError::InternalError)?;
+
+    let removed: Vec<(String,)> =
+        sqlx::query_as("SELECT party_slot_id FROM player_party_slots WHERE player_id = ?")
+            .bind(player_id)
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(|_| AppError::InternalError)?;
+    let removed_party_slot_ids = removed.into_iter().map(|(id,)| id).collect();
+
+    sqlx::query("DELETE FROM player_party_slots WHERE player_id = ?")
+        .bind(player_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
+    let mut result = RandomizedParty {
+        pachimon: Vec::with_capacity(picks.len()),
+        moves: Vec::new(),
+        party_slots: Vec::with_capacity(picks.len()),
+        removed_party_slot_ids,
+    };
+    for (index, (pachimon_id, moves)) in picks.iter().enumerate() {
+        let (player_pachimon, granted_moves) =
+            grant(&mut tx, player_id, *pachimon_id, moves).await?;
+
+        let party_slot_id = Ulid::new().to_string();
+        let slot = index as i32 + 1;
+        sqlx::query(
+            "INSERT INTO player_party_slots (party_slot_id, player_id, slot, player_pachimon_id) \
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(&party_slot_id)
+        .bind(player_id)
+        .bind(slot)
+        .bind(&player_pachimon.player_pachimon_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| AppError::InternalError)?;
+
+        result.party_slots.push(PlayerPartySlot {
+            party_slot_id,
+            player_id: player_id.to_string(),
+            slot,
+            player_pachimon_id: player_pachimon.player_pachimon_id.clone(),
+        });
+        result.pachimon.push(player_pachimon);
+        result.moves.extend(granted_moves);
+    }
+
+    tx.commit().await.map_err(|_| AppError::InternalError)?;
+
+    Ok(result)
 }
 
 /// 所持パチモンの技を付け替える。グループ内の候補技(`move_group_moves`)以外は指定できない。

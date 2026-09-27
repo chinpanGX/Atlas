@@ -43,14 +43,15 @@ return 0;
 
 async Task RunBotAsync(string name, CancellationToken ct)
 {
-    // 実行のたびに新しいデバイス(=新しいプレイヤー)として登録する。スターター編成がそのままパーティになる。
+    // 実行のたびに新しいデバイス(=新しいプレイヤー)として登録し、パーティをマスタからランダムに組み直す。
     using var http = new HttpClient { BaseAddress = new Uri(apiUrl) };
     var api = new ApiClient(http);
     var secretKey = Guid.NewGuid().ToString("N");
     var deviceId = await api.RegisterDeviceAsync(secretKey);
     await api.AuthenticateAsync(deviceId, secretKey);
     await api.SignUpAsync(name);
-    var (playerId, selection) = await api.SignInAsync();
+    var playerId = await api.SignInAsync();
+    var selection = await api.RandomizePartyAsync();
     Console.WriteLine($"[{name}] プレイヤー {playerId} を作成しました(選出: {string.Join(",", selection)})");
 
     do

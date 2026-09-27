@@ -296,6 +296,7 @@
 - [x] マスターデータの読み込み(`BattleServer/MasterData/`、起動時に`MemoryDatabase`)
 - [x] `BattleTimingOptions`で制限時間類を差し替え可能に(テスト用)
 - [x] 対戦相手ボット`BattleServer/BattleBot/`(REST + MagicOnionで自動対戦、`--loop`/`--count`)
+- [x] ボットのパーティをランダム化(開発用API`POST /debug/randomize_party`: マスタから重複なし6体、技は候補技からランダム)
 - [x] 自動テスト(xUnit、`dotnet test BattleServer.slnx`): インプロセス起動した結合テスト、`LoadoutBuilderTests`、`ApiParticipantDataSourceTests`、`MasterDatabaseFactoryTests`
 - [x] ボット2体で実サーバーを通した対戦(マッチング → 強制交代 → 全滅決着 → 結果記録)を確認
 - [x] 強制交代ターン: 前のターンで瀕死になった側の交代だけを受け付け、相手の行動は`FailedPrecondition`で拒否する。

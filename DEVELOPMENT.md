@@ -161,7 +161,8 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
   (素の`dotnet`はGit BashのPATHでUnity付属の.NET 8 SDKが先に見つかり、`NETSDK1045`で失敗することがある)
 - ボットの引数: `--loop`(対戦が終わるたびに再びマッチングに並ぶ)、`--count N`(N体同時に動かす。`--count 2`でボット同士が
   対戦し、Unity無しでREST・マッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(既定`http://127.0.0.1:3000`)。
-  ボットは起動のたびに新しいプレイヤーを作る(DBにボットのプレイヤーが増える)
+  ボットは起動のたびに新しいプレイヤーを作る(DBにボットのプレイヤーが増える)。パーティは開発用API`POST /debug/randomize_party`で
+  pachimonマスタから重複なしの6体・技も候補技からランダムに組み直し、そのうち先頭3体で対戦する
 - B・Cでは、同じPCで2人分を動かすとセーブデータ(`deviceCredentials`)が同じになり、自分自身とマッチングしようとして
   しまうため、インスタンスごとに保存先を分けている(`Assets/Scripts/DI/SaveDataDirectory.cs`)。Editor本体は既定の`SaveData`、
   Multiplayer Play Modeの追加インスタンスは`SaveData_VP_<id>`、ビルドは`SaveData_Build`(`-saveSlot N`で`SaveData_Build_N`)

@@ -59,6 +59,10 @@ pub fn create_router(state: AppState) -> Router {
             axum::routing::post(debug::grant_gems_handler),
         )
         .route(
+            "/debug/randomize_party",
+            axum::routing::post(debug::randomize_party_handler),
+        )
+        .route(
             "/battle/queue",
             axum::routing::post(battle::join_queue_handler).delete(battle::leave_queue_handler),
         )

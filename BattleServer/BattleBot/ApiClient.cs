@@ -30,18 +30,24 @@ namespace Atlas.BattleBot
             response.EnsureSuccessStatusCode();
         }
 
-        // サインインのplayerDiff(全件)から、パーティの枠番号順に先頭から最大3体のPlayerPachimonIdを返す
-        // (Unityクライアントの自動選出と同じ規則)。
-        public async Task<(string PlayerId, string[] Selection)> SignInAsync()
+        public async Task<string> SignInAsync()
         {
             var json = await PostAsync("/sign-in", null);
-            var selection = json.GetProperty("playerDiff").GetProperty("partySlots").GetProperty("upserted")
+            return json.GetProperty("playerId").GetString()!;
+        }
+
+        // パーティをマスタからランダムに選んだ6体(重複なし、技もランダム)で組み直す開発用API。
+        // 返ってきたplayerDiffから、パーティの枠番号順に先頭から最大3体のPlayerPachimonIdを返す
+        // (Unityクライアントの自動選出と同じ規則)。
+        public async Task<string[]> RandomizePartyAsync()
+        {
+            var json = await PostAsync("/debug/randomize_party", null);
+            return json.GetProperty("partySlots").GetProperty("upserted")
                 .EnumerateArray()
                 .OrderBy(slot => slot.GetProperty("slot").GetInt32())
                 .Take(3)
                 .Select(slot => slot.GetProperty("playerPachimonId").GetString()!)
                 .ToArray();
-            return (json.GetProperty("playerId").GetString()!, selection);
         }
 
         public async Task JoinQueueAsync()

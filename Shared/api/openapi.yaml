@@ -167,6 +167,31 @@ paths:
           description: プレイヤー未作成
       security:
       - bearer_auth: []
+  /debug/randomize_party:
+    post:
+      tags:
+      - debug
+      summary: |-
+        認証済みプレイヤーのパーティを、pachimonマスタからランダムに選んだ6体(重複なし)で組み直す
+        開発用APIハンドラ。対戦相手ボット(`BattleServer/BattleBot`)が毎回違う編成で対戦するためのもので、
+        6体は新たに付与した個体(技は技グループの候補技からランダムに最大4つ)。以前の所持個体は残る。
+      description: |-
+        # Errors
+        未認証の場合に`AppError::Unauthorized`、プレイヤー未作成の場合に`AppError::NotFound`を返す。
+      operationId: randomize_party_handler
+      responses:
+        '200':
+          description: 編成成功(pachimon/pachimonMoveMap/partySlotsを更新)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerDiffDto'
+        '401':
+          description: 未認証
+        '404':
+          description: プレイヤー未作成
+      security:
+      - bearer_auth: []
   /devices:
     post:
       tags:

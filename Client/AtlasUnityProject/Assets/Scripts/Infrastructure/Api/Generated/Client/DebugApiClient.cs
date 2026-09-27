@@ -17,5 +17,6 @@ namespace Atlas.Infrastructure.Api
         }
 
         public UniTask<PlayerDiffDto> GrantGemsAsync() => ApiRequest.SendAsync<PlayerDiffDto>(this.baseUrl, "POST", "/debug/grant_gems", null, this.accessTokenProvider());
+        public UniTask<PlayerDiffDto> RandomizePartyAsync() => ApiRequest.SendAsync<PlayerDiffDto>(this.baseUrl, "POST", "/debug/randomize_party", null, this.accessTokenProvider());
     }
 }
