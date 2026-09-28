@@ -579,7 +579,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 
 | 配布先 | 生成物 | 読み込み方 |
 |---|---|---|
-| Client | C#の型(Models/Enums、MasterMemory + MessagePack)、ローダー、`masterdata.bytes`(暗号化) | 起動時にAddressablesから読み込む |
+| Client | C#の型(Models/Enums、MasterMemory + MessagePack)、ローダー、`masterdata.bytes`(暗号化) | 起動時の初期化(`MasterDataInitializationTask`)で`MasterDatabaseLoader`がAddressablesから読み込む。`MemoryDatabase`はRootのスコープに、読み込み済みのものを返すシングルトンとして登録してあり、Presenter等はコンストラクタで受け取る(初期化より前に要求すると例外) |
 | バトルサーバー | Clientと同じC#の型・ローダー・`masterdata.bytes`(`BattleServer/MasterData/`) | 起動時にファイルから読み込み、`MemoryDatabase`をシングルトンで持つ。読み込めなければ起動しない |
 | APIサーバー | Rustの型(`src/master/generated/`)とJSON | `seed_master_data`でDBへUPSERTし、サーバー起動時にDBから全件読み込む |
 
@@ -847,7 +847,7 @@ README、設計はフォーク側の`feature-screen-navigation-package.md`を参
 |---|---|---|---|
 | `IXxxConnection` | `Atlas.Application` | サーバーのAPIの呼び出し(`IDeviceConnection`/`IPlayerConnection`/`IScoutConnection`/`IDebugConnection`) | この単位で切り替える |
 | `IXxxRepository` | `Atlas.Domain` | 手元の所持データの読み書き。`playerDiff`の種別ごとに1つ(`IItemRepository`/`IPachimonRepository`/`IPachimonMoveMapRepository`/`IPartyRepository`)。ほかに`IPlayerProfileRepository`・`IDeviceCredentialsRepository` | 切り替えない |
-| `IXxxService` | `Atlas.Application` | Presenterが使う処理(`ISignInService`/`IPlayerAccountService`/`IItemFetchService`/`IPartyService`/`IPachimonService`/`IPachimonMoveMappingService`/`IMasterDataService`) | 切り替えない(実装は1つ) |
+| `IXxxService` | `Atlas.Application` | Presenterが使う処理(`ISignInService`/`IPlayerAccountService`/`IItemFetchService`/`IPartyService`/`IPachimonService`/`IPachimonMoveMappingService`) | 切り替えない(実装は1つ) |
 
 - Connectionは`api-codegen`が生成する`XxxApiClient`の単位(タグ)に合わせる。1つの大きなConnectionにしないのは、
   一部の機能だけ本物のサーバーにつなぐような切り替えをしやすくするため
@@ -871,15 +871,21 @@ README、設計はフォーク側の`feature-screen-navigation-package.md`を参
 
 **サインインの流れ**
 
+起動時の初期化はSupplementの`BootInitializer`で行う。`BootstrapEntryPoint`が`BootInitializer.RunAsync`を呼び、
+`IBootInitializationTask`として登録したマスタの読み込み(`MasterDataInitializationTask`)とサインイン
+(`SignInInitializationTask`)を同じ優先度で並列に実行してから、Homeへ進む(サインインはマスタを使わないため)。
+
 ```
 BootstrapEntryPoint
-  └─ ISignInService.SignInAsync()
-       ├─ IDeviceCredentialsRepository     端末に保存したデバイス情報(無ければ作る)
-       ├─ IDeviceConnection.RegisterAsync  初回だけ
-       ├─ AccessTokenRefresher             デバイス認証 → AccessTokenStore
-       ├─ IPlayerConnection.SignInAsync    POST /sign-in(404ならサインアップしてから再度)
-       │    └─ IPlayerDiffApplier          → 各Repository
-       └─ IPlayerProfileRepository         プレイヤーID・ニックネーム
+  └─ BootInitializer.RunAsync()
+       ├─ MasterDataInitializationTask → MasterDatabaseLoader.LoadAsync()
+       └─ SignInInitializationTask     → ISignInService.SignInAsync()
+            ├─ IDeviceCredentialsRepository     端末に保存したデバイス情報(無ければ作る)
+            ├─ IDeviceConnection.RegisterAsync  初回だけ
+            ├─ AccessTokenRefresher             デバイス認証 → AccessTokenStore
+            ├─ IPlayerConnection.SignInAsync    POST /sign-in(404ならサインアップしてから再度)
+            │    └─ IPlayerDiffApplier          → 各Repository
+            └─ IPlayerProfileRepository         プレイヤーID・ニックネーム
 ```
 
 **アクセストークンの更新**(`AccessTokenRefresher`、トークンを書き込むのはここだけ)
@@ -914,7 +920,7 @@ BootstrapEntryPoint
 |---|---|---|
 | `Atlas.Domain` | Entity、`IXxxRepository`、`IBattleConnection`とその型 | UniTask |
 | `Atlas.Application` | `IXxxService`、`IXxxConnection`、`IBattleMatchmaker`/`IBattleConnectionFactory`、戻り値の型、`BattleEntryStore`、`AddressDefinition` | Domain, MasterData, UniTask |
-| `Atlas.Infrastructure` | Serviceの実装、`DeviceCredentialsRepository`、`MasterDataService` | Domain, Application, Infrastructure.Api, MasterData, Supplement |
+| `Atlas.Infrastructure` | Serviceの実装、`DeviceCredentialsRepository`、`MasterDatabaseLoader` | Domain, Application, Infrastructure.Api, MasterData, Supplement |
 | `Atlas.Infrastructure.Api` | `api-codegen`の生成物(`Generated/`)、Connectionの実装、`PlayerDiffApplier`/`XxxDiffApplier`、Repositoryの実装、`AccessTokenStore`/`AccessTokenRefresher`、`ApiBattleMatchmaker` | Domain, Application, UniTask |
 | `Atlas.Infrastructure.Mock` | Mockの認証系Connection、`MockBattleConnection`/`MockBattleMatchmaker` | Domain, Application, MasterData, BattleCore |
 | `Atlas.Infrastructure.Realtime` | `RealtimeBattleConnection`(MagicOnionのクライアント) | Domain, Application, BattleContracts, BattleCore, MagicOnion |

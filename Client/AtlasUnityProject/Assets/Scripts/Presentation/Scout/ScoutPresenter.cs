@@ -4,6 +4,7 @@ using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
 using Atlas.Presentation.Party;
+using MasterMemory;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
@@ -24,7 +25,7 @@ namespace Atlas.Presentation.Scout
         private readonly ScoutPage view;
         private readonly IScoutConnection scoutConnection;
         private readonly IItemFetchService itemFetchService;
-        private readonly IMasterDataService masterDataService;
+        private readonly MemoryDatabase database;
         private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
         private readonly CancellationTokenSource lifetimeCancellation = new();
@@ -39,13 +40,13 @@ namespace Atlas.Presentation.Scout
             ScoutPage view,
             IScoutConnection scoutConnection,
             IItemFetchService itemFetchService,
-            IMasterDataService masterDataService,
+            MemoryDatabase database,
             IScreenNavigator screenNavigator)
         {
             this.view = view;
             this.scoutConnection = scoutConnection;
             this.itemFetchService = itemFetchService;
-            this.masterDataService = masterDataService;
+            this.database = database;
             this.screenNavigator = screenNavigator;
         }
 
@@ -189,7 +190,6 @@ namespace Atlas.Presentation.Scout
 
         private PachimonInfoDto CreatePachimonInfoDto(ScoutCandidate candidate)
         {
-            var database = masterDataService.Database;
             var moves = candidate.MoveIds.Select((moveId, index) =>
                 new PachimonInfoDtoBuilder.MoveInput(index + 1, moveId, database.MovesDataTable.FindByMoveId(moveId).MaxPp));
             return PachimonInfoDtoBuilder.Build(database, candidate.PachimonId, moves);
@@ -197,7 +197,7 @@ namespace Atlas.Presentation.Scout
 
         private string FindPachimonName(int pachimonId)
         {
-            return masterDataService.Database.PachimonDataTable.FindByPachimonId(pachimonId).Name;
+            return database.PachimonDataTable.FindByPachimonId(pachimonId).Name;
         }
 
         public void Dispose()

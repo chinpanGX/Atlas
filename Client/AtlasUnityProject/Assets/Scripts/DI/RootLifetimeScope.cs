@@ -1,6 +1,8 @@
+using System;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
+using Atlas.DI.Boot;
 using Atlas.Domain;
 using Atlas.Infrastructure;
 using Atlas.Infrastructure.Api;
@@ -49,7 +51,14 @@ namespace Atlas.DI
                     resolver.Resolve<IFileStorageService>().SetDirectoryName(saveDataDirectory));
             }
             builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
-            builder.Register<IMasterDataService, MasterDataService>(Lifetime.Singleton);
+            builder.Register<MasterDatabaseLoader>(Lifetime.Singleton);
+            // マスタは起動時の初期化(MasterDataInitializationTask)で読み込むため、Build時には登録できない。
+            // 最初に要求されたときに読み込み済みのものを返す。Home・Battleの画面は初期化の後に作られるので、
+            // コンストラクタでMemoryDatabaseを受け取れる。初期化より前に要求したら例外にして気づけるようにする。
+            builder.Register(resolver => resolver.Resolve<MasterDatabaseLoader>().Database
+                                         ?? throw new InvalidOperationException(
+                                             "MemoryDatabase was requested before the master data was loaded."),
+                Lifetime.Singleton);
             builder.Register<SceneNavigator>(Lifetime.Singleton);
             builder.Register<ISceneNavigator, TransitionAwareSceneNavigator>(Lifetime.Singleton);
             builder.Register<BattleEntryStore>(Lifetime.Singleton);
@@ -90,6 +99,10 @@ namespace Atlas.DI
                 Lifetime.Singleton);
 
             ConfigureBattleConnections(builder);
+
+            builder.RegisterBootInitializer();
+            builder.Register<MasterDataInitializationTask>(Lifetime.Singleton).As<IBootInitializationTask>();
+            builder.Register<SignInInitializationTask>(Lifetime.Singleton).As<IBootInitializationTask>();
             builder.RegisterEntryPoint<BootstrapEntryPoint>();
         }
 
@@ -130,23 +143,21 @@ namespace Atlas.DI
         }
     }
 
+    // 起動時の初期化(IBootInitializationTaskとして登録したもの)を済ませてからHomeへ進む。
     internal sealed class BootstrapEntryPoint : IAsyncStartable
     {
         private readonly ISceneNavigator sceneNavigator;
-        private readonly IMasterDataService masterDataService;
-        private readonly ISignInService signInService;
+        private readonly BootInitializer bootInitializer;
 
-        public BootstrapEntryPoint(ISceneNavigator sceneNavigator, IMasterDataService masterDataService, ISignInService signInService)
+        public BootstrapEntryPoint(ISceneNavigator sceneNavigator, BootInitializer bootInitializer)
         {
             this.sceneNavigator = sceneNavigator;
-            this.masterDataService = masterDataService;
-            this.signInService = signInService;
+            this.bootInitializer = bootInitializer;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
-            await masterDataService.LoadAsync();
-            await signInService.SignInAsync();
+            await bootInitializer.RunAsync(cancellation);
 
             // HomeLifetimeScope.FindParentが直接RootLifetimeScopeを探すため、ここで
             // LifetimeScope.EnqueueParentを使う必要は無い。

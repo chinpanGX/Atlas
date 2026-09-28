@@ -9,6 +9,7 @@ using Atlas.MasterData.Enums;
 using Atlas.MasterData.Models;
 using Atlas.Presentation.Common;
 using Atlas.Presentation.Party;
+using MasterMemory;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityScreenNavigator;
@@ -27,7 +28,7 @@ namespace Atlas.Presentation.Battle
     {
         private readonly BattlePage view;
         private readonly IBattleConnection connection;
-        private readonly IMasterDataService masterDataService;
+        private readonly MemoryDatabase database;
         private readonly IPachimonMoveMappingService pachimonMoveMappingService;
         private readonly BattleViewDto initialDto;
         private readonly IScreenNavigator screenNavigator;
@@ -83,13 +84,13 @@ namespace Atlas.Presentation.Battle
         private TypeMatchupTable typeMatchupTable;
 
         public BattlePresenter(
-            BattlePage view, IBattleConnection connection, IMasterDataService masterDataService,
+            BattlePage view, IBattleConnection connection, MemoryDatabase database,
             IPachimonMoveMappingService pachimonMoveMappingService, BattleViewDto initialDto,
             IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator)
         {
             this.view = view;
             this.connection = connection;
-            this.masterDataService = masterDataService;
+            this.database = database;
             this.pachimonMoveMappingService = pachimonMoveMappingService;
             this.initialDto = initialDto;
             this.screenNavigator = screenNavigator;
@@ -218,7 +219,6 @@ namespace Atlas.Presentation.Battle
         // 選出中にパーティ編成・技の付け替えはできないため、サーバーが対戦に使う技と食い違わない。
         private PachimonInfoDto BuildSelectionInfo(PartyPachimon pachimon)
         {
-            var database = masterDataService.Database;
             var moves = pachimonMoveMappingService.GetByPlayerPachimonId(pachimon.PlayerPachimonId)
                 .Select(moveMap =>
                 {
@@ -231,7 +231,6 @@ namespace Atlas.Presentation.Battle
 
         private SelectionViewDto BuildSelectionDto()
         {
-            var database = masterDataService.Database;
             return new SelectionViewDto
             {
                 RemainingSeconds = Math.Max(0, (int)Math.Ceiling((selectionDeadline - DateTime.UtcNow).TotalSeconds)),
@@ -380,7 +379,7 @@ namespace Atlas.Presentation.Battle
                 Candidates = selfPachimonIdBySlot
                     .Select((pachimonId, slot) =>
                     {
-                        var master = masterDataService.Database.PachimonDataTable.FindByPachimonId(pachimonId);
+                        var master = database.PachimonDataTable.FindByPachimonId(pachimonId);
                         var maxHp = PachimonStatCalculator.CalculateHp(master.BaseHp);
                         var moves = selfMoveSets[slot].Moves.Select((m, i) =>
                             new PachimonInfoDtoBuilder.MoveInput(i + 1, int.Parse(m.MoveId), selfCurrentPp[slot][i]));
@@ -392,7 +391,7 @@ namespace Atlas.Presentation.Battle
                             MaxHp = maxHp,
                             IsActive = slot == selfActiveIndex,
                             IsFainted = selfFaintedBySlot[slot],
-                            Info = PachimonInfoDtoBuilder.Build(masterDataService.Database, pachimonId, moves),
+                            Info = PachimonInfoDtoBuilder.Build(database, pachimonId, moves),
                         };
                     })
                     .ToList(),
@@ -417,7 +416,7 @@ namespace Atlas.Presentation.Battle
             opponentActiveIndex = payload.Opponent.ActivePachimonIndex;
             opponentPachimonIdBySlot = payload.Opponent.SelectedPachimon.Select(s => s.State?.PachimonId).ToArray();
             opponentHpPercentBySlot = payload.Opponent.SelectedPachimon.Select(s => s.State?.HpPercent ?? 100).ToArray();
-            typeMatchupTable ??= new TypeMatchupTable(masterDataService.Database);
+            typeMatchupTable ??= new TypeMatchupTable(database);
 
             matchStarted = true;
             view.Refresh(BuildUiState());
@@ -573,7 +572,7 @@ namespace Atlas.Presentation.Battle
         // 技名 → 技の演出(HPゲージが減り終わるまで待つ) → 外れ/急所/効果 → 倒れる演出 → 倒れた、の順に流す。
         private async UniTask PlayMoveAsync(ActionResult action, bool actorIsSelf, CancellationToken cancellation)
         {
-            var move = masterDataService.Database.MovesDataTable.FindByMoveId(int.Parse(action.MoveId));
+            var move = database.MovesDataTable.FindByMoveId(int.Parse(action.MoveId));
             await view.PlayMessageAsync(
                 BattleMessageBuilder.MoveUsed(actorIsSelf, ActivePachimonName(actorIsSelf), move.Name), cancellation);
 
@@ -619,11 +618,11 @@ namespace Atlas.Presentation.Battle
         {
             if (isSelf)
             {
-                return masterDataService.Database.PachimonDataTable.FindByPachimonId(selfPachimonIdBySlot[selfActiveIndex]).Name;
+                return database.PachimonDataTable.FindByPachimonId(selfPachimonIdBySlot[selfActiveIndex]).Name;
             }
 
             return opponentPachimonIdBySlot[opponentActiveIndex] is { } id
-                ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).Name
+                ? database.PachimonDataTable.FindByPachimonId(id).Name
                 : "???";
         }
 
@@ -635,7 +634,7 @@ namespace Atlas.Presentation.Battle
             {
                 PachimonId = pachimonId,
                 PrimaryType = pachimonId is { } id
-                    ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).PrimaryType
+                    ? database.PachimonDataTable.FindByPachimonId(id).PrimaryType
                     : PachimonType.None,
                 IsFainted = IsActivePachimonFainted(isSelf),
             };
@@ -738,7 +737,7 @@ namespace Atlas.Presentation.Battle
         private void RefreshSelfMoves()
         {
             selfMoves = selfMoveSets[selfActiveIndex].Moves
-                .Select(m => masterDataService.Database.MovesDataTable.FindByMoveId(int.Parse(m.MoveId)))
+                .Select(m => database.MovesDataTable.FindByMoveId(int.Parse(m.MoveId)))
                 .ToArray();
         }
 
@@ -750,7 +749,7 @@ namespace Atlas.Presentation.Battle
                 return string.Empty;
             }
 
-            var opponent = masterDataService.Database.PachimonDataTable.FindByPachimonId(opponentId);
+            var opponent = database.PachimonDataTable.FindByPachimonId(opponentId);
             return typeMatchupTable.Resolve(move.MoveType, opponent.PrimaryType, opponent.SecondaryType) switch
             {
                 EffectivenessResult.DoubleSuperEffective => "超バツグン",
@@ -765,7 +764,7 @@ namespace Atlas.Presentation.Battle
         private BattleUIStateDto BuildUiState()
         {
             var selfPachimonId = selfPachimonIdBySlot[selfActiveIndex];
-            var selfPachimon = masterDataService.Database.PachimonDataTable.FindByPachimonId(selfPachimonId);
+            var selfPachimon = database.PachimonDataTable.FindByPachimonId(selfPachimonId);
             var selfHpPercent = selfHpPercentBySlot[selfActiveIndex];
             var selfMaxHp = PachimonStatCalculator.CalculateHp(selfPachimon.BaseHp);
 

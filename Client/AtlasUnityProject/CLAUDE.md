@@ -64,7 +64,7 @@ Push単位の子スコープ(ScreenNavigatorが画面を開くたびに作り、
 |---|---|
 | `Atlas.Domain` | Entity、`IXxxRepository`、`IBattleConnection`とその型 |
 | `Atlas.Application` | `IXxxService`、`IXxxConnection`、戻り値の型、`BattleEntryStore`、`AddressDefinition`(生成物) |
-| `Atlas.Infrastructure` | Serviceの実装、端末に保存するRepository、`MasterDataService` |
+| `Atlas.Infrastructure` | Serviceの実装、端末に保存するRepository、`MasterDatabaseLoader` |
 | `Atlas.Infrastructure.Api` / `.Mock` / `.Realtime` | REST通信(生成物と手書きのConnection・Repository)/ Mock / MagicOnion |
 | `Atlas.Navigation` | `TransitionAwareSceneNavigator` |
 | `Atlas.Presentation` | View・Presenter・ViewDto(画面単位の型だけ) |

@@ -1,20 +1,21 @@
 using Atlas.Application;
 using Atlas.Domain;
+using MasterMemory;
 
 namespace Atlas.Infrastructure.Mock
 {
     public sealed class MockBattleConnectionFactory : IBattleConnectionFactory
     {
-        private readonly IMasterDataService masterDataService;
+        private readonly MemoryDatabase database;
 
-        public MockBattleConnectionFactory(IMasterDataService masterDataService)
+        public MockBattleConnectionFactory(MemoryDatabase database)
         {
-            this.masterDataService = masterDataService;
+            this.database = database;
         }
 
         public IBattleConnection Create(BattleMatch match)
         {
-            return new MockBattleConnection(masterDataService.Database);
+            return new MockBattleConnection(database);
         }
     }
 }

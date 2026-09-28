@@ -6,6 +6,7 @@ using Atlas.Application;
 using Atlas.Application.Address;
 using Atlas.Domain;
 using Atlas.MasterData.Models;
+using MasterMemory;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace Atlas.Presentation.Party
         private readonly IPartyService partyService;
         private readonly IPachimonService pachimonService;
         private readonly IPachimonMoveMappingService pachimonMoveMappingService;
-        private readonly IMasterDataService masterDataService;
+        private readonly MemoryDatabase database;
         private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
 
@@ -35,14 +36,14 @@ namespace Atlas.Presentation.Party
             IPartyService partyService,
             IPachimonService pachimonService,
             IPachimonMoveMappingService pachimonMoveMappingService,
-            IMasterDataService masterDataService,
+            MemoryDatabase database,
             IScreenNavigator screenNavigator)
         {
             this.view = view;
             this.partyService = partyService;
             this.pachimonService = pachimonService;
             this.pachimonMoveMappingService = pachimonMoveMappingService;
-            this.masterDataService = masterDataService;
+            this.database = database;
             this.screenNavigator = screenNavigator;
         }
 
@@ -176,15 +177,15 @@ namespace Atlas.Presentation.Party
                 .Select(moveMap =>
                 {
                     var moveId = (int)moveMap.MoveId;
-                    var maxPp = masterDataService.Database.MovesDataTable.FindByMoveId(moveId).MaxPp;
+                    var maxPp = database.MovesDataTable.FindByMoveId(moveId).MaxPp;
                     return new PachimonInfoDtoBuilder.MoveInput(moveMap.Slot, moveId, maxPp);
                 });
-            return PachimonInfoDtoBuilder.Build(masterDataService.Database, (int)pachimon.PachimonId, moves);
+            return PachimonInfoDtoBuilder.Build(database, (int)pachimon.PachimonId, moves);
         }
 
         private PachimonData FindMaster(PachimonEntity pachimon)
         {
-            return masterDataService.Database.PachimonDataTable.FindByPachimonId((int)pachimon.PachimonId);
+            return database.PachimonDataTable.FindByPachimonId((int)pachimon.PachimonId);
         }
 
         public void Dispose()

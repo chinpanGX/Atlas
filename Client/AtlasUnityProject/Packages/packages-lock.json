@@ -34,7 +34,7 @@
         "jp.hadashikick.vcontainer": "1.19.0",
         "com.unity.addressables": "2.7.6"
       },
-      "hash": "f5722a2a1fc4d12c16c5d0eab8b785acb888e126"
+      "hash": "6c0db193a07ddd0cc81ba89f3b03219a759387b1"
     },
     "com.chinpangx.supplement.zeromessenger": {
       "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger",
@@ -43,7 +43,7 @@
       "dependencies": {
         "com.chinpangx.supplement": "1.0.0"
       },
-      "hash": "f5722a2a1fc4d12c16c5d0eab8b785acb888e126"
+      "hash": "6c0db193a07ddd0cc81ba89f3b03219a759387b1"
     },
     "com.cysharp.magiconion.client.unity": {
       "version": "7.11.0",
