@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using System.Linq;
 using Atlas.Application;
+using ZLinq;
 
 namespace Atlas.Presentation.Party
 {

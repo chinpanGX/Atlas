@@ -6,7 +6,8 @@
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
         "GUID:a9f3d18a0da2813498862209298fb7ff",
         "GUID:d272da2a7cb9faf498fcf52f24ac0651",
-        "Atlas.BattleCore"
+        "Atlas.BattleCore",
+        "GUID:1fe3656cf8380224fa23ec72e2b12cff"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

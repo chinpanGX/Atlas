@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using System.Linq;
 using R3;
 using UIPackages.Runtime;
 using UnityEngine;
 using UnityScreenNavigator.Runtime.Core.Page;
+using ZLinq;
 
 namespace Atlas.Presentation.Party
 {

@@ -7,7 +7,8 @@
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
         "Atlas.BattleContracts",
         "Atlas.BattleCore",
-        "Cysharp.Net.Http.YetAnotherHttpHandler"
+        "Cysharp.Net.Http.YetAnotherHttpHandler",
+        "GUID:1fe3656cf8380224fa23ec72e2b12cff"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -22,7 +23,8 @@
         "MessagePack.Annotations.dll",
         "Grpc.Net.Client.dll",
         "Grpc.Net.Common.dll",
-        "Grpc.Core.Api.dll"
+        "Grpc.Core.Api.dll",
+        "ZLinq.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [],

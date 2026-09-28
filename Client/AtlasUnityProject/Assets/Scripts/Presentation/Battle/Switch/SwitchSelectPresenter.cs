@@ -1,8 +1,8 @@
-using System.Linq;
 using Atlas.Application.Address;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityScreenNavigator;
+using ZLinq;
 
 namespace Atlas.Presentation.Battle
 {

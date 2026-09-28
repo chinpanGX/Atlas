@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using System.Linq;
 using Atlas.BattleCore;
 using Atlas.MasterData;
 using MasterMemory;
+using ZLinq;
 
 namespace Atlas.Infrastructure.Mock
 {

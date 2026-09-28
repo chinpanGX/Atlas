@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
@@ -11,6 +10,7 @@ using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
 using UnityScreenNavigator;
+using ZLinq;
 
 namespace Atlas.Presentation.Party
 {
@@ -56,7 +56,8 @@ namespace Atlas.Presentation.Party
             // パチモンを指す枠があれば保存時にサーバーが404を返すので、最初から除外しておく。
             editor = new PartyEditor(partyService.GetAll()
                 .Where(slot => pachimonDtos.ContainsKey(slot.PlayerPachimonId))
-                .Select(slot => new PartySlotInput(slot.Slot, slot.PlayerPachimonId)));
+                .Select(slot => new PartySlotInput(slot.Slot, slot.PlayerPachimonId))
+                .ToArray());
 
             view.RefreshPachimonList(pachimons.Select(p => pachimonDtos[p.PlayerPachimonId]).ToList());
             RefreshParty();
@@ -180,7 +181,7 @@ namespace Atlas.Presentation.Party
                     var maxPp = database.MovesDataTable.FindByMoveId(moveId).MaxPp;
                     return new PachimonInfoDtoBuilder.MoveInput(moveMap.Slot, moveId, maxPp);
                 });
-            return PachimonInfoDtoBuilder.Build(database, (int)pachimon.PachimonId, moves);
+            return PachimonInfoDtoBuilder.Build(database, (int)pachimon.PachimonId, moves.ToArray());
         }
 
         private PachimonData FindMaster(PachimonEntity pachimon)

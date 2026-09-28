@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
@@ -13,6 +12,7 @@ using MasterMemory;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityScreenNavigator;
+using ZLinq;
 
 namespace Atlas.Presentation.Battle
 {
@@ -226,7 +226,7 @@ namespace Atlas.Presentation.Battle
                     return new PachimonInfoDtoBuilder.MoveInput(
                         moveMap.Slot, moveId, database.MovesDataTable.FindByMoveId(moveId).MaxPp);
                 });
-            return PachimonInfoDtoBuilder.Build(database, pachimon.PachimonId, moves);
+            return PachimonInfoDtoBuilder.Build(database, pachimon.PachimonId, moves.ToArray());
         }
 
         private SelectionViewDto BuildSelectionDto()
@@ -391,7 +391,7 @@ namespace Atlas.Presentation.Battle
                             MaxHp = maxHp,
                             IsActive = slot == selfActiveIndex,
                             IsFainted = selfFaintedBySlot[slot],
-                            Info = PachimonInfoDtoBuilder.Build(database, pachimonId, moves),
+                            Info = PachimonInfoDtoBuilder.Build(database, pachimonId, moves.ToArray()),
                         };
                     })
                     .ToList(),
