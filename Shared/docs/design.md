@@ -146,7 +146,7 @@ BattleServerとClientの間(MessagePack)は`nullable`を使ってよい(`api-cod
 
 ジェムのような数量で持つリソースは、`players`に専用の列を持たせず、マスタ`items`と所持数テーブル
 `player_items`で管理する。所持数は絶対値で、増減はすべてサーバーが決める。現状のアイテムはジェム
-(`item_id: 1`)だけ。
+(`item_id: 1`)と育成チケット(`item_id: 2`、マスタのみで増減の処理は未実装)。
 
 | きっかけ | 増減 | 処理する場所 |
 |---|---|---|
@@ -590,7 +590,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
   `Atlas.MasterData.csproj`)。MasterMemory・MessagePackのSource Generatorが同じアセンブリ内でしか働かないため
 - 生成される型は「テーブル名のPascalCase + `Data`」(`pachimon` → `PachimonData`)で、`partial`。
   ゲームロジックはこの型を直接使わず、BattleCoreの型(`ParticipantStats`/`MoveData`)に変換して使う
-- テーブルごとに配布先(`targets`)を決められる。サーバーだけで使うもの(`move_groups`・`starter_party_slots`)は
+- テーブルごとに配布先(`targets`)を決められる。サーバーだけで使うもの(`move_groups`・`starter_party_slots`・`shop_products`)は
   Clientの`masterdata.bytes`に含めない(Clientは`pachimon.move_group_id`から`move_group_moves`を直接引くため、
   `move_groups`自体は要らない)
 - パイプラインの型は`int`/`long`/`string`/`bool`/`enum`だけで、小数・`nullable`・複合主キーを持てない。
@@ -601,7 +601,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 本家ポケモンの対戦から、天候・フィールド・持ち物・特性・技の追加効果を外した構成。レベルアップで技を
 覚える仕組みは無く、パチモンに「技グループ」を紐付ける。
 
-**pachimon**(36件)
+**pachimon**(136件)
 
 | 列 | 説明 |
 |---|---|
@@ -621,7 +621,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 
 複数のパチモンで共有できる設計だが、現状のデータは1パチモン1グループ(`pachimon_id`と同じ値)。
 
-**move_group_moves**(技グループが含む技。現状は各グループ5件)
+**move_group_moves**(技グループが含む技。現状は各グループ20〜48件)
 
 | 列 | 説明 |
 |---|---|
@@ -630,7 +630,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 | `move_id` | FK → `moves` |
 | `is_initial` | 初期技か。各グループちょうど4件(APIサーバーのテストで確かめている) |
 
-**moves**(64件)
+**moves**(261件)
 
 | 列 | 説明 |
 |---|---|
@@ -669,8 +669,23 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 
 | 列 | 説明 |
 |---|---|
-| `item_id` | PK。`1`がジェム |
+| `item_id` | PK。`1`がジェム、`2`が育成チケット |
 | `name` | |
+
+**shop_products**
+
+| 列 | 説明 |
+|---|---|
+| `shop_product_id` | PK |
+| `item_id` | FK → `items`。購入で受け取るアイテム |
+| `amount` | 1回の購入で受け取る数 |
+| `cost_item_id` | FK → `items`。支払うアイテム(現状はジェム) |
+| `cost_amount` | 1回の購入で支払う数 |
+
+- マスタにある商品はいつでも買える(販売期間を持たない)。パイプラインに日時の型が無いこともあり、期間を持つスカウトの
+  バナーとは違ってマスタで持つ
+- 購入の可否と支払う数はサーバーが判定するため、Clientには配布せず、購入できる商品を通信で返す
+- DBのテーブル(マイグレーション)と`seed_master_data`への投入は未作成
 
 **Enum**: `pachimon_type`(18タイプ + `NONE`)、`rarity`、`move_category`、`type_effectiveness`
 (`Shared/master-data/schema/enums/`)。
@@ -1301,7 +1316,7 @@ WaitingForJoin ──(2人そろう)──→ Selecting ──(両者が選出)�
 
 | 論点 | 関係する節 |
 |---|---|
-| ステータスポイント(64ポイント)の割り振り・育成チケット・ショップの設計(APIとテーブル、能力の計算式への反映の仕方。`floor(努力値 / 4)`のままにするか) | [4.4](#44-所持データ)、[7.2](#72-atlasbattlecore) |
+| ステータスポイントの割り振り・育成チケット・ショップのAPI設計。決まっていること: 技の付け替えと割り振りの変更はそれぞれチケット1枚、64ポイントを6能力に上限なしで割り振り、能力の値にそのまま足す(今の`floor(努力値 / 4)`から計算式を変える)、ショップは販売期間・購入履歴なし | [4.4](#44-所持データ)、[5.2](#52-テーブル)、[7.2](#72-atlasbattlecore) |
 | 通信エラーダイアログ・Loading(gRPC化と合わせて決め直す) | [6.9](#69-通信エラーダイアログloading設計案) |
 | APIサーバーのgRPC化([feature-grpc-foundation.md](proposals/feature-grpc-foundation.md)) | [3](#3-apiサーバー)、[6.6](#66-通信と所持データ) |
 | Clientの再接続と、強制交代ターンの途中で再接続したときの状態の伝え方(`OnMatchStart`に強制交代の状態が無い) | [7.4](#74-対戦の進行) |

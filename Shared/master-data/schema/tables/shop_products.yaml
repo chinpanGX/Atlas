@@ -1,0 +1,30 @@
+# ショップ商品マスタ。1行が1商品で、1回の購入で item_id を amount 個受け取り、
+# cost_item_id を cost_amount 個消費する。
+#
+# targets: [server] — 購入の可否と消費数はサーバーが判定する。クライアントには購入できる商品を
+# 通信で返すため、client向けMemoryTable/masterdata.bytesへの出力は行わない。
+name: shop_products
+input_csv: shop_products_master
+targets: [server]
+fields:
+  - name: shop_product_id
+    type: int
+    primary_key: true
+  - name: item_id
+    type: int
+  - name: amount
+    type: int
+  - name: cost_item_id
+    type: int
+  - name: cost_amount
+    type: int
+validate:
+  unique:
+    - shop_product_id
+  check_relation:
+    - field: item_id
+      table: items
+      target_field: item_id
+    - field: cost_item_id
+      table: items
+      target_field: item_id

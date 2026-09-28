@@ -1,0 +1,5 @@
+ショップ商品マスタ,,,,
+出典: なし(オリジナル)。1回の購入で item_id を amount 個受け取り、cost_item_id を cost_amount 個消費する。shop_product_id=1は育成チケット1枚をジェム50個で交換する商品,,,,
+int,int,int,int,int
+shop_product_id,item_id,amount,cost_item_id,cost_amount
+1,2,1,1,50
