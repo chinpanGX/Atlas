@@ -15,6 +15,7 @@ namespace Atlas.Presentation.Party
         // 編成中を示すフレームと、選択中を示すフレーム。両方同時に表示されることもある(選択中が手前)。
         [SerializeField] private GameObject partyFrame;
         [SerializeField] private GameObject selectedFrame;
+        [SerializeField] private GameObject newBadge;
 
         public Observable<Unit> OnClicked => button.OnClickAsObservable();
 
@@ -28,6 +29,7 @@ namespace Atlas.Presentation.Party
         {
             nameText.text = pachimon.Name;
             thumbnail.Show(pachimon.PachimonId);
+            newBadge.SetActive(pachimon.IsNew);
         }
     }
 }

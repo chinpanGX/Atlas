@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
@@ -9,6 +8,7 @@ using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
 using UnityScreenNavigator;
+using ZLinq;
 
 namespace Atlas.Presentation.Scout
 {
@@ -25,6 +25,7 @@ namespace Atlas.Presentation.Scout
         private readonly ScoutPage view;
         private readonly IScoutConnection scoutConnection;
         private readonly IItemFetchService itemFetchService;
+        private readonly IPachimonService pachimonService;
         private readonly MemoryDatabase database;
         private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
@@ -40,12 +41,14 @@ namespace Atlas.Presentation.Scout
             ScoutPage view,
             IScoutConnection scoutConnection,
             IItemFetchService itemFetchService,
+            IPachimonService pachimonService,
             MemoryDatabase database,
             IScreenNavigator screenNavigator)
         {
             this.view = view;
             this.scoutConnection = scoutConnection;
             this.itemFetchService = itemFetchService;
+            this.pachimonService = pachimonService;
             this.database = database;
             this.screenNavigator = screenNavigator;
         }
@@ -121,7 +124,11 @@ namespace Atlas.Presentation.Scout
 
             cancellation.ThrowIfCancellationRequested();
             selectedIndex = null;
-            view.ShowCandidates(roll.Candidates.Select(CreatePachimonDto).ToList());
+            // 候補を選ぶと所持に加わるが、表示中のNewは紹介を受けた時点の所持で決めたまま変えない。
+            var ownedPachimonIds = pachimonService.GetAll().Select(pachimon => pachimon.PachimonId).ToHashSet();
+            view.ShowCandidates(roll.Candidates
+                .Select(candidate => CreatePachimonDto(candidate, !ownedPachimonIds.Contains(candidate.PachimonId)))
+                .ToList());
             view.HidePachimonInfo();
             RefreshState();
         }
@@ -182,17 +189,22 @@ namespace Atlas.Presentation.Scout
             view.SetBackButtonInteractable(roll is null);
         }
 
-        private PachimonDto CreatePachimonDto(ScoutCandidate candidate)
+        private PachimonDto CreatePachimonDto(ScoutCandidate candidate, bool isNew)
         {
             // 候補はまだ所持していないためPlayerPachimonIdは無い。
-            return new PachimonDto { Name = FindPachimonName(candidate.PachimonId), PachimonId = candidate.PachimonId };
+            return new PachimonDto
+            {
+                Name = FindPachimonName(candidate.PachimonId),
+                PachimonId = candidate.PachimonId,
+                IsNew = isNew,
+            };
         }
 
         private PachimonInfoDto CreatePachimonInfoDto(ScoutCandidate candidate)
         {
             var moves = candidate.MoveIds.Select((moveId, index) =>
                 new PachimonInfoDtoBuilder.MoveInput(index + 1, moveId, database.MovesDataTable.FindByMoveId(moveId).MaxPp));
-            return PachimonInfoDtoBuilder.Build(database, candidate.PachimonId, moves);
+            return PachimonInfoDtoBuilder.Build(database, candidate.PachimonId, moves.ToArray());
         }
 
         private string FindPachimonName(int pachimonId)

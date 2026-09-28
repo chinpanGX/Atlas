@@ -7,5 +7,7 @@ namespace Atlas.Presentation.Party
         public string Name;
         // サムネイルを引くマスタのpachimon_id。画像はViewが読み込む。
         public long PachimonId;
+        // スカウトの候補で、その種族を1体も所持していないときにNewのバッジを出す。
+        public bool IsNew;
     }
 }
