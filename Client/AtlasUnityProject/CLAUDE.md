@@ -57,6 +57,9 @@ Push単位の子スコープ(ScreenNavigatorが画面を開くたびに作り、
 
 ### アセンブリ
 
+オニオンアーキテクチャ。Domainを中心に、Application → Presentation・Infrastructure → DI(構成ルート)の順に外側になり、
+依存は外側から内側への一方向だけにする(asmdefの参照で強制する)。通信・保存のインターフェースは内側に置き、Infrastructureが実装する。
+
 | asmdef | 置くもの |
 |---|---|
 | `Atlas.Domain` | Entity、`IXxxRepository`、`IBattleConnection`とその型 |

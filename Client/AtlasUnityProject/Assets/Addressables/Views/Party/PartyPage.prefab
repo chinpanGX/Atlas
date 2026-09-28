@@ -163,7 +163,7 @@ GameObject:
   - component: {fileID: 8902681261370131254}
   - component: {fileID: 4269692808100920353}
   - component: {fileID: 6433506164078690746}
-  - component: {fileID: 2347764071236821578}
+  - component: {fileID: 3748843182515763596}
   m_Layer: 5
   m_Name: Thumbnail
   m_TagString: Untagged
@@ -220,7 +220,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -228,7 +228,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &2347764071236821578
+--- !u!114 &3748843182515763596
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -237,11 +237,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 1473353820865905973}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8ddb11da44efab4e8cc616dfeca0129, type: 3}
+  m_Script: {fileID: 11500000, guid: e1cce4e813605d84683423d252cb9f67, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PaletteColor
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PachimonThumbnailView
+  image: {fileID: 6433506164078690746}
   palette: {fileID: 11400000, guid: c75647eafd9f3264db827a8d976e97b0, type: 2}
-  role: 8
 --- !u!1 &1574460755163071668
 GameObject:
   m_ObjectHideFlags: 0
@@ -253,7 +253,7 @@ GameObject:
   - component: {fileID: 6733730006454393140}
   - component: {fileID: 2401585074302505898}
   - component: {fileID: 6113512387599773682}
-  - component: {fileID: 2836608401545427810}
+  - component: {fileID: 3799805890132491315}
   m_Layer: 5
   m_Name: Thumbnail
   m_TagString: Untagged
@@ -310,7 +310,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -318,7 +318,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &2836608401545427810
+--- !u!114 &3799805890132491315
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -327,11 +327,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 1574460755163071668}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8ddb11da44efab4e8cc616dfeca0129, type: 3}
+  m_Script: {fileID: 11500000, guid: e1cce4e813605d84683423d252cb9f67, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PaletteColor
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PachimonThumbnailView
+  image: {fileID: 6113512387599773682}
   palette: {fileID: 11400000, guid: c75647eafd9f3264db827a8d976e97b0, type: 2}
-  role: 8
 --- !u!1 &1576788970172775501
 GameObject:
   m_ObjectHideFlags: 0
@@ -620,7 +620,7 @@ GameObject:
   - component: {fileID: 3277408896819309392}
   - component: {fileID: 6762084862847608764}
   - component: {fileID: 2121254560177445887}
-  - component: {fileID: 4307337143735061176}
+  - component: {fileID: 5536748408201703386}
   m_Layer: 5
   m_Name: Thumbnail
   m_TagString: Untagged
@@ -677,7 +677,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -685,7 +685,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &4307337143735061176
+--- !u!114 &5536748408201703386
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -694,11 +694,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 2162195000308596125}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8ddb11da44efab4e8cc616dfeca0129, type: 3}
+  m_Script: {fileID: 11500000, guid: e1cce4e813605d84683423d252cb9f67, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PaletteColor
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PachimonThumbnailView
+  image: {fileID: 2121254560177445887}
   palette: {fileID: 11400000, guid: c75647eafd9f3264db827a8d976e97b0, type: 2}
-  role: 8
 --- !u!1 &2395969814232176528
 GameObject:
   m_ObjectHideFlags: 0
@@ -839,7 +839,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Party.PartySlotView
   button: {fileID: 6720018246913860689}
   nameText: {fileID: 7026035130319612102}
-  thumbnailImage: {fileID: 2502673576578157938}
+  thumbnail: {fileID: 8063609302462556801}
   selectedFrame: {fileID: 3369763191733125829}
 --- !u!114 &8991320792274134600
 MonoBehaviour:
@@ -995,7 +995,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Party.PartySlotView
   button: {fileID: 1709261290387208642}
   nameText: {fileID: 2947229477773768924}
-  thumbnailImage: {fileID: 2984083417317888990}
+  thumbnail: {fileID: 7501335998467056317}
   selectedFrame: {fileID: 5423810308291604083}
 --- !u!114 &3315543470345892211
 MonoBehaviour:
@@ -1374,7 +1374,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Party.PartySlotView
   button: {fileID: 8184177601117428567}
   nameText: {fileID: 3062402404004169223}
-  thumbnailImage: {fileID: 6113512387599773682}
+  thumbnail: {fileID: 3799805890132491315}
   selectedFrame: {fileID: 1655016703541881833}
 --- !u!114 &6430944908068640813
 MonoBehaviour:
@@ -1581,7 +1581,7 @@ GameObject:
   - component: {fileID: 2239718018610439056}
   - component: {fileID: 4597169684656430919}
   - component: {fileID: 2984083417317888990}
-  - component: {fileID: 2492295371782588551}
+  - component: {fileID: 7501335998467056317}
   m_Layer: 5
   m_Name: Thumbnail
   m_TagString: Untagged
@@ -1638,7 +1638,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -1646,7 +1646,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &2492295371782588551
+--- !u!114 &7501335998467056317
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1655,11 +1655,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 4275927366352241835}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8ddb11da44efab4e8cc616dfeca0129, type: 3}
+  m_Script: {fileID: 11500000, guid: e1cce4e813605d84683423d252cb9f67, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PaletteColor
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PachimonThumbnailView
+  image: {fileID: 2984083417317888990}
   palette: {fileID: 11400000, guid: c75647eafd9f3264db827a8d976e97b0, type: 2}
-  role: 8
 --- !u!1 &4421409243433901408
 GameObject:
   m_ObjectHideFlags: 0
@@ -2321,7 +2321,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Party.PartySlotView
   button: {fileID: 4739105659854805291}
   nameText: {fileID: 1712104488250853788}
-  thumbnailImage: {fileID: 6228575044585053191}
+  thumbnail: {fileID: 1963818283850504024}
   selectedFrame: {fileID: 6681259226576721638}
 --- !u!114 &7856522491049479367
 MonoBehaviour:
@@ -2477,7 +2477,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Party.PartySlotView
   button: {fileID: 6252766895788227738}
   nameText: {fileID: 1595650716760859930}
-  thumbnailImage: {fileID: 2121254560177445887}
+  thumbnail: {fileID: 5536748408201703386}
   selectedFrame: {fileID: 1576788970172775501}
 --- !u!114 &6626417081790592021
 MonoBehaviour:
@@ -2656,7 +2656,7 @@ GameObject:
   - component: {fileID: 6212868066981279086}
   - component: {fileID: 4411017656813246722}
   - component: {fileID: 6228575044585053191}
-  - component: {fileID: 1987518194452678337}
+  - component: {fileID: 1963818283850504024}
   m_Layer: 5
   m_Name: Thumbnail
   m_TagString: Untagged
@@ -2713,7 +2713,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -2721,7 +2721,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &1987518194452678337
+--- !u!114 &1963818283850504024
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2730,11 +2730,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 6383977473500128103}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8ddb11da44efab4e8cc616dfeca0129, type: 3}
+  m_Script: {fileID: 11500000, guid: e1cce4e813605d84683423d252cb9f67, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PaletteColor
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PachimonThumbnailView
+  image: {fileID: 6228575044585053191}
   palette: {fileID: 11400000, guid: c75647eafd9f3264db827a8d976e97b0, type: 2}
-  role: 8
 --- !u!1 &6681259226576721638
 GameObject:
   m_ObjectHideFlags: 0
@@ -3254,7 +3254,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Party.PartySlotView
   button: {fileID: 1081253148388748623}
   nameText: {fileID: 1326022456705823263}
-  thumbnailImage: {fileID: 6433506164078690746}
+  thumbnail: {fileID: 3748843182515763596}
   selectedFrame: {fileID: 7954463296885126095}
 --- !u!114 &4181692714180272430
 MonoBehaviour:
@@ -3433,7 +3433,7 @@ GameObject:
   - component: {fileID: 3720877840214695705}
   - component: {fileID: 1804829355624011372}
   - component: {fileID: 2502673576578157938}
-  - component: {fileID: 1838179253260672132}
+  - component: {fileID: 8063609302462556801}
   m_Layer: 5
   m_Name: Thumbnail
   m_TagString: Untagged
@@ -3490,7 +3490,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -3498,7 +3498,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &1838179253260672132
+--- !u!114 &8063609302462556801
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3507,11 +3507,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 7805446905817280315}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8ddb11da44efab4e8cc616dfeca0129, type: 3}
+  m_Script: {fileID: 11500000, guid: e1cce4e813605d84683423d252cb9f67, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PaletteColor
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PachimonThumbnailView
+  image: {fileID: 2502673576578157938}
   palette: {fileID: 11400000, guid: c75647eafd9f3264db827a8d976e97b0, type: 2}
-  role: 8
 --- !u!1 &7954463296885126095
 GameObject:
   m_ObjectHideFlags: 0

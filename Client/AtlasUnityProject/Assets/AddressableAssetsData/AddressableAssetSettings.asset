@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 0ccf54438e2faac49924537f5aa785fc
   m_currentHash:
     serializedVersion: 2
-    Hash: d705812f21757c4b8ea3bea520f460e1
+    Hash: 00000000000000000000000000000000
   m_ExtractTypeTreeData: 0
   m_DisableWriteTypeTree: 0
   m_OptimizeCatalogSize: 0
@@ -64,6 +64,7 @@ MonoBehaviour:
   m_overridePlayerVersion: '[UnityEditor.PlayerSettings.bundleVersion]'
   m_GroupAssets:
   - {fileID: 11400000, guid: 005412fab79cfbe4e900be24a1ea9e9e, type: 2}
+  - {fileID: 11400000, guid: 0e3998c07d14cb34fa85ef516a337241, type: 2}
   - {fileID: 11400000, guid: 80795477437cb534eb937d5c41b58b9a, type: 2}
   m_BuildSettings:
     m_LogResourceManagerExceptions: 1
@@ -104,6 +105,42 @@ MonoBehaviour:
   m_LabelTable:
     m_LabelNames:
     - default
+    - thumbnail_1001
+    - thumbnail_1002
+    - thumbnail_1003
+    - thumbnail_1004
+    - thumbnail_1005
+    - thumbnail_1006
+    - thumbnail_1007
+    - thumbnail_1008
+    - thumbnail_1009
+    - thumbnail_1010
+    - thumbnail_1011
+    - thumbnail_1012
+    - thumbnail_1013
+    - thumbnail_1014
+    - thumbnail_1015
+    - thumbnail_1016
+    - thumbnail_1017
+    - thumbnail_1018
+    - thumbnail_1019
+    - thumbnail_1020
+    - thumbnail_1021
+    - thumbnail_1022
+    - thumbnail_1023
+    - thumbnail_1024
+    - thumbnail_1025
+    - thumbnail_1026
+    - thumbnail_1027
+    - thumbnail_1028
+    - thumbnail_1029
+    - thumbnail_1030
+    - thumbnail_1031
+    - thumbnail_1032
+    - thumbnail_1033
+    - thumbnail_1034
+    - thumbnail_1035
+    - thumbnail_1036
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 8b049c8a1c83c8947a50d7aba436f9ff, type: 2}

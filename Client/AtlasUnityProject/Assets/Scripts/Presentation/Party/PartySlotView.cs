@@ -1,8 +1,8 @@
+using Atlas.Presentation.Common;
 using R3;
 using TMPro;
 using UIPackages.Runtime;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Atlas.Presentation.Party
 {
@@ -11,7 +11,7 @@ namespace Atlas.Presentation.Party
     {
         [SerializeField] private CommonButton button;
         [SerializeField] private TextMeshProUGUI nameText;
-        [SerializeField] private Image thumbnailImage;
+        [SerializeField] private PachimonThumbnailView thumbnail;
         [SerializeField] private GameObject selectedFrame;
 
         public Observable<Unit> OnClicked => button.OnClickAsObservable();
@@ -25,11 +25,8 @@ namespace Atlas.Presentation.Party
         {
             var hasPachimon = pachimon is not null;
             nameText.text = hasPachimon ? pachimon.Name : string.Empty;
-            thumbnailImage.gameObject.SetActive(hasPachimon);
-            if (hasPachimon)
-            {
-                thumbnailImage.sprite = pachimon.Thumbnail;
-            }
+            thumbnail.gameObject.SetActive(hasPachimon);
+            thumbnail.Show(pachimon?.PachimonId);
         }
     }
 }

@@ -101,6 +101,7 @@ Atlas/
 
 - マスターデータのスキーマ/CSVを変更したら `master-data-pipeline` スキルで生成物を再配置する
   (テーブル・Enumの追加は `master-data-schema-add` スキル)
+- pachimonマスタにパチモンを追加したら `pachimon-thumbnail` スキルで仮のサムネイルを生成し、Addressablesに登録する
 - APIサーバーのAPI(handler/DTO)を追加・変更したら `api-codegen` スキルでUnity向け型を再生成する
 - MySQLコンテナ・マイグレーション・DBのリセットは `server-dev-env` スキル
 - 適用済みのマイグレーションのSQLを書き換えると、ローカルDBの`_sqlx_migrations`のチェックサムと合わなくなる。

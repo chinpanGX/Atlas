@@ -1,12 +1,12 @@
 ﻿# Atlas
 
-クライアント(Unity)とサーバー(Rust)を組み合わせて、デバイス認証・チャット・スカウト・対戦マッチング・リアルタイムバトル(C#/MagicOnion)を持つミニマムなオンラインゲームバックエンドを構築するプロジェクト。
+Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトルサーバーで作る、リアルタイム対戦のモンスター収集ゲーム。
 
 ## このアプリについて
 
-デバイス認証(ゲスト型アカウント)で始める、リアルタイム対戦モンスター収集ゲーム。
-「パチモン」と呼ばれるモンスターをスカウトで集め、パーティを組んで
-他プレイヤーとオンライン対戦する。
+会員登録なしで始められる(端末単位のゲストアカウント)、リアルタイム対戦のモンスター収集ゲーム。
+「パチモン」と呼ばれるモンスターをスカウトで集めて育成し、パーティを組んでほかのプレイヤーとオンラインで対戦する。
+対戦は、本家ポケモンの対戦ルールから天候・フィールド・持ち物・特性・技の追加効果などを外した小さなルールで遊ぶ。
 
 ### コアループ
 
@@ -41,27 +41,36 @@
 
 ```
 Unity Client
-   │ REST (HTTP)              │ gRPC/StreamingHub (MagicOnion)
-   ▼                          ▼
-Rust/Axum API Server    C#/MagicOnion Server
-(認証/スカウト/チャット/     (リアルタイム対戦のみ)
- マッチング/DB書き込み)          │
-   ▲──────── 内部API(結果報告) ──┘
+   │ REST (HTTP/JSON)              │ MagicOnion (gRPC / StreamingHub)
+   ▼                               ▼
+APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
+ 認証・プレイヤー・スカウト・      対戦の進行のみ(状態はメモリ上)
+ チャット・マッチング・DB書き込み        │
+   ▲─────────── 内部API(REST) ──────────┘  パーティ・選出個体の取得、結果報告
    │
- MySQL (唯一のデータストア、書き込みはRust経由に統一)
+ MySQL(唯一のデータストア。書き込みはAPIサーバーだけが行う)
 ```
 
 ## 構成
 
 ```
 Atlas/
-├── Client/                 # Unityクライアント(実装状況は Shared/docs/progress.md 参照)
-├── Server/                 # Rustバックエンド(REST API、実装中)
-├── BattleServer/           # C#/MagicOnionのリアルタイム対戦サーバー
-├── Shared/                 # クライアント/サーバー間の共有定義
-├── master-data-pipeline/   # マスターデータ生成パイプライン(スプレッドシート→各プラットフォーム向け出力、自作)
-└── api-codegen/            # OpenAPI仕様書→Unity向けDTO・通信APIクライアント生成ツール(自作)
+├── Client/AtlasUnityProject/  # Unityクライアント
+├── Server/                    # APIサーバー(Rust/axum)
+├── BattleServer/              # バトルサーバー(C#/MagicOnion)、対戦相手ボット、テスト
+├── Shared/                    # Client・サーバーで共有するもの
+│   ├── BattleCore/            # ダメージ計算・ターン処理(ClientとBattleServerが同じソースを使う)
+│   ├── BattleContracts/       # Client⇔BattleServerの通信契約
+│   ├── master-data/           # マスターデータのスキーマとCSV(正本)
+│   ├── api/openapi.yaml       # APIサーバーのOpenAPI仕様書(生成物)
+│   └── docs/                  # 仕様概要書・設計書・Notesなど
+├── master-data-pipeline/      # マスターデータの定義・自動生成ツール(submodule、自作)
+├── api-codegen/               # OpenAPI → Unity向けDTO・通信クライアントの生成ツール(submodule、自作)
+├── Supplement/                # Unity共通ユーティリティ(submodule、自作)
+└── UnityScreenNavigator/      # 画面遷移ライブラリ(USN)のフォーク(submodule)
 ```
+
+実装の進み具合は[Shared/docs/progress.md](Shared/docs/progress.md)を参照。
 
 開発環境の構築・起動手順は[DEVELOPMENT.md](DEVELOPMENT.md)を参照。
 
@@ -75,66 +84,88 @@ Atlas/
 
 - **デバイス認証**: 会員登録なしのゲスト型認証。`secret_key`はArgon2でハッシュ化して保存し、1つの`device_id`につき有効なアクセストークンは常に1つ(再認証時は上書き)
 - **共通認証Extractor**: axumの`FromRequestParts`を実装した`AuthenticatedDevice`により、要認証エンドポイントの`Authorization: Bearer`検証ロジックを一元化
-- **マスターデータ管理**: 正はMySQL。`master-data-pipeline`(スプレッドシート→CI→DB seed)で投入し、APIサーバーは起動時にDBから全マスタを読み込んでメモリキャッシュを参照する方針。サーバー1台構成という規模に対して、常時ポーリングでの無停止反映のような複雑さは現時点で導入しない判断とした(詳細は[設計書](Shared/docs/design.md#5-マスターデータ)の「5. マスターデータ」参照)
-- **コード生成ツールの自作**: `master-data-pipeline`(マスターデータ生成)と`api-codegen`(OpenAPI仕様書→Unity向けコード生成)は、既存OSSでの代替(`api-codegen`は`openapi-generator`/`NSwag`)を検討した上で自作した専用ツール。特定プロジェクトに依存しない汎用ツールとして設計されている(詳細は各ツールの`README.md`、検討経緯は[Shared/docs/notes/feature-api-codegen.md](Shared/docs/notes/feature-api-codegen.md)を参照)
+- **DBへの書き込みの一本化**: MySQLへ書き込むのはAPIサーバーだけ。バトルサーバーはDBを持たず、パーティ・選出個体の取得と結果報告を内部API(`X-Internal-Secret`で認証)で行う。対戦の判定はバトルサーバーが権威を持ち、クライアントにはHPを%でしか送らない
+- **共通モジュール**: ダメージ計算・ターン処理(`Atlas.BattleCore`)と通信契約(`Atlas.BattleContracts`)は、同じソースをUnity(ローカルパッケージ)とバトルサーバー(csproj)の両方でコンパイルする
+- **マスターデータ管理**: 正本は`Shared/master-data/`のスキーマとCSV(Googleスプレッドシートからも作れる)。`master-data-pipeline`がRust・C#向けの型とデータを生成し、APIサーバーはDBへ投入したものを起動時に全件読み込んでメモリに持つ。サーバー1台構成の規模に対して、無停止での反映は現時点で導入しない判断とした(詳細は[設計書](Shared/docs/design.md#5-マスターデータ)の「5. マスターデータ」参照)
+- **コード生成ツールの自作**: [master-data-pipeline](https://github.com/chinpanGX/master-data-pipeline)(マスターデータの定義・自動生成)と[api-codegen](https://github.com/chinpanGX/api-codegen)(OpenAPI仕様書→Unity向けコード生成)は、既存OSSでの代替(`api-codegen`は`openapi-generator`/`NSwag`)を検討した上で自作した専用ツール。特定プロジェクトに依存しない汎用ツールとして設計されている(詳細は各ツールの`README.md`、検討経緯は[Shared/docs/notes/feature-api-codegen.md](Shared/docs/notes/feature-api-codegen.md)を参照)
 
 ## 技術スタック
 
 ### Client
 
-- Unity 6.6
+- [Unity 6.6](https://unity.com/releases/unity-6)(6000.6.2f1)
 
-**アーキテクチャ・DI**
+**アーキテクチャ**
 
-- `VContainer`(DIコンテナ)
-- `UnityScreenNavigator`(画面遷移)
-- `Addressables` / `SmartAddresser` / `AddressDefinitionGenerator`(CyberAgent製、アドレスの一元管理・アクセス用定数の自動生成)
+オニオンアーキテクチャを採用し、レイヤーをasmdefで分けて依存の向きをコンパイルで強制する。
 
-**非同期・リアクティブ**
+```text
+外側  DI                               構成ルート。全レイヤーの実装を組み立てる
+       ↓
+      Presentation / Infrastructure    View・Presenter / API通信・Mock・MagicOnion・端末への保存
+       ↓
+      Application                      Service、Connection(通信)のインターフェース
+       ↓
+中心  Domain                           Entity、Repository(所持データ)のインターフェース
+```
 
-- `UniTask`(非同期処理)
-- `R3`(Reactive Extensions)
+(矢印は依存の向き。外側のレイヤーは、それより内側のすべてのレイヤーを参照できる)
 
-**通信**
+- 依存は外側から内側への一方向。Domainはどのレイヤーにも依存せず、PresentationとInfrastructureは互いを参照しない。
+  通信や保存のインターフェースを内側(Application・Domain)に置き、外側のInfrastructureが実装する
+- 各レイヤーの実装を組み立てるのは最も外側のDI(VContainerのLifetimeScope)だけ
+- 画面はView / Presenterに分け、Presenterが具象のView(`Page`/`Modal`)をコンストラクタで受け取り、ViewのObservableを購読する
+  (Viewにインターフェースは作らない)。Presenterは画面を開くたびに作る子スコープで生成し、閉じると破棄する
+- 通信と手元のデータを分ける: サーバーAPIの呼び出しは`Connection`、所持データは`Repository`(メモリに保持)、
+  画面から使う処理は`Service`。所持データを変えるAPIの差分(`playerDiff`)は、Connectionが受け取った直後にRepositoryへ反映する
+- 通信の実装はMock/Realを差し替えられる(対戦は、クライアント内で完結するMock対戦と実サーバーをInspectorで切り替え)
+- シーンはBootstrap(常駐)/ Home / Battleの3つ。DIのスコープもアプリ・シーン・画面の3段にする
 
-- `MagicOnion`(gRPC/StreamingHubによるリアルタイム通信。C#/MagicOnion対戦サーバーとの通信を担当)
-- `YetAnotherHttpHandler`(MagicOnion/gRPC通信用のHTTPハンドラ実装)
-- `MessagePack for C#`(シリアライズ)
-- REST API(Rust/Axumサーバー宛)は`api-codegen`(自作、後述)が生成する`UnityWebRequest`+`UniTask`ベースの通信クライアントを使用
+**ライブラリ**
 
-**自作パッケージ**
-
-- `Supplement` / `Supplement.ZeroMessenger`([chinpanGX/Supplement](https://github.com/chinpanGX/Supplement)。暗号化・永続化・階層メッセージング等の共通ユーティリティを提供する自作Unityパッケージ。VContainer/UniTask/Addressablesと連携)
-
-**パッケージ管理・開発支援**
-
-- `NuGetForUnity`(NuGetパッケージのUnity導入)
-- `uLoopMCP`(Claude CodeなどのAIエージェントからUnity Editorを操作するためのMCPツール)
-
-**開発ツール**
-
-- IDE:JetBrains Rider
+| 用途 | ライブラリ | 備考 |
+| --- | --- | --- |
+| DI | [VContainer](https://github.com/hadashiA/VContainer) | |
+| 画面遷移 | [UnityScreenNavigator](https://github.com/chinpanGX/UnityScreenNavigator) | 自作のフォーク(元は[Haruma-K/UnityScreenNavigator](https://github.com/Haruma-K/UnityScreenNavigator))。Presenter起点の画面遷移・遷移の直列化を追加 |
+| アセット管理 | [Addressables](https://docs.unity3d.com/Packages/com.unity.addressables@latest) | |
+| アドレスの管理 | [SmartAddresser](https://github.com/CyberAgentGameEntertainment/SmartAddresser) / [AddressDefinitionGenerator](https://github.com/CyberAgentGameEntertainment/AddressDefinitionGenerator) | ルールによるアドレスの一元管理と、アクセス用定数の自動生成 |
+| 非同期 | [UniTask](https://github.com/Cysharp/UniTask) | |
+| リアクティブ | [R3](https://github.com/Cysharp/R3) | View→Presenterの通知 |
+| メッセージング | [ZeroMessenger](https://github.com/annulusgames/ZeroMessenger) | 画面をまたぐ通知(Pub/Sub)。直接は使わず、Supplementの`IMessageBroker`([Supplement.ZeroMessenger](https://github.com/chinpanGX/Supplement/tree/main/Assets/Supplement.ZeroMessenger))経由で使う |
+| コレクション操作 | [ZLinq](https://github.com/Cysharp/ZLinq) | アロケーションの少ないLINQ |
+| 演出 | [LitMotion](https://github.com/annulusgames/LitMotion) | Tween(HPゲージが減る演出など) |
+| マスターデータ | [MasterMemory](https://github.com/Cysharp/MasterMemory) | [master-data-pipeline](https://github.com/chinpanGX/master-data-pipeline)(自作ツール)が生成するマスターデータのランタイム |
+| シリアライズ | [MessagePack for C#](https://github.com/MessagePack-CSharp/MessagePack-CSharp) | マスターデータとMagicOnionの通信で使用 |
+| リアルタイム通信 | [MagicOnion](https://github.com/Cysharp/MagicOnion) / [YetAnotherHttpHandler](https://github.com/Cysharp/YetAnotherHttpHandler) | バトルサーバーとの通信(gRPC/StreamingHub)。HTTP/2はIL2CPPでも同じ動作になるネイティブ実装を使う |
+| REST通信 | [api-codegen](https://github.com/chinpanGX/api-codegen)の生成コード | `UnityWebRequest` + `UniTask`。APIサーバーのOpenAPI仕様書から生成(自作ツール) |
+| 共通ユーティリティ | [Supplement](https://github.com/chinpanGX/Supplement) / [Supplement.ZeroMessenger](https://github.com/chinpanGX/Supplement/tree/main/Assets/Supplement.ZeroMessenger) | 自作。暗号化・永続化・アセットの読み込み・`IMessageBroker`等 |
+| パッケージ管理 | [NuGetForUnity](https://github.com/GlitchEnzo/NuGetForUnity) | NuGetパッケージのUnity導入 |
+| 開発支援 | [Unity CLI Loop](https://github.com/hatayama/unity-cli-loop) | Claude CodeなどのAIエージェントからUnity Editorを操作する |
 
 ### Server
 
 **言語・ランタイム**
 
-- Rust(edition 2024)
-- 非同期ランタイム:`tokio`
+- [Rust](https://www.rust-lang.org/)(edition 2024)
+- 非同期ランタイム:[tokio](https://github.com/tokio-rs/tokio)
 
 **Webフレームワーク**
 
-- `axum`
+- [axum](https://github.com/tokio-rs/axum)
 
 **データベース**
 
-- MySQL
-- DBライブラリ:`sqlx`(生SQL + コンパイル時クエリチェック)
+- [MySQL](https://www.mysql.com/)
+- DBライブラリ:[sqlx](https://github.com/launchbadge/sqlx)(生SQL。実行時に組み立てる`sqlx::query`を使う)
 
 **インフラ・実行環境**
 
-- Docker / Docker Compose(MySQLコンテナのローカル構築)
-- 環境変数管理:`dotenvy`(`.env`でDB接続情報を管理)
+- [Docker](https://www.docker.com/) / [Docker Compose](https://docs.docker.com/compose/)(MySQLコンテナのローカル構築)
+- 環境変数管理:[dotenvy](https://github.com/allan2/dotenvy)(`.env`でDB接続情報を管理)
+
+**API仕様**
+
+- [utoipa](https://github.com/juhaku/utoipa)(ハンドラの注釈からOpenAPI仕様書を生成し、`api-codegen`でUnity向けのコードを生成する)
 
 **アーキテクチャ**
 
@@ -148,9 +179,20 @@ Atlas/
 
 - 標準テスト機構(`cargo test`)
 - DB込みの統合テスト:`sqlx::test`
-- APIレベルの結合テスト:`tower::ServiceExt::oneshot`
+- APIレベルの結合テスト:`tower::ServiceExt::oneshot`([tower](https://github.com/tower-rs/tower))
 
-**API動作確認・開発ツール**
+### BattleServer
 
-- Postman(エンドポイントの疎通確認)
-- IDE:JetBrains RustRover
+**言語・ランタイム**
+
+- [C#](https://learn.microsoft.com/dotnet/csharp/)([.NET 10](https://dotnet.microsoft.com/))/ [ASP.NET Core](https://github.com/dotnet/aspnetcore)
+
+**通信**
+
+- [MagicOnion.Server](https://github.com/Cysharp/MagicOnion)(gRPC/StreamingHub。開発中はHTTP/2・非TLS)
+- [Microsoft.IdentityModel.JsonWebTokens](https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet)(APIサーバーが発行した`battle_token`の検証)
+
+**テスト**
+
+- [xUnit](https://github.com/xunit/xunit) + [Microsoft.AspNetCore.Mvc.Testing](https://learn.microsoft.com/aspnet/core/test/integration-tests)(サーバーをプロセス内で起動し、MagicOnionのクライアントで接続する結合テスト)
+- 対戦相手ボット(`BattleBot`、RESTとMagicOnionで自動対戦する)

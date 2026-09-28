@@ -199,7 +199,8 @@
   - UnityにMessagePackのSource Generatorが入っておらず、`Atlas.BattleContracts`のPayloadは動的シリアライズ(Editor/Monoでのみ動作)
   - 実機・モバイル向けにはGeneratorの導入かResolverの事前生成が必要
 - [ ] **C-13 パチモンのサムネイル画像**
-  - `PachimonDto.Thumbnail`がnullのため、単色のプレースホルダで表示している
+  - 正式な画像は未作成。主タイプの色の円にpachimon_idを書いた仮の画像(`pachimon-thumbnail`スキルで生成)を
+    パーティ・スカウト・対戦の画面に表示している。正式な画像は`Assets/Addressables/Thumbnail/{id}/pachimon_{id}_thumb.png`を差し替える
   - 一時的にシーン一覧で有効にすると動く(交代・投了の2件は成功)。残る`ClickingBattleButtonOnHome_PropagatesToBattleLogic`は、
     テストが引く`OpponentCanvas/LayoutRoot/Image/CurrentHpPercentage`がprefab側では`OpponentCanvas/LayoutRoot/CurrentHpPercentage`に
     なっていて`GameObject.Find`がnullを返すため失敗する(テストのパスが古い)

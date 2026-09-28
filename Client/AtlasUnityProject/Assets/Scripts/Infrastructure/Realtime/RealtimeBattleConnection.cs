@@ -155,9 +155,11 @@ namespace Atlas.Infrastructure.Realtime
         private static EffectivenessResult ToDomain(BattleCore.EffectivenessResult effectiveness) => effectiveness switch
         {
             BattleCore.EffectivenessResult.Immune => EffectivenessResult.Immune,
+            BattleCore.EffectivenessResult.DoubleNotVeryEffective => EffectivenessResult.DoubleNotVeryEffective,
             BattleCore.EffectivenessResult.NotVeryEffective => EffectivenessResult.NotVeryEffective,
             BattleCore.EffectivenessResult.Normal => EffectivenessResult.Normal,
             BattleCore.EffectivenessResult.SuperEffective => EffectivenessResult.SuperEffective,
+            BattleCore.EffectivenessResult.DoubleSuperEffective => EffectivenessResult.DoubleSuperEffective,
             _ => throw new ArgumentOutOfRangeException(nameof(effectiveness), effectiveness, null),
         };
 

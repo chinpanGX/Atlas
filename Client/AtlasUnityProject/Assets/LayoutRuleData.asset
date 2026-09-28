@@ -20,6 +20,20 @@ MonoBehaviour:
         _value: 
     _addressRules:
       _internalList:
+      - _id: 35febf9e-b938-4b2e-994d-69d6702b1d4e
+        _addressableGroup: {fileID: 11400000, guid: 0e3998c07d14cb34fa85ef516a337241, type: 2}
+        _control:
+          _value: 1
+        _assetGroups:
+          _internalList:
+          - _id: b26bcfd2-e7e3-47eb-88fe-404c8e765fd7
+            _name:
+              _value: Default Asset Group
+            _filters:
+              _internalList:
+              - rid: 903756326184944486
+        _addressProviderInternal:
+          rid: 903756326184944487
       - _id: 9f59dfa5-24e2-435e-8475-d80e1721d156
         _addressableGroup: {fileID: 11400000, guid: 80795477437cb534eb937d5c41b58b9a, type: 2}
         _control:
@@ -49,7 +63,20 @@ MonoBehaviour:
         _addressProviderInternal:
           rid: 903756167354516239
     _labelRules:
-      _internalList: []
+      _internalList:
+      - _id: 4b55e10f-469c-40cd-a019-6f9c4a0fb61b
+        _name:
+          _value: Thumbnail per pachimon_id
+        _assetGroups:
+          _internalList:
+          - _id: 43872bf7-ec2a-4325-9668-b4844f2a6152
+            _name:
+              _value: Default Asset Group
+            _filters:
+              _internalList:
+              - rid: 903756326184944488
+        _labelProviderInternal:
+          rid: 903756326184944489
     _versionRules:
       _internalList: []
   references:
@@ -91,3 +118,37 @@ MonoBehaviour:
           - Assets/Addressables/Texture
           - Assets/Addressables/Views
           - Assets/Addressables/Scenes
+    - rid: 903756326184944486
+      type: {class: RegexBasedAssetFilter, ns: SmartAddresser.Editor.Core.Models.Shared.AssetGroups.AssetFilterImpl, asm: SmartAddresser.Editor}
+      data:
+        _id: 1a11ddae-7b2d-409d-a191-0e3789b57314
+        _matchWithFolders: 0
+        _condition: 0
+        _assetPathRegex:
+          _isListMode: 0
+          _values:
+          - ^Assets/Addressables/Thumbnail/
+    - rid: 903756326184944487
+      type: {class: AssetPathBasedAddressProvider, ns: SmartAddresser.Editor.Core.Models.LayoutRules.AddressRules, asm: SmartAddresser.Editor}
+      data:
+        _source: 1
+        _replaceWithRegex: 0
+        _pattern: 
+        _replacement: 
+    - rid: 903756326184944488
+      type: {class: RegexBasedAssetFilter, ns: SmartAddresser.Editor.Core.Models.Shared.AssetGroups.AssetFilterImpl, asm: SmartAddresser.Editor}
+      data:
+        _id: c53f73d1-cb37-4d2e-a718-d4eba8842f43
+        _matchWithFolders: 0
+        _condition: 0
+        _assetPathRegex:
+          _isListMode: 0
+          _values:
+          - ^Assets/Addressables/Thumbnail/
+    - rid: 903756326184944489
+      type: {class: AssetPathBasedLabelProvider, ns: SmartAddresser.Editor.Core.Models.LayoutRules.LabelRules, asm: SmartAddresser.Editor}
+      data:
+        _source: 2
+        _replaceWithRegex: 1
+        _pattern: ^Assets/Addressables/Thumbnail/([0-9]+)/.*$
+        _replacement: thumbnail_$1

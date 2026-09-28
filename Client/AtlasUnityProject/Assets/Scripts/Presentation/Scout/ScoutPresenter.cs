@@ -184,7 +184,7 @@ namespace Atlas.Presentation.Scout
         private PachimonDto CreatePachimonDto(ScoutCandidate candidate)
         {
             // 候補はまだ所持していないためPlayerPachimonIdは無い。
-            return new PachimonDto { Name = FindPachimonName(candidate.PachimonId), Thumbnail = null };
+            return new PachimonDto { Name = FindPachimonName(candidate.PachimonId), PachimonId = candidate.PachimonId };
         }
 
         private PachimonInfoDto CreatePachimonInfoDto(ScoutCandidate candidate)

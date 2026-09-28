@@ -20,8 +20,10 @@ namespace Atlas.Presentation.Battle
         {
             return effectiveness switch
             {
+                EffectivenessResult.DoubleSuperEffective => "効果は 超バツグンだ!",
                 EffectivenessResult.SuperEffective => "効果は バツグンだ!",
                 EffectivenessResult.NotVeryEffective => "効果は いまひとつのようだ…",
+                EffectivenessResult.DoubleNotVeryEffective => "効果は 超いまひとつのようだ…",
                 EffectivenessResult.Immune => $"{Owner(targetIsSelf)}{targetName}には 効果が ないようだ…",
                 _ => null,
             };

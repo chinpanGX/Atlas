@@ -73,7 +73,15 @@ namespace Atlas.Domain
 
     // type_chartマスタのeffectiveness(ENUM)とは別物。Atlas.BattleCore.EffectivenessResultとも
     // 別の型(Domain層はAtlas.BattleCoreを直接知らないため)。
-    public enum EffectivenessResult { Immune, NotVeryEffective, Normal, SuperEffective }
+    public enum EffectivenessResult
+    {
+        Immune,
+        DoubleNotVeryEffective,
+        NotVeryEffective,
+        Normal,
+        SuperEffective,
+        DoubleSuperEffective,
+    }
 
     public sealed record BattleEndPayload(string WinnerId, BattleEndReason Reason);
 

@@ -15,6 +15,8 @@ namespace Atlas.Application.Address
     {
         public const string masterdata = "masterdata";
         public const string Battle = "Battle";
+        public const string BattleSelectionCandidateprefab = "Battle/SelectionCandidate.prefab";
+        public const string BattleSelectionOpponentprefab = "Battle/SelectionOpponent.prefab";
         public const string BattlePage = "BattlePage";
         public const string BattleResultModal = "BattleResultModal";
         public const string CellTemplate = "CellTemplate";
@@ -33,7 +35,13 @@ namespace Atlas.Application.Address
         public const string SelfCanvas = "SelfCanvas";
         public const string StatRow1 = "StatRow1";
         public const string SwitchSelectModal = "SwitchSelectModal";
+        public const string Texturecircle_white_256png = "Texture/circle_white_256.png";
+        public const string Textureframe_white_256png = "Texture/frame_white_256.png";
         public const string TitlePage = "TitlePage";
         public const string white_2x2 = "white_2x2";
+        public static string GetThumb(long id)
+        {
+            return $"pachimon_{id}_thumb";
+        }
     }
 }

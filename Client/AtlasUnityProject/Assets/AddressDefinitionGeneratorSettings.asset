@@ -36,4 +36,7 @@ MonoBehaviour:
     - rid: 903756180713897985
       type: {class: DefaultRuleProvider, ns: AddressDefinitionGenerator.Editor.Core.Providers, asm: AddressDefinitionGenerator.Editor}
       data:
-        _rules: []
+        _rules:
+        - name: Thumb
+          value: pachimon_[id]_thumb
+          comment: 

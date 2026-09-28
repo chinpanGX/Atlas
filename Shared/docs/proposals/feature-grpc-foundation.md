@@ -164,6 +164,25 @@ proto/*.proto(APIの唯一の定義元)
 - エラー詳細を読み出すヘルパー `Grpc.StatusProto` は Unity NuGet レジストリに無い。処理はトレーラーを読んでパースするだけなので、自前で書く
 - 参考: [Unity用のHTTP/2(gRPC) Client、YetAnotherHttpHandlerを公開しました](https://neue.cc/2023/07/28_yetanotherhttphandler.html)(Cysharp代表のブログ) — YetAnotherHttpHandlerが必要な理由(UnityがHTTP/2に対応していない、C-core版のgRPCが非推奨になった)
 
+### 3.4 サーバー側のレイヤー構成 【確定】
+
+```
+app/server/src/
+├── api/{feature}.rs        薄いgRPCハンドラー(tonic生成traitの実装)。Proto⇔ドメインの変換、
+│                            with_transaction() の呼び出し、Responseの組み立てだけを行う
+├── service/{feature}_service.rs  業務ロジック本体。&mut Transaction と &DiffCollector を引数で受け取る
+├── model/                   各エンティティのstruct。そのモデル自身の状態変化だけで完結する処理
+│                            (経験値からレベルを計算する等)はここのimplブロックに置く
+├── transaction.rs           with_transaction() ヘルパー(5.7)
+├── middleware/
+│   └── auth.rs              AuthLayer(認証。5.4)
+└── error.rs                 AppError → tonic::Status の変換
+```
+
+- `api/` → `service/` → `model/` の3層とする。`api/`は「gRPCの入出力」と「引数の型変換」をまとめて担う(RESTのAtlasにあった`api/`・`service/`の2層構成を踏襲しつつ、REST版では明示されていなかった「モデル自身で完結する処理」を`model/`のimplブロックとして切り出す)
+- **モデル自身で完結する処理を独立したディレクトリ(gscn等での「Mixin」に相当)にはしない**。既存の型のimplブロックに書く規約とする。Rustには`partial class`のような仕組みが無く、無理に分割すると型の定義とロジックが離れて追いにくくなるため
+- **`service/`の書き込み系関数は`&mut Transaction<'_, MySql>`を引数に要求するシグネチャにする**。トランザクションを持たない呼び出し元からはコンパイルが通らないようにし、「冪等性の仕組み(5.7)を通さずに書き込みAPIを呼んでしまう」ことを型で防ぐ
+
 ---
 
 ## 4. API定義の規約
@@ -518,15 +537,23 @@ var client = new PlayerService.PlayerServiceClient(invoker);
 
 ※ 次節のクライアント構成の見直し次第で、置き場所は変わり得る。
 
-### 5.7 共通処理の置き場所(サーバー) 【未確定】
+### 5.7 共通処理の置き場所(サーバー) 【確定(メンテナンス等の判定方法を除く)】
 
-- tower の Layer / tonic の Interceptor で、認証、RequestIDのレスポンスキャッシュ、エラー変換(`AppError` → `tonic::Status`)、ログを行う(案)
-  - レスポンスキャッシュはレスポンスを扱うため、tower の Layer で行う(tonic の Interceptor はリクエストしか扱えない)
-- トランザクションは共通処理で開始してハンドラーに渡し、RequestIDのレスポンスの保存と一緒にコミットする(1リクエスト=1トランザクション。5.3で決定)。5.5の差分コレクターも、同じリクエスト単位に載せる
-- メンテナンス・強制アップデート・日付変更の判定(5.2)も、全リクエストに対する共通処理で行う(案)。未確定の論点:
+- **認証だけを `AuthLayer`(非同期の `tower::Service`)として実装する**。トークン検証にDBまたはキャッシュへの問い合わせが要るため、`tonic::Interceptor`(同期関数専用)では書けない。要認証サービスにだけルーター側で適用する(5.4)
+- **RequestIDの冪等性チェック・トランザクションの開始/コミット・差分コレクター(5.5)は、ミドルウェアにはしない**。`with_transaction()` という非同期ヘルパー関数を各ハンドラーが明示的に呼ぶ形にする(3.4)
+  - 理由: これらはレスポンスの中身(型)に依存する処理であり、tower Layer で汎用的にやろうとすると、gRPCの成否がHTTP/2のtrailerに乗ること・条件分岐(キャッシュ済みレスポンスを返す/ハンドラーを呼ぶ)でレスポンスのFuture型が統一できないことなど、ワイヤーレベルの制約に何重にもぶつかる。ハンドラーの中で型付きのRustの値だけを扱うことで、この制約を回避する
+  - `with_transaction()` は、①同じRequestIDの保存済みレスポンスがあればそれを返して終わる、②無ければトランザクションを開始してハンドラー本体(`service/`の関数)を呼ぶ、③成功したら差分コレクターの中身を `player_diff` に詰めてレスポンスを保存しコミットする、④失敗したらロールバックする、を行う
+- ログは本文を扱わないため、`tower_http::TraceLayer` 等の汎用Layerで良い
+- エラー変換(`AppError` → `tonic::Status`)は `with_transaction()` やハンドラーの戻り値の変換として行う(専用のLayerは不要)
+- メンテナンス・強制アップデート・日付変更の判定(5.2)は引き続き未確定。論点:
   1. メンテナンス状態と、アプリの最低バージョンの置き場所
   2. 日付変更の判定方法(日付の切り替え時刻、サインインした日付をクライアントが送るかサーバーが保持するか)
   3. 判定の対象外にしたいAPI(メンテナンス中でも呼べるお知らせ取得など)の表し方。IDOLY PRIDEはカスタムオプションでAPIごとに切り替えている([「IDOLY PRIDE」におけるgRPC利用とカスタマイズ](https://technote.qualiarts.jp/article/24/))。本基盤ではサービスの分割で表せるか確認する
+
+#### 参考資料
+
+- [tonic issue #870: Asynchronous interceptor](https://github.com/hyperium/tonic/issues/870) — `tonic::Interceptor` が同期専用であることの経緯。非同期にするには自前で `tower::Service` を書く必要がある(メンテナも認めている既知の制限)
+- [sqlx::Pool::begin()](https://docs.rs/sqlx/latest/sqlx/struct.Pool.html) — `Pool` から得る `Transaction` は `'static` だが `Sync` ではないため、`http::Extensions`(認証情報等の受け渡しに使う型消去マップ)に直接は乗らない。この制約も、トランザクションをミドルウェアではなく `with_transaction()` 内で完結させる理由の一つ
 
 ---
 
@@ -626,14 +653,16 @@ gRPC化に伴い、Atlasで api-codegen が生成していた `ApiRequest`(Unity
 | 27 | リポジトリの運用 | clone して upstream を登録し、基盤の改善は fetch して取り込む。切り分けはブランチ運用。ライブラリ配布はしない | 2.4 |
 | 28 | フォルダ構成 | `foundation/`(基盤)と `app/`(アプリ固有。最初はサンプル)に分ける。`players` と `PlayerDiff` の中身はアプリ側、基盤は `PlayerResolver` で引く | 2.4 |
 | 29 | 進め方 | テンプレートを作る → AtlasのREST版をブランチに残す → Atlasを乗せ換える。BattleServerからの内部APIは当面RESTのまま | 2.5 |
+| 30 | サーバー共通処理の置き場所 | 認証は `AuthLayer`(非同期`tower::Service`)。RequestIDの冪等性チェック・トランザクション・差分コレクターはミドルウェア化せず、`with_transaction()`ヘルパーをハンドラーが呼ぶ | 5.7 |
+| 31 | Rustサーバー側のレイヤー構成 | `api/`(薄いハンドラー) → `service/`(業務ロジック本体。txとdiff collectorを引数で受け取る) → `model/`(モデル自身で完結する処理をimplブロックに)の3層 | 3.4 |
 
 ### 未確定・保留
 
 | # | 項目 | 状態 | 節 |
 |---|---|---|---|
 | 1 | playerDiffのクライアントでの反映方法(6章と合わせて決める) | 未確定 | 5.5 |
-| 2 | 共通処理の置き場所(クライアント / サーバー) | 未確定 | 5.6, 5.7 |
-| 3 | メンテナンス・強制アップデート・日付変更の判定方法 | 未確定 | 5.7 |
+| 2 | 共通処理の置き場所(クライアント) | 未確定 | 5.6 |
+| 3 | メンテナンス・強制アップデート・日付変更の判定方法(判定の置き場所自体は5.7で確定済み) | 未確定 | 5.7 |
 | 4 | クライアント通信層の構成の見直し(RequestIDの採番場所、送信の順番待ちを含む) | 未確定 | 6 |
 | 5 | AtlasのREST版を残すブランチの名前・作る時期 | 乗せ換えを始めるときに決める | 2.5 |
 | 6 | サンプルのガチャの排出物を、小さなマスタにするかコード内の固定テーブルにするか | テンプレートを作るときに決める | 2.3 |

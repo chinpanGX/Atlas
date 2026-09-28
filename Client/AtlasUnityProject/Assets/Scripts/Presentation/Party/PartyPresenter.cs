@@ -165,8 +165,7 @@ namespace Atlas.Presentation.Party
             {
                 PlayerPachimonId = pachimon.PlayerPachimonId,
                 Name = FindMaster(pachimon).Name,
-                // サムネイル画像は未作成。用意できたらここでpachimonIdから読み込んだSpriteを渡す。
-                Thumbnail = null,
+                PachimonId = pachimon.PachimonId,
             };
         }
 

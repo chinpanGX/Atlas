@@ -38,6 +38,16 @@ Unity Client ──REST──▶ Server(Rust/Axum)      http://127.0.0.1:3000
 
 Client担当でも、実際のサーバーにつないで動かすならServer・BattleServerを起動できる状態にしておく。
 
+### 推奨の開発ツール
+
+必須ではないが、このプロジェクトは次のツールで開発している。
+
+| ツール | 使う人 | 用途 |
+|---|---|---|
+| JetBrains Rider | Client / BattleServer | C#のIDE。リポジトリ直下の`.editorconfig`の命名ルールがそのまま警告になる |
+| JetBrains RustRover | Server | RustのIDE |
+| Postman | Server | APIの動作確認(Swagger UI `http://127.0.0.1:3000/swagger-ui` でも確認できる) |
+
 ### makeの導入(Git Bash)
 
 Git Bashには`make`が含まれていないため、次のどれかで入れる。入れた後はGit Bashを開き直す。

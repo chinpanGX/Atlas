@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using R3;
 using UnityEngine;
+using VContainer;
+using VContainer.Unity;
 
 namespace Atlas.Presentation.Party
 {
@@ -15,9 +17,17 @@ namespace Atlas.Presentation.Party
         private readonly Dictionary<string, PachimonCellView> cells = new();
         private readonly Subject<string> onPachimonClicked = new();
         private readonly CompositeDisposable cellSubscriptions = new();
+        private IObjectResolver resolver;
 
         // 押されたセルのPlayerPachimonIdを流す。
         public Observable<string> OnPachimonClicked => onPachimonClicked;
+
+        // 複製したセルはInjectされないため、セルのサムネイルが読み込めるようこのresolverで複製する。
+        [Inject]
+        public void Construct(IObjectResolver resolver)
+        {
+            this.resolver = resolver;
+        }
 
         private void Awake()
         {
@@ -35,7 +45,7 @@ namespace Atlas.Presentation.Party
 
             foreach (var pachimon in pachimons)
             {
-                var cell = Instantiate(cellTemplate, content);
+                var cell = resolver.Instantiate(cellTemplate, content);
                 cell.gameObject.SetActive(true);
                 cell.Refresh(pachimon);
                 cell.SetFrames(isInParty: false, isSelected: false);

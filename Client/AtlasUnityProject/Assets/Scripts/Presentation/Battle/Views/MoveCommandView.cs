@@ -5,13 +5,14 @@ using UnityEngine;
 
 namespace Atlas.Presentation.Battle
 {
-    // 技パネルの技ボタン1つ分。技名・タイプ・PP(残り/最大)を表示する。
+    // 技パネルの技ボタン1つ分。技名・タイプ・PP(残り/最大)と、場の相手への相性を表示する。
     public sealed class MoveCommandView : MonoBehaviour
     {
         [SerializeField] private CommonButton button;
         [SerializeField] private TextMeshProUGUI nameText;
         [SerializeField] private TextMeshProUGUI typeText;
         [SerializeField] private TextMeshProUGUI ppText;
+        [SerializeField] private TextMeshProUGUI matchupText;
 
         private bool hasPp;
 
@@ -22,6 +23,7 @@ namespace Atlas.Presentation.Battle
             nameText.text = command.Name;
             typeText.text = command.TypeName;
             ppText.text = $"{command.CurrentPp}/{command.MaxPp}";
+            matchupText.text = command.MatchupText;
             hasPp = command.CurrentPp > 0;
         }
 

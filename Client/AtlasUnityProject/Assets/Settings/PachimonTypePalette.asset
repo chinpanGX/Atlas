@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55c5841afd53fe44ba80676dd559886a, type: 3}
+  m_Name: PachimonTypePalette
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PachimonTypePalette
+  unknown: {r: 0.75, g: 0.75, b: 0.8, a: 1}
+  normal: {r: 0.66, g: 0.65, b: 0.48, a: 1}
+  fire: {r: 0.93, g: 0.51, b: 0.19, a: 1}
+  water: {r: 0.39, g: 0.56, b: 0.94, a: 1}
+  electric: {r: 0.97, g: 0.82, b: 0.17, a: 1}
+  grass: {r: 0.48, g: 0.78, b: 0.3, a: 1}
+  ice: {r: 0.59, g: 0.85, b: 0.84, a: 1}
+  fighting: {r: 0.76, g: 0.18, b: 0.16, a: 1}
+  poison: {r: 0.64, g: 0.24, b: 0.63, a: 1}
+  ground: {r: 0.89, g: 0.75, b: 0.4, a: 1}
+  flying: {r: 0.66, g: 0.56, b: 0.95, a: 1}
+  psychic: {r: 0.98, g: 0.33, b: 0.53, a: 1}
+  bug: {r: 0.65, g: 0.73, b: 0.1, a: 1}
+  rock: {r: 0.71, g: 0.63, b: 0.21, a: 1}
+  ghost: {r: 0.45, g: 0.34, b: 0.59, a: 1}
+  dragon: {r: 0.44, g: 0.21, b: 0.99, a: 1}
+  dark: {r: 0.44, g: 0.34, b: 0.27, a: 1}
+  steel: {r: 0.72, g: 0.72, b: 0.81, a: 1}
+  fairy: {r: 0.84, g: 0.52, b: 0.68, a: 1}

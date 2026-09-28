@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Atlas.Presentation.Party;
 using R3;
 using UnityEngine;
+using VContainer;
+using VContainer.Unity;
 
 namespace Atlas.Presentation.Scout
 {
@@ -14,9 +16,17 @@ namespace Atlas.Presentation.Scout
         private readonly List<PachimonCellView> cells = new();
         private readonly Subject<int> onCandidateClicked = new();
         private readonly CompositeDisposable cellSubscriptions = new();
+        private IObjectResolver resolver;
 
         // 押されたセルの並び順(0始まり)を流す。
         public Observable<int> OnCandidateClicked => onCandidateClicked;
+
+        // 複製したセルはInjectされないため、セルのサムネイルが読み込めるようこのresolverで複製する。
+        [Inject]
+        public void Construct(IObjectResolver resolver)
+        {
+            this.resolver = resolver;
+        }
 
         private void Awake()
         {
@@ -34,7 +44,7 @@ namespace Atlas.Presentation.Scout
 
             for (var index = 0; index < candidates.Count; index++)
             {
-                var cell = Instantiate(cellTemplate, content);
+                var cell = resolver.Instantiate(cellTemplate, content);
                 cell.gameObject.SetActive(true);
                 cell.Refresh(candidates[index]);
                 cell.SetFrames(isInParty: false, isSelected: false);

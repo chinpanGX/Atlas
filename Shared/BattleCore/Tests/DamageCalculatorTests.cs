@@ -109,7 +109,7 @@ namespace Atlas.BattleCore.Tests
         }
 
         [Test]
-        public void Calculate_DualTypeBothSuperEffective_BucketsAsSuperEffective()
+        public void Calculate_DualTypeBothSuperEffective_IsDoubleSuperEffective()
         {
             var attacker = MakeStats(atk: 100, primary: ElementType.Normal); // moveTypeと不一致(STABなし)
             var defender = MakeStats(def: 100, primary: ElementType.Fire, secondary: ElementType.Rock);
@@ -121,8 +121,25 @@ namespace Atlas.BattleCore.Tests
 
             var result = DamageCalculator.Calculate(attacker, defender, move, typeChart, random);
 
-            Assert.AreEqual(EffectivenessResult.SuperEffective, result.Effectiveness);
+            Assert.AreEqual(EffectivenessResult.DoubleSuperEffective, result.Effectiveness);
             Assert.AreEqual(148, result.Damage); // floor(37 * 2.0 * 2.0)
+        }
+
+        [Test]
+        public void Calculate_DualTypeBothNotVeryEffective_IsDoubleNotVeryEffective()
+        {
+            var attacker = MakeStats(atk: 100, primary: ElementType.Normal); // moveTypeと不一致(STABなし)
+            var defender = MakeStats(def: 100, primary: ElementType.Water, secondary: ElementType.Dragon);
+            var move = MakeMove(moveType: ElementType.Fire, basePower: 80);
+            var random = new FixedRandomSource(ints: new[] { 5 }, doubles: new[] { 1.0 });
+            var typeChart = new StaticTypeChart()
+                .With(ElementType.Fire, ElementType.Water, EffectivenessResult.NotVeryEffective)
+                .With(ElementType.Fire, ElementType.Dragon, EffectivenessResult.NotVeryEffective);
+
+            var result = DamageCalculator.Calculate(attacker, defender, move, typeChart, random);
+
+            Assert.AreEqual(EffectivenessResult.DoubleNotVeryEffective, result.Effectiveness);
+            Assert.AreEqual(9, result.Damage); // floor(37 * 0.5 * 0.5)
         }
 
         [Test]

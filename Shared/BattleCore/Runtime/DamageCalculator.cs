@@ -53,8 +53,7 @@ namespace Atlas.BattleCore
             return new DamageResult(damage, critical, effectiveness);
         }
 
-        // ダメージ計算そのものは単体タイプごとの倍率(0/0.5/1/2)を素の値のまま2回掛け合わせる
-        // (0.25倍・4倍等、EffectivenessResultの4値では表現しきれない値も取り得る)。
+        // 単体タイプごとの倍率(0/0.5/1/2)を2回掛け合わせる。取り得る値は0/0.25/0.5/1/2/4。
         private static double ResolveRawTypeMultiplier(ElementType moveType, ParticipantStats defender, ITypeChart typeChart)
         {
             double multiplier = ToMultiplier(typeChart.GetEffectiveness(moveType, defender.PrimaryType));
@@ -69,27 +68,27 @@ namespace Atlas.BattleCore
         private static double ToMultiplier(EffectivenessResult effectiveness) => effectiveness switch
         {
             EffectivenessResult.Immune => 0.0,
+            EffectivenessResult.DoubleNotVeryEffective => 0.25,
             EffectivenessResult.NotVeryEffective => 0.5,
             EffectivenessResult.Normal => 1.0,
             EffectivenessResult.SuperEffective => 2.0,
+            EffectivenessResult.DoubleSuperEffective => 4.0,
             _ => throw new ArgumentOutOfRangeException(nameof(effectiveness), effectiveness, null),
         };
 
-        // 複合タイプの組み合わせ(0.25倍・4倍等)は、表示・報告用にNotVeryEffective/SuperEffective
-        // へ丸める(本家ポケモンの「いまひとつ」「効果は抜群」表示と同じ扱い)。
+        // 倍率を表示・報告用の段階に分ける。0.25倍・4倍は「超いまひとつ」「超バツグン」と表示するため
+        // 0.5倍・2倍とは別の値にする。
         private static EffectivenessResult BucketEffectiveness(double rawMultiplier)
         {
-            if (rawMultiplier == 0d)
+            return rawMultiplier switch
             {
-                return EffectivenessResult.Immune;
-            }
-
-            if (rawMultiplier < 1.0)
-            {
-                return EffectivenessResult.NotVeryEffective;
-            }
-
-            return rawMultiplier > 1.0 ? EffectivenessResult.SuperEffective : EffectivenessResult.Normal;
+                0d => EffectivenessResult.Immune,
+                < 0.5 => EffectivenessResult.DoubleNotVeryEffective,
+                < 1.0 => EffectivenessResult.NotVeryEffective,
+                > 2.0 => EffectivenessResult.DoubleSuperEffective,
+                > 1.0 => EffectivenessResult.SuperEffective,
+                _ => EffectivenessResult.Normal,
+            };
         }
     }
 

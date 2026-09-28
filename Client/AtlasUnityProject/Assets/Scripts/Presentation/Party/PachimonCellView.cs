@@ -1,8 +1,8 @@
+using Atlas.Presentation.Common;
 using R3;
 using TMPro;
 using UIPackages.Runtime;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Atlas.Presentation.Party
 {
@@ -11,7 +11,7 @@ namespace Atlas.Presentation.Party
     {
         [SerializeField] private CommonButton button;
         [SerializeField] private TextMeshProUGUI nameText;
-        [SerializeField] private Image thumbnailImage;
+        [SerializeField] private PachimonThumbnailView thumbnail;
         // 編成中を示すフレームと、選択中を示すフレーム。両方同時に表示されることもある(選択中が手前)。
         [SerializeField] private GameObject partyFrame;
         [SerializeField] private GameObject selectedFrame;
@@ -26,9 +26,8 @@ namespace Atlas.Presentation.Party
 
         public void Refresh(PachimonDto pachimon)
         {
-            // サムネイルが用意されるまでは名前で識別できるようにする。
             nameText.text = pachimon.Name;
-            thumbnailImage.sprite = pachimon.Thumbnail;
+            thumbnail.Show(pachimon.PachimonId);
         }
     }
 }

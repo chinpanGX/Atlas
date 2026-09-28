@@ -321,7 +321,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Party.PachimonCellView
   button: {fileID: 6295766517967119276}
   nameText: {fileID: 1348898903273708541}
-  thumbnailImage: {fileID: 4305270511229825746}
+  thumbnail: {fileID: 1078147144585027814}
   partyFrame: {fileID: 1726621233981161859}
   selectedFrame: {fileID: 3239098873221825396}
 --- !u!114 &2930258600019629651
@@ -501,7 +501,7 @@ GameObject:
   - component: {fileID: 5256859985378673934}
   - component: {fileID: 2994753067426735052}
   - component: {fileID: 4305270511229825746}
-  - component: {fileID: 1222809509419440880}
+  - component: {fileID: 1078147144585027814}
   m_Layer: 5
   m_Name: Thumbnail
   m_TagString: Untagged
@@ -558,7 +558,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -566,7 +566,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &1222809509419440880
+--- !u!114 &1078147144585027814
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -575,8 +575,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 8425884529453279818}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8ddb11da44efab4e8cc616dfeca0129, type: 3}
+  m_Script: {fileID: 11500000, guid: e1cce4e813605d84683423d252cb9f67, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PaletteColor
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.PachimonThumbnailView
+  image: {fileID: 4305270511229825746}
   palette: {fileID: 11400000, guid: c75647eafd9f3264db827a8d976e97b0, type: 2}
-  role: 8

@@ -276,9 +276,11 @@ namespace Atlas.Infrastructure.Mock
         private static Atlas.Domain.EffectivenessResult ToDomainEffectiveness(Atlas.BattleCore.EffectivenessResult effectiveness) => effectiveness switch
         {
             Atlas.BattleCore.EffectivenessResult.Immune => Atlas.Domain.EffectivenessResult.Immune,
+            Atlas.BattleCore.EffectivenessResult.DoubleNotVeryEffective => Atlas.Domain.EffectivenessResult.DoubleNotVeryEffective,
             Atlas.BattleCore.EffectivenessResult.NotVeryEffective => Atlas.Domain.EffectivenessResult.NotVeryEffective,
             Atlas.BattleCore.EffectivenessResult.Normal => Atlas.Domain.EffectivenessResult.Normal,
             Atlas.BattleCore.EffectivenessResult.SuperEffective => Atlas.Domain.EffectivenessResult.SuperEffective,
+            Atlas.BattleCore.EffectivenessResult.DoubleSuperEffective => Atlas.Domain.EffectivenessResult.DoubleSuperEffective,
             _ => throw new ArgumentOutOfRangeException(nameof(effectiveness), effectiveness, null),
         };
 

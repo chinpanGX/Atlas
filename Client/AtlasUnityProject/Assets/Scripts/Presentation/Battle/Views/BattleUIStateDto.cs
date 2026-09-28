@@ -6,6 +6,8 @@ namespace Atlas.Presentation.Battle
     {
         public SelfInfoDto SelfInfo;
         public OpponentInfoDto OpponentInfo;
+        public PachimonFigureDto SelfFigure;
+        public PachimonFigureDto OpponentFigure;
         public List<CommandDto> Commands;
     }
 }

@@ -5,6 +5,7 @@ using Atlas.Application;
 using Atlas.Application.Address;
 using Atlas.Domain;
 using Atlas.MasterData;
+using Atlas.MasterData.Enums;
 using Atlas.MasterData.Models;
 using Atlas.Presentation.Common;
 using Atlas.Presentation.Party;
@@ -78,6 +79,8 @@ namespace Atlas.Presentation.Battle
         private int opponentActiveIndex;
         private int?[] opponentPachimonIdBySlot;
         private int[] opponentHpPercentBySlot;
+
+        private TypeMatchupTable typeMatchupTable;
 
         public BattlePresenter(
             BattlePage view, IBattleConnection connection, IMasterDataService masterDataService,
@@ -414,6 +417,7 @@ namespace Atlas.Presentation.Battle
             opponentActiveIndex = payload.Opponent.ActivePachimonIndex;
             opponentPachimonIdBySlot = payload.Opponent.SelectedPachimon.Select(s => s.State?.PachimonId).ToArray();
             opponentHpPercentBySlot = payload.Opponent.SelectedPachimon.Select(s => s.State?.HpPercent ?? 100).ToArray();
+            typeMatchupTable ??= new TypeMatchupTable(masterDataService.Database);
 
             matchStarted = true;
             view.Refresh(BuildUiState());
@@ -549,7 +553,7 @@ namespace Atlas.Presentation.Battle
                     break;
                 case ActionType.Switch:
                     ApplyAction(action);
-                    view.Refresh(BuildUiState());
+                    await view.PlaySendOutAsync(actorIsSelf, BuildUiState(), cancellation);
                     await view.PlayMessageAsync(
                         BattleMessageBuilder.SentOut(actorIsSelf, ActivePachimonName(actorIsSelf)), cancellation);
                     break;
@@ -566,15 +570,24 @@ namespace Atlas.Presentation.Battle
             }
         }
 
-        // 技名 → (HPゲージが減り終わるまで待つ) → 外れ/急所/効果 → 倒れた、の順に流す。
+        // 技名 → 技の演出(HPゲージが減り終わるまで待つ) → 外れ/急所/効果 → 倒れる演出 → 倒れた、の順に流す。
         private async UniTask PlayMoveAsync(ActionResult action, bool actorIsSelf, CancellationToken cancellation)
         {
-            var moveName = masterDataService.Database.MovesDataTable.FindByMoveId(int.Parse(action.MoveId)).Name;
+            var move = masterDataService.Database.MovesDataTable.FindByMoveId(int.Parse(action.MoveId));
             await view.PlayMessageAsync(
-                BattleMessageBuilder.MoveUsed(actorIsSelf, ActivePachimonName(actorIsSelf), moveName), cancellation);
+                BattleMessageBuilder.MoveUsed(actorIsSelf, ActivePachimonName(actorIsSelf), move.Name), cancellation);
 
             ApplyAction(action);
-            await view.RefreshAnimatedAsync(BuildUiState(), cancellation);
+            var effect = new MoveEffectDto
+            {
+                AttackerIsSelf = actorIsSelf,
+                Category = move.Category,
+                MoveType = move.MoveType,
+                Hit = action.Hit,
+                Critical = action.Critical,
+                Effectiveness = action.Effectiveness,
+            };
+            await view.PlayMoveAsync(effect, BuildUiState(), cancellation);
 
             if (!action.Hit)
             {
@@ -596,6 +609,7 @@ namespace Atlas.Presentation.Battle
 
             if (action.TargetFainted)
             {
+                await view.PlayFaintAsync(targetIsSelf, cancellation);
                 await view.PlayMessageAsync(
                     BattleMessageBuilder.Fainted(targetIsSelf, ActivePachimonName(targetIsSelf)), cancellation);
             }
@@ -611,6 +625,20 @@ namespace Atlas.Presentation.Battle
             return opponentPachimonIdBySlot[opponentActiveIndex] is { } id
                 ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).Name
                 : "???";
+        }
+
+        // 相手のパチモンは場に出て公開されるまで種族が分からないため、タイプもNone(色が決まらない)にする。
+        private PachimonFigureDto BuildFigure(bool isSelf)
+        {
+            var pachimonId = isSelf ? selfPachimonIdBySlot[selfActiveIndex] : opponentPachimonIdBySlot[opponentActiveIndex];
+            return new PachimonFigureDto
+            {
+                PachimonId = pachimonId,
+                PrimaryType = pachimonId is { } id
+                    ? masterDataService.Database.PachimonDataTable.FindByPachimonId(id).PrimaryType
+                    : PachimonType.None,
+                IsFainted = IsActivePachimonFainted(isSelf),
+            };
         }
 
         private bool IsActivePachimonFainted(bool isSelf)
@@ -714,6 +742,26 @@ namespace Atlas.Presentation.Battle
                 .ToArray();
         }
 
+        // 変化技はダメージを与えないため相性を出さない。
+        private string BuildMatchupText(MovesData move)
+        {
+            if (move.Category == MoveCategory.Status || opponentPachimonIdBySlot[opponentActiveIndex] is not { } opponentId)
+            {
+                return string.Empty;
+            }
+
+            var opponent = masterDataService.Database.PachimonDataTable.FindByPachimonId(opponentId);
+            return typeMatchupTable.Resolve(move.MoveType, opponent.PrimaryType, opponent.SecondaryType) switch
+            {
+                EffectivenessResult.DoubleSuperEffective => "超バツグン",
+                EffectivenessResult.SuperEffective => "バツグン",
+                EffectivenessResult.NotVeryEffective => "いまひとつ",
+                EffectivenessResult.DoubleNotVeryEffective => "超いまひとつ",
+                EffectivenessResult.Immune => "効果なし",
+                _ => string.Empty,
+            };
+        }
+
         private BattleUIStateDto BuildUiState()
         {
             var selfPachimonId = selfPachimonIdBySlot[selfActiveIndex];
@@ -739,6 +787,8 @@ namespace Atlas.Presentation.Battle
                     CurrentHpPercent = opponentHpPercent,
                     CurrentHpGauge = opponentHpPercent / 100f,
                 },
+                SelfFigure = BuildFigure(isSelf: true),
+                OpponentFigure = BuildFigure(isSelf: false),
                 Commands = selfMoves
                     .Select((m, i) => new CommandDto
                     {
@@ -747,6 +797,7 @@ namespace Atlas.Presentation.Battle
                         TypeName = PachimonTypeNames.ToDisplayName(m.MoveType),
                         CurrentPp = selfCurrentPp[selfActiveIndex][i],
                         MaxPp = selfMoveSets[selfActiveIndex].Moves[i].MaxPp,
+                        MatchupText = BuildMatchupText(m),
                     })
                     .ToList(),
             };

@@ -1,0 +1,239 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Thumbnail
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Thumbnail
+  m_GUID: 1e1080135034af746b53b51d84c97a67
+  m_SerializeEntries:
+  - m_GUID: 031114d921a97d643a214c0b0f9734a8
+    m_Address: pachimon_1023_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1023
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 035d78a552178d84abec7b29d34baa79
+    m_Address: pachimon_1002_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1002
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 110bb85fc116af64eb0e6d0d639a8380
+    m_Address: pachimon_1031_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1031
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 171b598f3ee966842a69ebf45833316e
+    m_Address: pachimon_1014_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1014
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1936d0bea9d437b4cbac170ed1bb5e4a
+    m_Address: pachimon_1006_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1006
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1e2f560d64ec1b04e83aa673614d46ca
+    m_Address: pachimon_1013_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1013
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2010e83a37c4c0a4cac377f838f66914
+    m_Address: pachimon_1018_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1018
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 292b15b8f9b087149b08ce83f52f16f3
+    m_Address: pachimon_1007_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1007
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 32799772358d63b46b3b6109bde536f2
+    m_Address: pachimon_1015_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1015
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 382d712aaa7702447847d642b24f3695
+    m_Address: pachimon_1001_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1001
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3df080c76ec19c34f81ba3ed00f3ca95
+    m_Address: pachimon_1025_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1025
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3eeaaddf81299ef4e915fa9ed0588eba
+    m_Address: pachimon_1004_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1004
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 47554b014675f804fb56c31c8c4a93d7
+    m_Address: pachimon_1011_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1011
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 63d18e1aea84af741b1874f51dffbcbc
+    m_Address: pachimon_1010_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1010
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6e39b57b8d12c384fb955bed8cc80064
+    m_Address: pachimon_1027_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1027
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 73939779b18601248b3c2695b20e7a1e
+    m_Address: pachimon_1026_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1026
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7585022b2d33c4a428c278467b15fadb
+    m_Address: pachimon_1029_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1029
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7de2d49535bd47b40befbd34ce405488
+    m_Address: pachimon_1003_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1003
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 951222ba1f5aec7489f33ac3ebab0eb8
+    m_Address: pachimon_1020_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1020
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 960bc026de4bd9047b4cde6026176c26
+    m_Address: pachimon_1008_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1008
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 97b9cb4e174d01b44ba27e3ecb97d24a
+    m_Address: pachimon_1017_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1017
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9f34c5017d2970a4ab365d17ef9e6837
+    m_Address: pachimon_1033_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1033
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9f7fe69a9e83f434f9c52a807176541c
+    m_Address: pachimon_1012_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1012
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a5882abb71f750543a12985845a574c3
+    m_Address: pachimon_1032_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1032
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a965f33f6e8edd847a4584b2eb13c08d
+    m_Address: pachimon_1036_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1036
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c2fb9074a81a7e64e9fe703e74dc790a
+    m_Address: pachimon_1009_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1009
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cfef15e6a7586634a968c73f8187f6ad
+    m_Address: pachimon_1016_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1016
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d341de6ec0638e9409a91c35a244fc3e
+    m_Address: pachimon_1030_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1030
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d46ffb77ac939ff43a7e157497bfdbda
+    m_Address: pachimon_1022_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1022
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d811accd4ba48984e98256cb80d0d425
+    m_Address: pachimon_1021_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1021
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e7cb62e20a3cde544b9d2bfef04ac557
+    m_Address: pachimon_1019_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1019
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: eef2b91881cf68945a07e9075f03375a
+    m_Address: pachimon_1034_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1034
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f6909b01bdfedcc4bae495c6c38ded8a
+    m_Address: pachimon_1005_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1005
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f98cc2791248b7a4eb12e5548ff6c189
+    m_Address: pachimon_1024_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1024
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fe2b0dd113daa86458359da8d6698bdc
+    m_Address: pachimon_1035_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1035
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ff51d911744aa964c9f5960b87ca6cec
+    m_Address: pachimon_1028_thumb
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - thumbnail_1028
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: e60b4e37c4b9f834ca8e72a77378b2c1, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 3c9d1991d32652048bc38baf0f0ab6c1, type: 2}
+    - {fileID: 11400000, guid: f90c79f0e0ca7b7449c4e390e2f94a06, type: 2}
