@@ -69,7 +69,7 @@ MonoBehaviour:
   scoutButton: {fileID: 6408637777097108743}
   partyButton: {fileID: 920209153597711040}
   battleButton: {fileID: 4160085792638338328}
-  chatButton: {fileID: 8453231071521329918}
+  trainingButton: {fileID: 8453231071521329918}
 --- !u!1 &2758013930424496748
 GameObject:
   m_ObjectHideFlags: 0
@@ -274,7 +274,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Chat
+  m_text: Training
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1105,7 +1105,7 @@ GameObject:
   - component: {fileID: 8453231071521329918}
   - component: {fileID: 8042561612401604762}
   m_Layer: 5
-  m_Name: ChatButton
+  m_Name: TrainingButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

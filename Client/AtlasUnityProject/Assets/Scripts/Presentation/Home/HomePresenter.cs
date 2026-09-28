@@ -65,8 +65,8 @@ namespace Atlas.Presentation.Home
             view.OnBattleButtonClicked
                 .SubscribeAwait(async (_, ct) => await FindMatchAndStartBattleAsync(ct), AwaitOperation.Drop)
                 .AddTo(disposables);
-            // チャット画面は未実装のため、現時点ではログのみ。
-            view.OnChatButtonClicked.Subscribe(_ => Debug.Log("[Home] Chat button clicked (not implemented yet)")).AddTo(disposables);
+            // 育成画面は未実装のため、現時点ではログのみ。
+            view.OnTrainingButtonClicked.Subscribe(_ => Debug.Log("[Home] Training button clicked (not implemented yet)")).AddTo(disposables);
             return UniTask.CompletedTask;
         }
 

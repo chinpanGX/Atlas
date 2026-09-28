@@ -14,14 +14,14 @@ namespace Atlas.Presentation.Home
         [SerializeField] private Button scoutButton;
         [SerializeField] private Button partyButton;
         [SerializeField] private Button battleButton;
-        [SerializeField] private Button chatButton;
+        [SerializeField] private Button trainingButton;
 
         // 動作確認用のジェム付与ボタン(正式なゲーム内機能ではない)。
         public Observable<Unit> OnGrantGemsButtonClicked => grantGemsButton.OnClickAsObservable();
         public Observable<Unit> OnScoutButtonClicked => scoutButton.OnClickAsObservable();
         public Observable<Unit> OnPartyButtonClicked => partyButton.OnClickAsObservable();
         public Observable<Unit> OnBattleButtonClicked => battleButton.OnClickAsObservable();
-        public Observable<Unit> OnChatButtonClicked => chatButton.OnClickAsObservable();
+        public Observable<Unit> OnTrainingButtonClicked => trainingButton.OnClickAsObservable();
 
         public void Refresh(HomeViewDto dto)
         {
