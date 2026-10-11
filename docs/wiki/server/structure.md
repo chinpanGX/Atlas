@@ -50,7 +50,20 @@ TraceLayer                    リクエストのログ
 - 開発ビルドでは gRPC リフレクションを有効にし、grpcurl・Postman から `.proto` 無しで呼べる
 - ログは `tracing`。`RUST_LOG` 未指定なら `info`(リクエストごとのメソッド・ステータス・処理時間)。SQL まで見るときは `RUST_LOG=debug`
 
+## 技術スタック
+
+| 用途 | 使うもの |
+|---|---|
+| 言語・ランタイム | Rust(edition 2024)、tokio |
+| 通信 | tonic(gRPC)。クライアント向けは VolTech gRPC のクレート(認証・冪等性・トランザクション・メンテナンスの判定)を Layer として付け、内部 API は付けずに共有シークレットで認証する |
+| DB | MySQL、sqlx(生 SQL。コンパイル時に DB を要する `query!` マクロは使わず、実行時に組み立てる `sqlx::query` を使う) |
+| 設定 | `.env`(dotenvy)。DB の接続先・共有シークレット等 |
+| ローカルの DB | Docker Compose の MySQL コンテナ(`Server/docker-compose.yml`)。APIサーバー自体はコンテナにしない |
+| テスト | `cargo test`。DB を使うテストは `sqlx::test`(テストごとに DB を作る)、API の結合テストはテストごとに gRPC サーバーを起動して tonic のクライアントで呼ぶ |
+
 ## ディレクトリ
+
+`grpc`(ハンドラ)・`service`(業務処理と DB アクセス)・`model`(テーブルに対応する構造体)の3層に分ける。
 
 | 場所 | 役割 |
 |---|---|

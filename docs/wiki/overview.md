@@ -61,7 +61,7 @@ APIサーバー(Rust/tonic)        バトルサーバー(C#/MagicOnion)
 | `Shared/errors.toml` | APIサーバーの業務エラー(domain `atlas`。正本)([業務エラー](conventions/errors.md)) |
 | `master-data-pipeline/`(submodule) | マスターデータの生成ツール(自作) |
 | `UnityScreenNavigator/`(submodule) | 画面遷移ライブラリ(USN)のフォーク |
-| `docs/` | この wiki と、元になった仕様概要書・設計書・進捗・構想・メモ |
+| `docs/` | この wiki と、元になった仕様概要書・設計書・構想・メモ |
 
 ### 生成物とその正本
 

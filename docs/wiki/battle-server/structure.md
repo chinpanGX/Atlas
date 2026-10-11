@@ -22,6 +22,7 @@ updated: 2026-10-11
 
 - 公式の Getting Started・ChatApp サンプルと同じ最小構成(ASP.NET Core Empty + `MagicOnion.Server`)。専用のテンプレートは無い
 - .NET 10
+- APIサーバーが発行した `battle_token`(JWT)は `Microsoft.IdentityModel.JsonWebTokens` で検証する
 - Docker 化はしない(APIサーバーと同じく、Windows でのビルドの速さとデバッグのしやすさを優先。デプロイの方式を決めるときに検討する)
 - 起動時に、`BATTLE_TOKEN_SECRET`(32バイト以上)・マスターデータ・`INTERNAL_API_SECRET` のどれかが欠けていれば、接続を受け付ける前に起動を失敗させる
 

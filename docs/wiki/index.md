@@ -44,7 +44,7 @@ flowchart LR
 
 | 層 | 技術 |
 |---|---|
-| クライアント | Unity 6(IL2CPP)、VContainer、UniTask、R3、LitMotion、ZLinq、Addressables、UnityScreenNavigator(フォーク)、MasterMemory、MagicOnion.Client |
+| クライアント | Unity 6.6(IL2CPP)、VContainer、UniTask、R3、LitMotion、ZLinq、Addressables、UnityScreenNavigator(フォーク)、MasterMemory、MessagePack、MagicOnion.Client |
 | APIサーバー | Rust、tonic(gRPC)、sqlx、MySQL、jsonwebtoken |
 | バトルサーバー | C#(.NET 10)、ASP.NET Core、MagicOnion、xUnit |
 | 共通 | Protocol Buffers、[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)(自作)、[Supplement](https://github.com/chinpanGX/Supplement)(自作)、master-data-pipeline(自作) |
