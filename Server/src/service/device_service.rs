@@ -1,6 +1,7 @@
-use argon2::password_hash::{SaltString, rand_core::OsRng};
+use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHasher};
 use chrono::Utc;
+use rand::Rng;
 use sqlx::MySqlPool;
 use ulid::Ulid;
 
@@ -27,10 +28,12 @@ use crate::model::device::Device;
 pub async fn register(pool: &MySqlPool, secret_key: &str) -> Result<Device, AppError> {
     // &T/&mut T: C++の参照と同じ構文だが、借用ルールをコンパイラが静的に強制する
     // let: C#のvarと違い、デフォルトで再代入不可(mutで明示的に可変化)
-    let device_id = Ulid::new().to_string();
+    let device_id = Ulid::generate().to_string();
 
     // secret_keyをハッシュ化(平文保存しない)
-    let salt = SaltString::generate(&mut OsRng);
+    let mut salt_bytes = [0u8; 16];
+    rand::rng().fill_bytes(&mut salt_bytes);
+    let salt = SaltString::encode_b64(&salt_bytes).map_err(|_| AppError::InternalError)?;
     let argon2 = Argon2::default();
     let secret_key_hash = argon2
         .hash_password(secret_key.as_bytes(), &salt)

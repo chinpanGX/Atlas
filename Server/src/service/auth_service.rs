@@ -47,7 +47,7 @@ pub async fn authenticate(
         .map_err(|_| AppError::Unauthorized)?;
 
     // ULIDを2つ連結し、64文字以内で十分なランダム性を持つトークンとする
-    let access_token = format!("{}{}", Ulid::new(), Ulid::new());
+    let access_token = format!("{}{}", Ulid::generate(), Ulid::generate());
     let expires_at = Utc::now().naive_utc() + Duration::seconds(ACCESS_TOKEN_TTL_SECONDS);
 
     sqlx::query(

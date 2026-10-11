@@ -20,7 +20,7 @@ const CHAT_POLL_LIMIT: i64 = 50;
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
 pub async fn send(pool: &MySqlPool, player_id: &str, content: &str) -> Result<Message, AppError> {
-    let message_id = Ulid::new().to_string();
+    let message_id = Ulid::generate().to_string();
 
     sqlx::query("INSERT INTO messages (message_id, player_id, content) VALUES (?, ?, ?)")
         .bind(&message_id)

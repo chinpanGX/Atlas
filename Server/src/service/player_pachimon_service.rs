@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use sqlx::{MySql, MySqlPool, Transaction};
 use ulid::Ulid;
@@ -50,7 +50,7 @@ pub async fn grant(
     pachimon_id: i32,
     moves: &[i32],
 ) -> Result<(PlayerPachimon, Vec<PlayerPachimonMove>), AppError> {
-    let player_pachimon_id = Ulid::new().to_string();
+    let player_pachimon_id = Ulid::generate().to_string();
     let effort_values =
         serde_json::json!({"hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0});
 
@@ -68,7 +68,7 @@ pub async fn grant(
 
     let mut granted_moves = Vec::with_capacity(moves.len());
     for (slot, move_id) in moves.iter().enumerate() {
-        let player_pachimon_move_id = Ulid::new().to_string();
+        let player_pachimon_move_id = Ulid::generate().to_string();
         let slot = slot as i32 + 1;
         sqlx::query(
             "INSERT INTO player_pachimon_moves \
@@ -352,7 +352,7 @@ pub async fn set_party(
 
     let mut result = Vec::with_capacity(slots.len());
     for s in &slots {
-        let party_slot_id = Ulid::new().to_string();
+        let party_slot_id = Ulid::generate().to_string();
 
         sqlx::query(
             "INSERT INTO player_party_slots (party_slot_id, player_id, slot, player_pachimon_id) \
@@ -408,10 +408,10 @@ pub async fn randomize_party(
 ) -> Result<RandomizedParty, AppError> {
     // ThreadRngはSendでないため、await前に抽選を済ませてスコープを抜けておく
     let picks: Vec<(i32, Vec<i32>)> = {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         master
             .pachimon
-            .choose_multiple(&mut rng, RANDOM_PARTY_SIZE)
+            .sample(&mut rng, RANDOM_PARTY_SIZE)
             .map(|pachimon| {
                 let mut candidates: Vec<i32> = master
                     .move_group_moves
@@ -421,10 +421,7 @@ pub async fn randomize_party(
                     .collect();
                 candidates.sort_unstable();
                 candidates.dedup();
-                let moves = candidates
-                    .choose_multiple(&mut rng, MAX_MOVES)
-                    .copied()
-                    .collect();
+                let moves = candidates.sample(&mut rng, MAX_MOVES).copied().collect();
                 (pachimon.pachimon_id, moves)
             })
             .collect()
@@ -456,7 +453,7 @@ pub async fn randomize_party(
         let (player_pachimon, granted_moves) =
             grant(&mut tx, player_id, *pachimon_id, moves).await?;
 
-        let party_slot_id = Ulid::new().to_string();
+        let party_slot_id = Ulid::generate().to_string();
         let slot = index as i32 + 1;
         sqlx::query(
             "INSERT INTO player_party_slots (party_slot_id, player_id, slot, player_pachimon_id) \
@@ -535,7 +532,7 @@ pub async fn update_move(
 
     // 新規slotの場合のみ使われるULID。既存slotの更新時はON DUPLICATE KEY UPDATEの対象に
     // player_pachimon_move_idを含めないため、既存の値がそのまま維持される。
-    let new_player_pachimon_move_id = Ulid::new().to_string();
+    let new_player_pachimon_move_id = Ulid::generate().to_string();
 
     sqlx::query(
         "INSERT INTO player_pachimon_moves \

@@ -101,7 +101,7 @@ async fn seed_items_master(pool: &MySqlPool) {
 /// テスト用のスカウトバナーを直接DBへINSERTする。`rate_table`を`{"C": 1.0}`固定にすることで
 /// 候補の`rarity`が常に`"C"`になり、テストの結果を決定論的にする。
 async fn seed_banner(pool: &MySqlPool, cost_per_roll: i32, active: bool) -> String {
-    let banner_id = ulid::Ulid::new().to_string();
+    let banner_id = ulid::Ulid::generate().to_string();
     let parse = |s: &str| chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").unwrap();
     let (start_at, end_at) = if active {
         (parse("2020-01-01 00:00:00"), parse("2100-01-01 00:00:00"))

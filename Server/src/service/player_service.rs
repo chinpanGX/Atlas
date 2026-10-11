@@ -35,7 +35,7 @@ pub async fn create(
     device_id: &str,
     nickname: &str,
 ) -> Result<Player, AppError> {
-    let player_id = Ulid::new().to_string();
+    let player_id = Ulid::generate().to_string();
 
     let mut tx = pool.begin().await.map_err(|_| AppError::InternalError)?;
 
@@ -94,7 +94,7 @@ async fn grant_starter_party(
         let (player_pachimon, _moves) =
             player_pachimon_service::grant(tx, player_id, slot.pachimon_id, &moves).await?;
 
-        let party_slot_id = Ulid::new().to_string();
+        let party_slot_id = Ulid::generate().to_string();
         sqlx::query(
             "INSERT INTO player_party_slots (party_slot_id, player_id, slot, player_pachimon_id) \
              VALUES (?, ?, ?, ?)",

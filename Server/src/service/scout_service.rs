@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use chrono::Utc;
-use rand::Rng;
-use rand::distributions::{Distribution, WeightedIndex};
+use rand::RngExt;
+use rand::distr::Distribution;
+use rand::distr::weighted::WeightedIndex;
 use sqlx::MySqlPool;
 use sqlx::types::Json;
 use ulid::Ulid;
@@ -122,7 +123,7 @@ pub async fn create_roll(
 
     let candidates = roll_candidates(master, &banner.rate_table)?;
 
-    let roll_id = Ulid::new().to_string();
+    let roll_id = Ulid::generate().to_string();
     sqlx::query(
         "INSERT INTO scout_rolls (roll_id, player_id, banner_id, candidates) VALUES (?, ?, ?, ?)",
     )
@@ -153,7 +154,7 @@ fn roll_candidates(
     master: &MasterData,
     rate_table: &HashMap<String, f64>,
 ) -> Result<Vec<ScoutCandidate>, AppError> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let labels: Vec<&str> = rate_table.keys().map(String::as_str).collect();
     let weights: Vec<f64> = labels.iter().map(|label| rate_table[*label]).collect();
@@ -172,7 +173,7 @@ fn roll_candidates(
         if pool.is_empty() {
             return Err(AppError::InternalError);
         }
-        let pachimon = pool[rng.gen_range(0..pool.len())];
+        let pachimon = pool[rng.random_range(0..pool.len())];
 
         let moves: Vec<i32> = master
             .move_group_moves

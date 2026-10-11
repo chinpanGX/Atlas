@@ -114,7 +114,7 @@ pub async fn join(
         opponent_id
     };
 
-    let match_id = Ulid::new().to_string();
+    let match_id = Ulid::generate().to_string();
     let result = battle_service::create_match(pool, &match_id, &opponent_id, player_id)
         .await
         .and_then(|()| {

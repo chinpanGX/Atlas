@@ -177,7 +177,7 @@ pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Resul
              (turn_id, match_id, turn_number, player_id, action_data, result_data) ",
         );
         builder.push_values(&input.turns, |mut row, turn| {
-            row.push_bind(Ulid::new().to_string())
+            row.push_bind(Ulid::generate().to_string())
                 .push_bind(&input.match_id)
                 .push_bind(turn.turn_number)
                 .push_bind(&turn.player_id)

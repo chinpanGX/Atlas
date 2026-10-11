@@ -177,7 +177,7 @@ async fn seed_items_master(pool: &MySqlPool) {
 /// `player_pachimon`/`player_pachimon_moves`(初期技1件、`slot=1`/`move_id=1`)を
 /// 直接DBへ投入し、`player_pachimon_id`を返す。
 async fn seed_owned_pachimon(pool: &MySqlPool, player_id: &str, pachimon_id: i64) -> String {
-    let player_pachimon_id = ulid::Ulid::new().to_string();
+    let player_pachimon_id = ulid::Ulid::generate().to_string();
     let zero_stats = json!({"hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0});
 
     sqlx::query(
@@ -197,7 +197,7 @@ async fn seed_owned_pachimon(pool: &MySqlPool, player_id: &str, pachimon_id: i64
             (player_pachimon_move_id, player_pachimon_id, slot, move_id) \
          VALUES (?, ?, 1, 1)",
     )
-    .bind(ulid::Ulid::new().to_string())
+    .bind(ulid::Ulid::generate().to_string())
     .bind(&player_pachimon_id)
     .execute(pool)
     .await

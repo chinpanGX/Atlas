@@ -627,7 +627,7 @@ async fn test_report_result_unknown_match(pool: MySqlPool) {
     let m = create_match(app.clone()).await;
 
     let body = result_body(
-        &ulid::Ulid::new().to_string(),
+        &ulid::Ulid::generate().to_string(),
         &m.player_a,
         (&m.player_a, json!([])),
         (&m.player_b, json!([])),
@@ -781,7 +781,7 @@ async fn test_abort_stale_matches(pool: MySqlPool) {
     let m = create_match(app.clone()).await;
 
     // 同じ2人で、成立したばかりの対戦をもう1つ用意する
-    let fresh_match_id = ulid::Ulid::new().to_string();
+    let fresh_match_id = ulid::Ulid::generate().to_string();
     sqlx::query(
         "INSERT INTO battle_matches (match_id, player1_id, player2_id, status, started_at) \
          VALUES (?, ?, ?, 'in_progress', NOW(3))",
