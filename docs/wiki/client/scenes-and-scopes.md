@@ -64,6 +64,8 @@ VContainer のスコープは3段。
 
 | 起動のしかた | 保存先 |
 |---|---|
-| Editor 本体 | 既定のまま |
-| Multiplayer Play Mode の追加 Editor インスタンス | `SaveData_VP_<id>` |
-| スタンドアロンビルド | `SaveData_Build`。起動引数 `-saveSlot N` で `SaveData_Build_N` |
+| Editor 本体 | 既定の `SaveData` の直下 |
+| Multiplayer Play Mode の追加 Editor インスタンス | `SaveData/VP_<id>` |
+| スタンドアロンビルド | `SaveData/Build`。起動引数 `-saveSlot N` で `SaveData/Build_N` |
+
+どれも `persistentDataPath/SaveData` の下に作る。`Tools > Delete SaveData` で `SaveData` を消すと、すべてのインスタンスのアカウントを作り直せる。

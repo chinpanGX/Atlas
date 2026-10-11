@@ -505,7 +505,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1733,7 +1733,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2183,7 +2183,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2670,8 +2670,8 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "voltech-grpc-auth"
-version = "0.1.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.1.0#db2068a93abaf564ca63a61b5599edd4ca2fe7aa"
+version = "0.2.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
 dependencies = [
  "argon2",
  "http",
@@ -2692,8 +2692,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-error"
-version = "0.1.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.1.0#db2068a93abaf564ca63a61b5599edd4ca2fe7aa"
+version = "0.2.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
 dependencies = [
  "tonic",
  "tonic-types",
@@ -2703,8 +2703,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-error-build"
-version = "0.1.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.1.0#db2068a93abaf564ca63a61b5599edd4ca2fe7aa"
+version = "0.2.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
 dependencies = [
  "serde",
  "toml",
@@ -2712,8 +2712,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-status"
-version = "0.1.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.1.0#db2068a93abaf564ca63a61b5599edd4ca2fe7aa"
+version = "0.2.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
 dependencies = [
  "http",
  "jiff",
@@ -2728,8 +2728,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-transaction"
-version = "0.1.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.1.0#db2068a93abaf564ca63a61b5599edd4ca2fe7aa"
+version = "0.2.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
 dependencies = [
  "http",
  "prost",

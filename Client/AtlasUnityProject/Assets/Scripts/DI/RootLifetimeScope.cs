@@ -9,6 +9,7 @@ using Atlas.Presentation.Common;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Supplement.Core;
+using Supplement.MessagePack;
 using Supplement.Unity;
 using Supplement.ZeroMessenger;
 using UnityEngine;
@@ -52,7 +53,7 @@ namespace Atlas.DI
         {
             builder.Register<Supplement.Loader.AddressablesLoader.AddressablesAssetLoader>(Lifetime.Singleton)
                 .As<Supplement.Loader.Abstractions.IAssetLoader, Supplement.Loader.Abstractions.ISceneLoader>();
-            builder.RegisterEncryptedFileStorage();
+            builder.RegisterMessagePackFileStorage();
             if (SaveDataDirectory.Resolve() is { } saveDataDirectory)
             {
                 builder.RegisterBuildCallback(resolver =>

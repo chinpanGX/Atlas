@@ -1,5 +1,7 @@
+using System.Security.Cryptography;
 using System.Text;
 using Cysharp.Threading.Tasks;
+using MessagePack;
 using Supplement.Core;
 using VolTech.Client.Auth;
 
@@ -18,7 +20,7 @@ namespace Atlas.Infrastructure
         public FileAccountStore(IFileStorageService fileStorageService, string serverAddress)
         {
             this.fileStorageService = fileStorageService;
-            fileKey = "account-" + ToFileName(serverAddress);
+            fileKey = "SaveData" + "account-" + ToFileName(serverAddress);
         }
 
         public async UniTask<AccountData> LoadAsync()
@@ -28,7 +30,17 @@ namespace Atlas.Infrastructure
                 return null;
             }
 
-            var dto = await fileStorageService.ReadAsync<AccountDto>(fileKey, Password);
+            AccountDto dto;
+            try
+            {
+                dto = await fileStorageService.ReadAsync<AccountDto>(fileKey, Password);
+            }
+            catch (CryptographicException)
+            {
+                // 壊れた・書き換えられたファイルや、以前のJSON形式で保存したファイルは読めない。
+                // 起動できなくなるのを避け、保存が無いものとして新しい端末で登録し直す
+                return null;
+            }
             return new AccountData(dto.DeviceId, dto.SecretKey, dto.PlayerId);
         }
 
@@ -55,12 +67,13 @@ namespace Atlas.Infrastructure
             return builder.ToString();
         }
 
-        [System.Serializable]
-        private sealed class AccountDto
+        // Keyの番号は一度使ったら変えない・使い回さない(保存済みのファイルが読めなくなるため)
+        [MessagePackObject(AllowPrivate = true)]
+        internal sealed class AccountDto
         {
-            public string DeviceId;
-            public string SecretKey;
-            public string PlayerId;
+            [Key(0)] public string DeviceId { get; set; }
+            [Key(1)] public string SecretKey { get; set; }
+            [Key(2)] public string PlayerId { get; set; }
         }
     }
 }

@@ -20,7 +20,7 @@ namespace Atlas.Tests.Presentation.Battle
 
             builder.RegisterBuildCallback(resolver =>
             {
-                resolver.Resolve<IFileStorageService>().SetDirectoryName("BattlePlayModeTestSaveData");
+                resolver.Resolve<IFileStorageService>().SetDirectoryName("SaveData/BattlePlayModeTest");
             });
         }
 

@@ -191,7 +191,7 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
   基盤のタグの版を`BattleBot/obj/voltech-grpc-src/`に取ってくる(gitとネットワークが要る)
 - B・Cでは、同じPCで2人分を動かすとセーブデータ(アカウント情報)が同じになり、自分自身とマッチングしようとして
   しまうため、インスタンスごとに保存先を分けている(`Assets/Scripts/DI/SaveDataDirectory.cs`)。Editor本体は既定の`SaveData`、
-  Multiplayer Play Modeの追加インスタンスは`SaveData_VP_<id>`、ビルドは`SaveData_Build`(`-saveSlot N`で`SaveData_Build_N`)
+  Multiplayer Play Modeの追加インスタンスは`SaveData/VP_<id>`、ビルドは`SaveData/Build`(`-saveSlot N`で`SaveData/Build_N`)
 - マッチング成立からBattleServerへの接続までの期限は30秒(`battleToken`の有効期限)
 
 ## 5. コンポーネント別

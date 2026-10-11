@@ -15,14 +15,14 @@ APIサーバー・C#/MagicOnionのバトルサーバーで構成する。この�
 | 全体の構成・通信の経路・リポジトリ構成 | [docs/wiki/overview.md](docs/wiki/overview.md) |
 | 仕様と設計(実装に合わせたもの) | [docs/wiki/index.md](docs/wiki/index.md)(更新のルールは[docs/wiki/CLAUDE.md](docs/wiki/CLAUDE.md)) |
 | 環境構築・起動手順・コマンド | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
-| 実装状況と残タスク | [docs/progress.md](docs/progress.md) |
+| 残タスク・実装済みの機能 | [GitHub Issues](https://github.com/chinpanGX/Atlas/issues)(実装済みはclosedの[#23](https://github.com/chinpanGX/Atlas/issues/23)) |
 
 ## 構成の上で守ること
 
 構成の説明と理由は[概要](docs/wiki/overview.md)。ここには、作業するときに外してはいけない決まりだけを書く。
 
 - **ClientとAPIサーバーの通信は自作のgRPC基盤[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)に乗せる**
-  (タグ`v0.1.0`で参照。Cargoはgit+tag、Unityは`manifest.json`のgit URL、C#の生成はルートの`Makefile`)。
+  (タグ`v0.2.0`で参照。Cargoはgit+tag、Unityは`manifest.json`のgit URL、C#の生成はルートの`Makefile`)。
   **Atlasの中で基盤のコードを直さない**。足りないものは基盤のほうを直してタグを打つ
 - **DBへの書き込みはAPIサーバーに一本化する**。バトルサーバーはDBを持たず、内部API(gRPCの`atlas.internal.v1.BattleInternalService`、
   別ポート、`x-internal-secret`で認証)で取得・報告する
@@ -88,4 +88,5 @@ APIサーバー・C#/MagicOnionのバトルサーバーで構成する。この�
 - MySQLコンテナ・マイグレーション・DBのリセットは `server-dev-env` スキル
 - 適用済みのマイグレーションのSQLを書き換えると、ローカルDBの`_sqlx_migrations`のチェックサムと合わなくなる。
   書き換えた場合は、ファイルのSHA-384でチェックサムを更新するか、DBを作り直す
-- 機能実装・API変更・マスターデータ追加を行った後は `atlas-design-docs-sync` スキルでどのドキュメントを更新すべきか確認する
+- 機能実装・API変更・マスターデータ追加を行った後は、[docs/wiki/CLAUDE.md](docs/wiki/CLAUDE.md)のルールでwikiを実装に合わせる
+- タスクはGitHub Issuesで管理する。作業で終えたissueは閉じ、作業中に見つけた残タスク(別の層が追いついていない等)はissueにする

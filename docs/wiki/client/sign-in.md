@@ -34,7 +34,12 @@ TitlePresenter(スタート)
 ## アカウント情報の保存
 
 デバイス登録で受け取ったアカウント情報(`device_id`・`secret_key`・`player_id`)は、基盤の `IAccountStore` を Atlas が実装した
-`FileAccountStore` が、Supplement の暗号化セーブでファイルに保存する。基盤の既定はメモリだけで、起動するたびに新しい端末になるため。
+`FileAccountStore` が、Supplement の MessagePack のセーブ(`Supplement.MessagePack`。MessagePack + LZ4 を AES で暗号化し、
+HMAC で改ざん・破損を検知する)でファイルに保存する。基盤の既定はメモリだけで、起動するたびに新しい端末になるため。
+
+- 読めないファイル(壊れた・書き換えられた・以前の JSON 形式で保存した)は、保存が無いものとして扱い、新しい端末で登録し直す。
+  起動できなくなるのを避けるため
+- DTO の `[Key]` の番号は一度使ったら変えない・使い回さない。IL2CPP では MessagePack の Source Generator(NuGet の `MessagePackAnalyzer`)が作るフォーマッターを使う
 
 - 接続先(gRPC のアドレス)ごとにファイルを分ける。接続先を切り替えると、別の環境の DB には保存した `device_id` が無く、トークンを発行できなくなるため
 - 所持データはディスクに保存しない([サービスと所持データ](services-and-player-data.md))

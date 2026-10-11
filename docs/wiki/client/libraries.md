@@ -24,7 +24,7 @@ updated: 2026-10-11
 | 画面をまたぐ通知 | ZeroMessenger(Supplement の `IMessageBroker` 経由でだけ使う) | NuGetForUnity |
 | マスターデータ | MasterMemory + MessagePack(本体と Source Generator) | NuGetForUnity |
 | 対戦の通信 | MagicOnion.Client + YetAnotherHttpHandler + Grpc.Net.Client | OpenUPM + NuGetForUnity + UnityNuGet |
-| APIサーバーとの通信 | VolTech gRPC(自作の基盤。`ApiCore`・認証・エラーダイアログの仕組み・gRPC Monitor)+ `.proto` から生成したラッパー | Git(タグ `v0.1.0`)+ 生成コード |
+| APIサーバーとの通信 | VolTech gRPC(自作の基盤。`ApiCore`・認証・エラーダイアログの仕組み・gRPC Monitor)+ `.proto` から生成したラッパー | Git(タグ `v0.2.0`)+ 生成コード |
 | テスト | Unity Test Framework | Unity |
 
 - MagicOnion・MasterMemory・MessagePack は、UPM 版が薄いラッパーで Source Generator を含まないため、NuGet 版(本体 + Source Generator)を

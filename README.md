@@ -63,12 +63,12 @@ Atlas/
 │   ├── master-data/           # マスターデータのスキーマとCSV(正本)
 │   ├── proto/                 # ClientとAPIサーバーの通信の定義(.proto、正本)
 │   └── errors.toml            # APIサーバーの業務エラー(正本)
-├── docs/                      # wiki(docs/wiki/)、仕様概要書・設計書・進捗・Notesなど
+├── docs/                      # wiki(docs/wiki/)、仕様概要書・設計書・Notesなど
 ├── master-data-pipeline/      # マスターデータの定義・自動生成ツール(submodule、自作)
 └── UnityScreenNavigator/      # 画面遷移ライブラリ(USN)のフォーク(submodule)
 ```
 
-実装の進み具合は[docs/progress.md](docs/progress.md)を参照。
+残タスクは[GitHub Issues](https://github.com/chinpanGX/Atlas/issues)で管理している。
 
 開発環境の構築・起動手順は[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)を参照。
 
@@ -77,7 +77,6 @@ Atlas/
 - [docs/wiki/index.md](docs/wiki/index.md) — **Atlas wiki**(仕様と設計。実装に合わせて更新している。まずはここから)
 - [docs/game-spec.md](docs/game-spec.md) — 仕様概要書(ゲームの内容とルール)
 - [docs/design.md](docs/design.md) — 設計書(APIサーバー・クライアント・バトルサーバー・DB・マスターデータ)
-- [docs/progress.md](docs/progress.md) — 実装の進み具合と残タスク
 
 ## 設計上のポイント
 

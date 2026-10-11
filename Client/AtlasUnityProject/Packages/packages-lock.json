@@ -36,6 +36,15 @@
       },
       "hash": "56381bab0c2d629efa4173f1938a26c599ecd1db"
     },
+    "com.chinpangx.supplement.messagepack": {
+      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.MessagePack#v1.4.0",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.chinpangx.supplement": "1.4.0"
+      },
+      "hash": "56381bab0c2d629efa4173f1938a26c599ecd1db"
+    },
     "com.chinpangx.supplement.zeromessenger": {
       "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger#v1.4.0",
       "depth": 0,
@@ -46,19 +55,18 @@
       "hash": "56381bab0c2d629efa4173f1938a26c599ecd1db"
     },
     "com.chinpangx.voltech.grpc": {
-      "version": "https://github.com/chinpanGX/VolTech-gRPC.git?path=/Unity/com.chinpangx.voltech.grpc#v0.1.0",
+      "version": "https://github.com/chinpanGX/VolTech-gRPC.git?path=/Unity/com.chinpangx.voltech.grpc#v0.2.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
         "com.cysharp.unitask": "2.5.11",
         "com.cysharp.yetanotherhttphandler": "1.11.6",
-        "org.nuget.google.api.commonprotos": "2.17.0",
-        "org.nuget.google.protobuf": "3.31.1",
+        "org.nuget.google.protobuf": "3.36.2",
         "org.nuget.grpc.core.api": "2.84.0",
         "org.nuget.grpc.net.client": "2.84.0",
         "org.nuget.system.io.pipelines": "10.0.12"
       },
-      "hash": "db2068a93abaf564ca63a61b5599edd4ca2fe7aa"
+      "hash": "408ddddc2cc861d5095615a027828414d4779ed0"
     },
     "com.cysharp.magiconion.client.unity": {
       "version": "7.11.0",
@@ -431,15 +439,6 @@
       "source": "registry",
       "dependencies": {},
       "url": "https://package.openupm.com"
-    },
-    "org.nuget.google.api.commonprotos": {
-      "version": "2.17.0",
-      "depth": 1,
-      "source": "registry",
-      "dependencies": {
-        "org.nuget.google.protobuf": "3.31.1"
-      },
-      "url": "https://unitynuget-registry.openupm.com"
     },
     "org.nuget.google.protobuf": {
       "version": "3.36.2",

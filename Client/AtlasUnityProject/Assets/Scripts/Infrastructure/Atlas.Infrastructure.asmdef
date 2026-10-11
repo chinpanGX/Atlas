@@ -22,7 +22,9 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "ZLinq.dll",
-        "Google.Protobuf.dll"
+        "Google.Protobuf.dll",
+        "MessagePack.dll",
+        "MessagePack.Annotations.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [],
