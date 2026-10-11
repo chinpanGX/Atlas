@@ -3,62 +3,33 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Atlasは、デバイス認証(ゲスト型)で始めるリアルタイム対戦モンスター収集ゲーム。Unityクライアント・Rustの
-APIサーバー・C#/MagicOnionのバトルサーバーで構成する。このファイルにはプロジェクト全体に共通する
-アーキテクチャとコーディングルールを書き、各プロジェクト固有のものはそれぞれのCLAUDE.mdに書く。
+APIサーバー・C#/MagicOnionのバトルサーバーで構成する。このファイルにはプロジェクト全体に共通するルールを書き、
+各プロジェクト固有のルールはそれぞれのCLAUDE.mdに書く。構成と設計(なぜそうしたか)はwikiに書く。
 
-- [Server/CLAUDE.md](Server/CLAUDE.md) — APIサーバー(Rust/axum)
+- [Server/CLAUDE.md](Server/CLAUDE.md) — APIサーバー(Rust/tonic)
 - [BattleServer/CLAUDE.md](BattleServer/CLAUDE.md) — バトルサーバー(C#/MagicOnion)、`Shared/BattleCore`・`Shared/BattleContracts`
 - [Client/AtlasUnityProject/CLAUDE.md](Client/AtlasUnityProject/CLAUDE.md) — Unityクライアント
 
-環境構築・起動手順・コマンドは[DEVELOPMENT.md](DEVELOPMENT.md)、ゲームの仕様は[Shared/docs/game-spec.md](Shared/docs/game-spec.md)、
-設計の詳細は[Shared/docs/design.md](Shared/docs/design.md)、実装状況は[Shared/docs/progress.md](Shared/docs/progress.md)。
+| 知りたいこと | 読む場所 |
+|---|---|
+| 全体の構成・通信の経路・リポジトリ構成 | [docs/wiki/overview.md](docs/wiki/overview.md) |
+| 仕様と設計(実装に合わせたもの) | [docs/wiki/index.md](docs/wiki/index.md)(更新のルールは[docs/wiki/CLAUDE.md](docs/wiki/CLAUDE.md)) |
+| 環境構築・起動手順・コマンド | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| 実装状況と残タスク | [docs/progress.md](docs/progress.md) |
 
-## アーキテクチャ
+## 構成の上で守ること
 
-```
-Unity Client
-   │ gRPC(VolTech gRPC)           │ MagicOnion (gRPC / StreamingHub)
-   ▼                               ▼
-APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
- 認証・プレイヤー・編成・          対戦の進行のみ(状態はメモリ上)
- スカウト・マッチング・DB書き込み        │
-   ▲─────────── 内部API(REST) ──────────┘  パーティ・選出個体の取得、結果報告
-   │
- MySQL(唯一のデータストア。書き込みはAPIサーバーだけが行う)
-```
+構成の説明と理由は[概要](docs/wiki/overview.md)。ここには、作業するときに外してはいけない決まりだけを書く。
 
 - **ClientとAPIサーバーの通信は自作のgRPC基盤[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)に乗せる**
-  (タグ`v0.1.0`で参照。Cargoはgit+tag、Unityは`manifest.json`のgit URL、C#の生成はルートの`Makefile`)。デバイス認証・
-  トークン・エラーのダイアログの仕組み・再送しても一度だけ処理する仕組み・1リクエスト1トランザクション・メンテナンスの判定は
-  基盤が行う。Atlasの中で基盤のコードを直さない。足りないものは基盤のほうを直してタグを打つ
-- BattleBot(`BattleServer/BattleBot/`)はUnity以外の.NETのクライアントなので基盤の`ApiCore`を使えず、`.proto`から
-  `Grpc.Tools`で生成した素のクライアントにトークンとRequestIDのヘッダーを自分で付ける
-- **DBへの書き込みはAPIサーバーに一本化する**。バトルサーバーはDBを持たず、必要なデータは内部API
-  (`/internal/battle/*`、`X-Internal-Secret`で認証)で取得し、結果も内部APIで報告する
-- **対戦の判定はバトルサーバーが権威を持つ**。クライアントは結果を受け取って表示するだけ。HPは%でしか送らない等、
-  判定に使う生の値はクライアントに渡さない
-- バトルサーバーの参加資格は、APIサーバーがマッチ成立時に発行する短命JWT(`battle_token`)で確かめる
-- サーバーは1台構成(ローカルでの動作)を前提にする。マッチングの待機列や対戦状態はプロセスのメモリに持つ
-- ダメージ計算・ターン処理(`Atlas.BattleCore`)と通信契約(`Atlas.BattleContracts`)は、`Shared/`に置いた同じ
-  ソースをClient(Unityのローカルパッケージ)とBattleServer(csproj)の両方がコンパイルする
-
-### リポジトリ構成
-
-```
-Atlas/
-├── Client/AtlasUnityProject/  Unityクライアント
-├── Server/                    APIサーバー(Rust。クライアント向けはgRPC/tonic、内部APIはREST/axum)
-├── BattleServer/              バトルサーバー(C#/MagicOnion)、対戦相手ボット(BattleBot/)、テスト
-├── Shared/
-│   ├── BattleCore/            ダメージ計算・ターン処理(Unityパッケージ + BattleServerのcsprojから参照)
-│   ├── BattleContracts/       Client⇔BattleServerの通信契約(同上)
-│   ├── master-data/           マスターデータのスキーマとCSV(正本)
-│   ├── proto/                 ClientとAPIサーバーの通信の定義(.proto、正本)
-│   ├── errors.toml            APIサーバーの業務エラー(正本)
-│   └── docs/                  仕様概要書・設計書・進捗・構想・メモ
-├── master-data-pipeline/      マスターデータの生成ツール(submodule、自作)
-└── UnityScreenNavigator/      画面遷移ライブラリ(USN)のフォーク(submodule、developブランチ)
-```
+  (タグ`v0.1.0`で参照。Cargoはgit+tag、Unityは`manifest.json`のgit URL、C#の生成はルートの`Makefile`)。
+  **Atlasの中で基盤のコードを直さない**。足りないものは基盤のほうを直してタグを打つ
+- **DBへの書き込みはAPIサーバーに一本化する**。バトルサーバーはDBを持たず、内部API(gRPCの`atlas.internal.v1.BattleInternalService`、
+  別ポート、`x-internal-secret`で認証)で取得・報告する
+- **対戦の判定はバトルサーバーが権威を持つ**。判定に使う生の値(HPの実数など)はクライアントに渡さない
+- サーバーは1台構成を前提にする。マッチングの待機列や対戦の状態はプロセスのメモリに持つ
+- `Atlas.BattleCore`・`Atlas.BattleContracts`は`Shared/`の同じソースをClientとBattleServerの両方がコンパイルする。
+  どちらか一方の都合だけで変えない
 
 ### 生成物とその正本
 
@@ -67,14 +38,14 @@ Atlas/
 | 正本 | 生成物 | 生成方法 |
 |---|---|---|
 | `Shared/master-data/`(スキーマ・CSV) | Rustの型・JSON、C#の型・`masterdata.bytes`(Client・BattleServer) | `master-data-pipeline`スキル。Rust側はさらに`seed_master_data`でDBへ投入 |
-| `Shared/proto/`(`.proto`)・`Shared/errors.toml`(業務エラー) | Rustのサーバーの型・エラーコード(`build.rs`が生成。コミットしない)、Clientの`Infrastructure/Grpc/Generated/` | Rustはビルドで自動。C#はルートで`make proto-gen`・`make errors-gen` |
+| `Shared/proto/`(`.proto`)・`Shared/errors.toml`(業務エラー) | Rustのサーバーの型・エラーコード(`build.rs`が生成。コミットしない)、Clientの`Infrastructure/Grpc/Generated/`、BattleServer・BattleBotのクライアント(ビルド時) | Rust・.NETはビルドで自動。Unityはルートで`make proto-gen`・`make errors-gen` |
 | Addressablesの登録 | Clientの`AddressDefinition.cs` | Unityのジェネレーター |
 
 ## 共通のコーディングルール
 
 ### コメント
 
-- **コメントにドキュメントへの参照を書かない**(「design.md「〇〇」参照」「設計書の〇〇を実装した」など)。
+- **コメントにドキュメントへの参照を書かない**(「design.md「〇〇」参照」「wikiの〇〇を実装した」など)。
   ドキュメントの構成を変えるたびにコードまで直すことになるため。コメントには、実装内容の概要と、
   コードから読み取れない注意点(なぜそうしているか)を、ドキュメントに依存せず実装に即して書く
 - 仕様の根拠を示したいときも、ドキュメント名ではなく内容を書く(例: 「交代は技より先に処理されるため」)
@@ -83,9 +54,11 @@ Atlas/
 
 ### 命名
 
+詳しくは[命名とID](docs/wiki/conventions/naming-and-ids.md)。
+
 - DB・Rust: `snake_case`。マスタは修飾語なし、プレイヤーの所持データは`player_`を付ける(`pachimon` / `player_pachimon`)
 - 「ポケモン」にあたる語は`pachimon`で統一する(商標と混同しないための独自名)
-- 内部API(REST)のJSONは`camelCase`(Rustは`serde(rename_all = "camelCase")`で変換し、内部は`snake_case`)
+- `.proto`は`buf lint`(STANDARD)の規約どおり
 - C#は型・メソッド・プロパティが`PascalCase`。private フィールドは`camelCase`(アンダースコアを付けない)、
   private の`const`・`static readonly`は`PascalCase`。Client・BattleServer・`Shared/`で共通
 - C#の命名ルールはリポジトリ直下の`.editorconfig`に書いている(Supplementの`.editorconfig`と同じルール)。
@@ -93,14 +66,15 @@ Atlas/
 
 ### データの表し方
 
-- gRPCのAPI(`.proto`)は基盤の規約に従う。スカラーは`optional`を使わず、「値なし」は番兵値(空文字など)で表す。
-  メッセージ型のフィールドは`null`を「変更なし / 該当なし」として使ってよい。内部API(REST)のレスポンスには`nullable`を
-  使わない。MagicOnion(MessagePack)の通信契約は`nullable`を使ってよい
+理由は[値なしの表し方](docs/wiki/conventions/nullable.md)・[所持データの差分](docs/wiki/conventions/player-diff.md)。
+
+- gRPCのAPI(`.proto`。クライアント向け・内部API)は基盤の規約に従う。スカラーは`optional`を使わず、「値なし」は番兵値(空文字など)で表す。
+  メッセージ型のフィールドは`null`を「変更なし / 該当なし」として使ってよい。MagicOnion(MessagePack)の通信契約は`nullable`を使ってよい
 - DBの「無い」は行が無いことで表す(パーティの未編成の枠など)
 - プレイヤーの操作で生成するデータのIDはULID(DBは`CHAR(26)`)。パーティの枠や覚えている技のような「割当」も、
   行ごとにULIDを持つ独立したエンティティにする
 - 所持データを変えるAPIは、レスポンスに共通の形の`player_diff`(リソース種別ごとの`upserted`/`removed`)を含める。
-  クライアントは受け取った差分を手元のデータに反映する。サインインの全件は`player_diff`と名前を分けて返し、置き換える
+  サインインの全件は`player_diff`と名前を分けて(`snapshot`)返し、クライアントは置き換える
 - 業務エラーは`Shared/errors.toml`(domain `atlas`)に書き、サーバーは`FAILED_PRECONDITION` + `ErrorInfo`で返す
 - ジェムのような数量は`players`の列にせず、`items`マスタと`player_items`で持つ
 

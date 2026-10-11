@@ -1,7 +1,7 @@
 # 開発環境ガイド
 
 Atlasの開発者(Client / Server / BattleServer)が共通で行う設定と、よく使うコマンドをまとめたもの。
-設計の背景は[README.md](README.md)・`Shared/docs/design/`、各コンポーネント固有の詳細は下記リンク先を参照。
+設計の背景は[README.md](../README.md)・`docs/`、各コンポーネント固有の詳細は下記リンク先を参照。
 
 ## 全体像
 
@@ -65,7 +65,7 @@ git clone --recurse-submodules <リポジトリURL>
 git submodule update --init --recursive
 ```
 
-`master-data-pipeline` / `UnityScreenNavigator` はサブモジュール([.gitmodules](.gitmodules))。
+`master-data-pipeline` / `UnityScreenNavigator` はサブモジュール([.gitmodules](../.gitmodules))。
 Supplement(自作の共通ユーティリティ)はサブモジュールにせず、Clientの`manifest.json`からgitのURLで参照している。
 `UnityScreenNavigator`(画面遷移ライブラリのフォーク)はClientの`manifest.json`から`file:`で参照しているため、
 サブモジュールを取得しないとUnityプロジェクトを開けない。フォークを直したときは、フォーク側でコミット・pushしてから
@@ -198,7 +198,7 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
 
 ### Server(Rust) — 作業ディレクトリ `Server/`
 
-詳細: [Server/CLAUDE.md](Server/CLAUDE.md)、cargoのコマンド: [Shared/docs/notes/cargo-commands.md](Shared/docs/notes/cargo-commands.md)
+詳細: [Server/CLAUDE.md](../Server/CLAUDE.md)、cargoのコマンド: [notes/cargo-commands.md](notes/cargo-commands.md)
 
 ```bash
 make up / make down / make restart   # MySQLコンテナの起動・停止
@@ -238,7 +238,7 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 
 ### Client(Unity) — `Client/AtlasUnityProject/`
 
-- Unity 6000.6.2f1で開く。コーディング規約は[Client/AtlasUnityProject/CLAUDE.md](Client/AtlasUnityProject/CLAUDE.md)
+- Unity 6000.6.2f1で開く。コーディング規約は[Client/AtlasUnityProject/CLAUDE.md](../Client/AtlasUnityProject/CLAUDE.md)
 - ServerのURLは`Assets/Scripts/DI/RootLifetimeScope.cs`の`GrpcAddress`(`http://127.0.0.1:50051`固定)。
   BattleServerのURLはマッチング成立時にServerから受け取るため、Client側の設定は不要
 - 通信ログはUnity Consoleの`[Api] → ...` / `[Api] ← ...`(Editor・開発ビルドのみ)。`Window > VolTech gRPC > gRPC Monitor`で

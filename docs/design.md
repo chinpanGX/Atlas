@@ -68,7 +68,7 @@ APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
 | `master-data-pipeline/`(submodule) | マスターデータの生成ツール(自作) |
 | `UnityScreenNavigator/`(submodule) | 画面遷移ライブラリ(USN)のフォーク |
 
-起動手順・環境変数は[DEVELOPMENT.md](../../DEVELOPMENT.md)を参照。
+起動手順・環境変数は[DEVELOPMENT.md](DEVELOPMENT.md)を参照。
 
 ---
 
@@ -173,7 +173,7 @@ Rust。クライアント向けのAPIはgRPC(tonic + 基盤のクレート`volte
 同じプロセスの別のポートで出す(gRPCは`GRPC_ADDR`、既定`127.0.0.1:50051`。内部APIは`SERVER_ADDR`、既定`127.0.0.1:3000`)。
 同じプロセスにするのは、マッチングの待機列をメモリで共有するため。ポートを分けるのは、基盤のLayer(メンテナンス・認証等)を
 内部APIに付けないためと、BattleServerのHTTP/1.1の呼び出しを変えずに済むため。
-ソースは`Server/src/`、詳しい開発手順は[Server/CLAUDE.md](../../Server/CLAUDE.md)。
+ソースは`Server/src/`、詳しい開発手順は[Server/CLAUDE.md](../Server/CLAUDE.md)。
 
 | ディレクトリ・ファイル | 役割 |
 |---|---|
@@ -701,7 +701,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 
 ## 6. クライアント
 
-Unity(`Client/AtlasUnityProject/`)。コーディング規約は[Client/AtlasUnityProject/CLAUDE.md](../../Client/AtlasUnityProject/CLAUDE.md)。
+Unity(`Client/AtlasUnityProject/`)。コーディング規約は[Client/AtlasUnityProject/CLAUDE.md](../Client/AtlasUnityProject/CLAUDE.md)。
 
 ### 6.1 採用ライブラリ
 
@@ -973,7 +973,7 @@ Battle/        BattlePage・BattlePresenter
 
 `BattlePresenter`が`IBattleConnection`を持つ唯一のクラスで、Viewは`IBattleConnection`や
 `Atlas.BattleCore`の型を知らない。接続の型(`IBattleConnection`とPayload)は
-[IBattleConnection.cs](../../Client/AtlasUnityProject/Assets/Scripts/Domain/IBattleConnection.cs)を正とし、
+[IBattleConnection.cs](../Client/AtlasUnityProject/Assets/Scripts/Domain/IBattleConnection.cs)を正とし、
 BattleServerとの通信契約([7.3](#73-通信契約))と対になる。
 
 **流れ**
@@ -1160,8 +1160,8 @@ CEDEC2026のポケモン・バトルシステムの講演にある考え方を�
 
 ### 7.3 通信契約
 
-`Shared/BattleContracts/Runtime/`の[IBattleHub.cs](../BattleContracts/Runtime/IBattleHub.cs)と
-[BattlePayloads.cs](../BattleContracts/Runtime/BattlePayloads.cs)を正とする(MessagePackでシリアライズ)。
+`Shared/BattleContracts/Runtime/`の[IBattleHub.cs](../Shared/BattleContracts/Runtime/IBattleHub.cs)と
+[BattlePayloads.cs](../Shared/BattleContracts/Runtime/BattlePayloads.cs)を正とする(MessagePackでシリアライズ)。
 Client側の`IBattleConnection`はこれと対になる形で、`RealtimeBattleConnection`が型を詰め替えるだけ。
 
 | Client → Server(`IBattleHub`) | 内容 |

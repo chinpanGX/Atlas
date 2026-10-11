@@ -1,86 +1,51 @@
 # Atlas Unity Client
 
-Unity 6(IL2CPP前提)のクライアント。プロジェクト全体のアーキテクチャと共通ルール(コメントにドキュメントへの
-参照を書かない等)は[ルートのCLAUDE.md](../../CLAUDE.md)。
+Unity 6(IL2CPP前提)のクライアント。プロジェクト全体の共通ルール(コメントにドキュメントへの参照を書かない等)は
+[ルートのCLAUDE.md](../../CLAUDE.md)。構成と設計(なぜそうしたか)はwikiに書いている。
 
-## アーキテクチャ
+| 知りたいこと | 読む場所 |
+|---|---|
+| シーン・VContainerのスコープ・起動の流れ | [シーンとスコープ](../../docs/wiki/client/scenes-and-scopes.md) |
+| View / Presenter・画面一覧 | [画面の構成](../../docs/wiki/client/screens.md) |
+| Push/Pop・遷移の直列化・シーンの切り替え | [画面遷移](../../docs/wiki/client/navigation.md) |
+| Service・Repository・`player_diff`の反映・マッチング | [サービスと所持データ](../../docs/wiki/client/services-and-player-data.md) |
+| asmdefの構成とフォルダ | [アセンブリとレイヤー](../../docs/wiki/client/assemblies.md) |
+| バトル画面の流れ・状態・演出 | [バトル画面](../../docs/wiki/client/battle-screen.md) |
+| 通信エラーのダイアログ | [通信エラーのダイアログ](../../docs/wiki/client/error-dialog.md) |
+| テスト・Mock対戦 | [テストとサーバー無しでの動作](../../docs/wiki/client/testing.md) |
 
-### シーンとスコープ
+## 構成の上で守ること
 
-```
-Bootstrap(起動シーン。一度もアンロードしない)
-  RootLifetimeScope: マスタの読み込み、通信の共通処理(ApiCore)・エラーダイアログ、Connection・Repository・ServiceのDI登録
-    ▼
-Home / Battle(Addressables。ISceneNavigatorで切り替える)
-  HomeLifetimeScope / BattleLifetimeScope: USNのコンテナとIScreenNavigator
-    ▼
-Push単位の子スコープ(ScreenNavigatorが画面を開くたびに作り、閉じると破棄する)
-  View・ViewDto・Presenter
-```
+### レイヤーと依存
 
-- DIはVContainer。スコープは Root(アプリの生存期間)→ シーン(`FindParent()`でRootを直接親にする)→ 画面
-- シーンの中の画面遷移はUnityScreenNavigator(USN)のフォークのPage/Modal。Presenterの型でPushし、
-  フォークの`ScreenNavigator`が子スコープでPresenterを解決する
-- Homeシーンは、サインインしていなければタイトル(「スタート」でサインイン)から、していればホームから始まる
-- Home→Battleの受け渡し(マッチ情報)はRoot常駐の`BattleEntryStore`を通す(シーンを切り替えるとHomeのスコープは破棄されるため)
-- シーンの切り替えは`TransitionAwareSceneNavigator`が全コンテナの遷移の完了を待ってから行う(遷移アニメーション中に
-  画面を破棄すると例外になるため)
+- オニオンアーキテクチャ。依存は外側から内側への一方向だけにする(asmdefの参照で強制している)。
+  通信・保存のインターフェースは内側(`Atlas.Application`・`Atlas.Domain`)に置き、`Atlas.Infrastructure`が実装する
+- **`Atlas.Presentation`は`Atlas.Infrastructure`も`Atlas.DI`も参照しない**。実装を組み立てるのは`Atlas.DI`(構成ルート)だけ
+- DIの登録は`RootLifetimeScope`と、各アセンブリの`_DIExtensions.cs`の拡張メソッドに置く。シーン単位の`LifetimeScope`は`Atlas.DI`に置く
 
-### 画面(View / Presenter)
+### 画面
 
-「Viewのユーザー操作 → Presenterが購読 → Service(またはConnection)を呼ぶ → ViewDtoを作る → Viewを更新」の一方向。
-
-| 役割 | 型 | 内容 |
-|---|---|---|
-| View | `XxxPage`/`XxxModal`(USNの`Page`/`Modal`) | ボタン等を`Observable`で公開し、`Refresh(dto)`で表示に反映するだけ |
-| Presenter | `XxxPresenter`(フォークの`IPresenter`、引数を受け取る画面は`IScreenWithArgs<XxxViewDto>`) | 具象のViewとService等をコンストラクタで受け取り、`InitializeAsync`でViewを購読する |
-| 表示データ | `XxxViewDto` | Push時の入力と表示データを兼ねる |
-| Pop結果 | `XxxResult` | Presenterの`CompleteAsync`で返し、Push元が`WaitForPopAsync`で受け取る |
-
-- Viewにインターフェースは作らない(PresenterとViewは1対1の組で、差し替える場面が無いため)
-- Presenterには`[AssetAddress(AddressDefinition.Xxx)]`でprefabのアドレスを付ける。prefabのアドレスはViewのクラス名と同じにする
+- 「Viewのユーザー操作 → Presenterが購読 → Serviceを呼ぶ → ViewDtoを作る → Viewを更新」の一方向にする
+- Viewにインターフェースは作らない(PresenterとViewは1対1の組で、差し替える場面が無いため)。ViewはPresenterを知らない
+- Page/Modalのprefabに`LifetimeScope`は置かない(子スコープは`ScreenNavigator`が作る)
+- Home→Battleの受け渡しはRoot常駐の`BattleEntryStore`を通す。シーンの切り替えは`ISceneNavigator`を使う
 - 同じ画面の中の通知はR3の`Observable`を直接購読する。どの画面からとも決まらない通知だけSupplementの`IMessageBroker`を使う
 
 ### 通信と所持データ
 
-| 抽象 | 置き場所 | 内容 |
-|---|---|---|
-| `IXxxConnection` | `Atlas.Application` | サーバーのAPIの呼び出し。Domainの型で受け渡し、成否(または結果の型)を返す。例外は投げない |
-| `IXxxRepository` | `Atlas.Domain` | 手元の所持データ。`playerDiff`のリソース種別ごとに1つ。メモリに持つだけ(サインインで取り直す) |
-| `IXxxService` | `Atlas.Application` | Presenterが使う処理。実装は1つ |
-| `IPlayerSession` | `Atlas.Application` | サインインしているか。タイトルに戻るときに所持データを捨てる |
-| `IBattleConnection` | `Atlas.Domain` | 対戦の接続(`RealtimeBattleConnection`/`MockBattleConnection`)。`IBattleConnectionFactory`で対戦ごとに作る |
-
-- APIサーバーとの通信はgRPC基盤(VolTech gRPC)の`ApiCore`が共通処理を受け持つ(デバイス登録・トークン・再認証、
-  エラーのダイアログと画面遷移、RequestID、`player_diff`の反映)。Connectionの実装(`Atlas.Infrastructure.Grpc`)は、
-  `.proto`から生成したラッパー(`XxxApi`)を呼んで、生成の型とDomainの型を詰め替えるだけ。Serviceは`player_diff`を知らない
-- 通信が失敗したとき、ダイアログ・タイトルへ戻る等は`ApiCore`が済ませている。呼び出し側は成否を見て抜けるだけにし、
-  `try/catch`で通信のエラーを処理しない。画面で自分で処理したいエラーだけ、ラッパーの`handledCodes`に渡す
+- APIサーバーの呼び出しはServiceの実装(`Atlas.Infrastructure`)が、`.proto`から生成したラッパー(`XxxApi`)を呼んで行う。
+  PresenterはServiceのインターフェース越しにだけ通信する
+- 通信が失敗したとき、ダイアログ・タイトルへ戻る等は基盤の`ApiCore`が済ませている。Serviceは成否(または結果の型)だけを返し、
+  呼び出し側は成否を見て抜けるだけにする。**`try/catch`で通信のエラーを処理しない**。画面で自分で処理したいエラーだけ、
+  ラッパーの`handledCodes`に渡す
+- `player_diff`の反映は`ApiCore`が`PlayerDiffApplier`で行う。Serviceは`player_diff`を扱わない。新しい所持データの種別を足すときは、
+  `XxxDiffApplier`とRepositoryを1組足す(汎用のDiff型・Repositoryは作らない)
+- Repositoryはメモリに持つだけにする(ディスクに保存しない)
 - 生成コードは`Infrastructure/Grpc/Generated/`(asmdef `Atlas.Api.V1`。手で編集しない)。`.proto`・`Shared/errors.toml`を
   変えたら、リポジトリのルートで`make proto-gen`・`make errors-gen`を実行する
-- エラーダイアログ(`ErrorDialog`)はBootstrapシーンに置き、文言は`Presentation/Common/ErrorMessages.cs`に足す
-- テストでサーバーの代わりにするときは、Connectionを差し替えず、`CallInvoker`を基盤の`FakeCallInvoker`
+- 業務エラーを足したら、文言を`Presentation/Common/ErrorMessages.cs`に足す
+- テストでサーバーの代わりにするときは、Serviceを差し替えず、`CallInvoker`を基盤の`FakeCallInvoker`
   (偽のサーバー`FakeServer`を登録したもの)に差し替える
-
-### アセンブリ
-
-オニオンアーキテクチャ。Domainを中心に、Application → Presentation・Infrastructure → DI(構成ルート)の順に外側になり、
-依存は外側から内側への一方向だけにする(asmdefの参照で強制する)。通信・保存のインターフェースは内側に置き、Infrastructureが実装する。
-
-| asmdef | 置くもの |
-|---|---|
-| `Atlas.Domain` | Entity、`IXxxRepository`、`IBattleConnection`とその型 |
-| `Atlas.Application` | `IXxxService`、`IXxxConnection`、`IPlayerSession`、戻り値の型、`BattleEntryStore`、`AddressDefinition`(生成物) |
-| `Atlas.Infrastructure` | Serviceの実装、Repositoryの実装、アカウント情報の保存(`FileAccountStore`)、`MasterDatabaseLoader` |
-| `Atlas.Infrastructure.Grpc` / `.Mock` / `.Realtime` | gRPCのConnectionと所持データの反映 / 偽のサーバー・Mockの対戦 / MagicOnion |
-| `Atlas.Api.V1` | `.proto`・`errors.toml`から生成したC#(`Infrastructure/Grpc/Generated/`) |
-| `Atlas.Navigation` | `TransitionAwareSceneNavigator`、通信エラーの後の画面遷移(`ErrorNavigator`) |
-| `Atlas.Presentation` | View・Presenter・ViewDto(画面単位の型だけ)、`ErrorDialog` |
-| `Atlas.DI` | シーン単位の`LifetimeScope`すべて(構成ルート。全レイヤーに依存してよい唯一のアセンブリ) |
-| `Atlas.MasterData` | マスターデータの生成物とローダー(Source Generatorの都合で1アセンブリにまとめる) |
-
-- 依存は常に`Atlas.DI`→各レイヤーの一方向。`Atlas.Presentation`は`Atlas.Infrastructure`も`Atlas.DI`も参照しない
-- `Atlas.BattleCore`・`Atlas.BattleContracts`はリポジトリの`Shared/`をローカルパッケージとして参照している
 
 ### フォルダ
 
@@ -134,12 +99,12 @@ Push単位の子スコープ(ScreenNavigatorが画面を開くたびに作り、
   ```csharp
   // Bad: ドキュメント参照、または自明な内容の繰り返し
   /// <summary>
-  /// design.md「6.6 通信と所持データ」参照。インメモリの擬似データを返すだけの実装。
+  /// design.md「6.6 通信と所持データ」参照。すぐに成立したマッチを返すだけの実装。
   /// </summary>
-  public sealed class MockPlayerConnection : IPlayerConnection { ... }
+  public sealed class MockBattleMatchMaker : IBattleMatchMaker { ... }
 
   // Good: コメント自体を書かない(クラス名・戻り値で自明なため)
-  public sealed class MockPlayerConnection : IPlayerConnection { ... }
+  public sealed class MockBattleMatchMaker : IBattleMatchMaker { ... }
   ```
 
 ### 不要な`async`/`await`
@@ -169,7 +134,7 @@ Push単位の子スコープ(ScreenNavigatorが画面を開くたびに作り、
 - Presenterは`Dispose`で購読を解放するだけでよい(子スコープの破棄で呼ばれる。自分で呼ばない)
 - 同じ画面を二重にPopしない。ボタンは`Take(1)`、通信を待つ間の連打は`AwaitOperation.Drop`で捨てる。
   Push元からも閉じる画面は、最初の結果を優先して2回目以降は進行中のPopを待つだけの`CloseAsync`を持たせる
-- Service・Connection・Repositoryのメソッドは`CancellationToken`を受け取らない(RootのSingletonで、画面の表示期間に
+- Service・Repositoryのメソッドは`CancellationToken`を受け取らない(RootのSingletonで、画面の表示期間に
   結び付かないため)。対戦の`IBattleConnection`はセッション単位のため例外
 
 ### アセット(prefab・シーン)

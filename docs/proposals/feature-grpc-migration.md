@@ -24,10 +24,10 @@ Atlas(C:\Work\Atlas)の API サーバーとクライアントの通信を、REST
 - 全部移し終えたら、api-codegen(submodule)と openapi.yaml の生成(utoipa・Swagger)を Atlas から外す。外すのは最後に、私に確認してから
 
 ## 始める前に
-- Atlas の develop には未コミットの変更がある(ProjectSettings.asset の変更、Shared/docs/proposals/feature-grpc-foundation.md の削除のステージ)。
+- Atlas の develop には未コミットの変更がある(ProjectSettings.asset の変更、docs/proposals/feature-grpc-foundation.md の削除のステージ)。
   これには触らない。作業を始めるブランチは私に確認する
 - 乗せ換えを始める前の状態を、REST 版として残すブランチを作る(名前は私に確認する)
-- Shared/docs/proposals/feature-grpc-foundation.md は古い案(テンプレートを clone する形)なので、読まない・従わない
+- docs/proposals/feature-grpc-foundation.md は古い案(テンプレートを clone する形)なので、読まない・従わない
 
 ## 先に調べて、計画に書くこと
 1. 依存の版: Atlas のサーバーは axum 0.7・sqlx 0.8、基盤は tonic 0.14・sqlx 0.9。sqlx を上げる範囲と、
@@ -45,12 +45,12 @@ Atlas(C:\Work\Atlas)の API サーバーとクライアントの通信を、REST
    YetAnotherHttpHandler の版の違い。Atlas は Unity 6000.6.2f1、基盤は 6000.6.5f1 で確かめている
 9. 移す順番。サーバーとクライアントを、動く状態を保ったまま API のまとまりごとに移す案(認証とサインイン → 編成 → スカウト → マッチング → チャット など)
 
-計画は Atlas の Shared/docs/ に文書として書き、私に確認してから実装する。
+計画は Atlas の docs/ に文書として書き、私に確認してから実装する。
 
 ## 進め方の決まり
 - Atlas の CLAUDE.md(全体と Server/・Client/ のもの)の決まりに従う
 - まとまりごとに、cargo test と Unity の EditMode テストを通してからコミットする(コミットとプッシュは私に確認する)
 - 生成したコードは手で直さない。C# は基盤の mk/codegen.mk を読み込む Makefile で生成する(getting-started の「C# を生成する」)
 - 移し終えたまとまりの REST の API とクライアントのコードは、その時点で消す(両方を残さない)
-- Atlas のドキュメント(CLAUDE.md・DEVELOPMENT.md・Shared/docs/design.md・progress.md)の、通信の説明・構成図・生成物の表を、移したところから直す
+- Atlas のドキュメント(CLAUDE.md・DEVELOPMENT.md・docs/design.md・progress.md)の、通信の説明・構成図・生成物の表を、移したところから直す
 - 基盤に足りないものは、上に書いたとおり報告する。基盤を一緒に直す手順は基盤の wiki の upgrade.md にある

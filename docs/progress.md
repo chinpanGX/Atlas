@@ -232,7 +232,7 @@
 
 ## 2. APIサーバー(Rust/Axum)
 
-`Server/`。詳細は[Server/CLAUDE.md](../../Server/CLAUDE.md)、[design.md](design.md)「3. APIサーバー」。
+`Server/`。詳細は[Server/CLAUDE.md](../Server/CLAUDE.md)、[design.md](design.md)「3. APIサーバー」。
 
 ### 実施済み
 

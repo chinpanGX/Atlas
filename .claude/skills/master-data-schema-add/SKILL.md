@@ -45,7 +45,7 @@ description: マスターデータに新しいテーブルやEnumを追加する
 
 **重要な既知のギャップ**: `server_codegen` がRust struct(`Server/src/master/generated/*.rs`)と
 JSON(`Server/master_data/*.json`)を生成・配置しても、それだけではAPIサーバーから参照できない。
-現状(`Shared/docs/progress.md`参照)、DBキャッシュ機構(`src/master/cache.rs`)とシード投入
+現状(`docs/progress.md`参照)、DBキャッシュ機構(`src/master/cache.rs`)とシード投入
 (`src/bin/seed_master_data.rs`)は `pachimon` テーブルしか対応していない。新しいテーブルを
 APIハンドラから使えるようにするには、以下を手動で追加する必要がある:
 
@@ -64,6 +64,6 @@ Enum追加のみ(既存テーブルの列が参照するだけ)の場合はこ�
 
 `atlas-design-docs-sync` スキルを参照。最低限:
 
-- `Shared/docs/design.md` の「5.2 テーブル」節にテーブル/Enumの説明を追記
-- `Shared/docs/progress.md` の「4. 共通」(マスターデータ内容の表・TODO)を更新
+- `docs/design.md` の「5.2 テーブル」節にテーブル/Enumの説明を追記
+- `docs/progress.md` の「4. 共通」(マスターデータ内容の表・TODO)を更新
   (特にstep 4のDBキャッシュ対応が未着手なら「今回発見したギャップ」的に明記する)

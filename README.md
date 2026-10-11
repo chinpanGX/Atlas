@@ -24,17 +24,17 @@ Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトル�
 ① へ戻る(勝つとジェムがもらえる)
 ```
 
-ゲームの内容とルールは[仕様概要書](Shared/docs/game-spec.md)、各機能の作りは[設計書](Shared/docs/design.md)を参照。
+仕様と設計は **[Atlas wiki](docs/wiki/index.md)** にまとめている(実装に合わせて更新)。
 
 ### 機能一覧
 
 | 機能 | 概要 | 仕様 | 設計 |
 | --- | --- | --- | --- |
-| アカウント | 会員登録なしのデバイス認証、プレイヤー作成、所持データの同期 | [3. アカウント](Shared/docs/game-spec.md#3-アカウント) | [3.2 認証](Shared/docs/design.md#32-認証) |
-| パーティ編成・育成 | パーティ編成、技の付け替え、ステータスポイントの割り振り(追加予定) | [5. パーティ編成・育成](Shared/docs/game-spec.md#5-パーティ編成育成) | [3.5 パーティ編成・技の付け替え](Shared/docs/design.md#35-パーティ編成技の付け替え) |
-| スカウト(ガチャ) | ジェムを使い、候補10体から1体を選んで入手する | [6. スカウト](Shared/docs/game-spec.md#6-スカウト) | [3.6 スカウト](Shared/docs/design.md#36-スカウト) |
-| ショップ | ジェムで育成チケットを購入する(追加予定) | [7. ショップ](Shared/docs/game-spec.md#7-ショップ追加予定) | — |
-| 対戦 | マッチング、パーティの見せ合いと選出、リアルタイム対戦、結果の記録 | [8. 対戦](Shared/docs/game-spec.md#8-対戦) | [7. バトルサーバー](Shared/docs/design.md#7-バトルサーバー) |
+| アカウント | 会員登録なしのデバイス認証、プレイヤー作成、所持データの同期 | [遊びの流れとアカウント](docs/wiki/game/flow.md) | [認証](docs/wiki/server/auth.md)・[サインイン](docs/wiki/client/sign-in.md) |
+| パーティ編成・育成 | パーティ編成、技の付け替え、ステータスポイントの割り振り(追加予定) | [パーティ編成・育成](docs/wiki/game/party-training.md) | [パーティ編成・技の付け替え](docs/wiki/server/party.md) |
+| スカウト(ガチャ) | ジェムを使い、候補10体から1体を選んで入手する | [スカウト](docs/wiki/game/scout.md) | [スカウト(API)](docs/wiki/server/scout.md) |
+| ショップ | ジェムで育成チケットを購入する(追加予定) | [ショップ](docs/wiki/game/shop.md) | — |
+| 対戦 | マッチング、パーティの見せ合いと選出、リアルタイム対戦、結果の記録 | [対戦のルール](docs/wiki/game/battle-rules.md) | [マッチング](docs/wiki/server/matchmaking.md)・[対戦の進行](docs/wiki/battle-server/battle-flow.md) |
 
 ### システム構成(概要)
 
@@ -42,10 +42,10 @@ Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトル�
 Unity Client
    │ gRPC(VolTech gRPC)           │ MagicOnion (gRPC / StreamingHub)
    ▼                               ▼
-APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
+APIサーバー(Rust/tonic)       バトルサーバー(C#/MagicOnion)
  認証・プレイヤー・編成・          対戦の進行のみ(状態はメモリ上)
  スカウト・マッチング・DB書き込み        │
-   ▲─────────── 内部API(REST) ──────────┘  パーティ・選出個体の取得、結果報告
+   ▲──────── 内部API(gRPC、別ポート) ────┘  パーティ・選出個体の取得、結果報告
    │
  MySQL(唯一のデータストア。書き込みはAPIサーバーだけが行う)
 ```
@@ -55,42 +55,43 @@ APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
 ```
 Atlas/
 ├── Client/AtlasUnityProject/  # Unityクライアント
-├── Server/                    # APIサーバー(Rust。クライアント向けはgRPC/tonic、内部APIはREST/axum)
+├── Server/                    # APIサーバー(Rust。クライアント向けも内部APIもgRPC/tonic)
 ├── BattleServer/              # バトルサーバー(C#/MagicOnion)、対戦相手ボット、テスト
 ├── Shared/                    # Client・サーバーで共有するもの
 │   ├── BattleCore/            # ダメージ計算・ターン処理(ClientとBattleServerが同じソースを使う)
 │   ├── BattleContracts/       # Client⇔BattleServerの通信契約
 │   ├── master-data/           # マスターデータのスキーマとCSV(正本)
 │   ├── proto/                 # ClientとAPIサーバーの通信の定義(.proto、正本)
-│   ├── errors.toml            # APIサーバーの業務エラー(正本)
-│   └── docs/                  # 仕様概要書・設計書・Notesなど
+│   └── errors.toml            # APIサーバーの業務エラー(正本)
+├── docs/                      # wiki(docs/wiki/)、仕様概要書・設計書・進捗・Notesなど
 ├── master-data-pipeline/      # マスターデータの定義・自動生成ツール(submodule、自作)
 └── UnityScreenNavigator/      # 画面遷移ライブラリ(USN)のフォーク(submodule)
 ```
 
-実装の進み具合は[Shared/docs/progress.md](Shared/docs/progress.md)を参照。
+実装の進み具合は[docs/progress.md](docs/progress.md)を参照。
 
-開発環境の構築・起動手順は[DEVELOPMENT.md](DEVELOPMENT.md)を参照。
+開発環境の構築・起動手順は[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)を参照。
 
 ドキュメント:
 
-- [Shared/docs/game-spec.md](Shared/docs/game-spec.md) — 仕様概要書(ゲームの内容とルール)
-- [Shared/docs/design.md](Shared/docs/design.md) — 設計書(APIサーバー・クライアント・バトルサーバー・DB・マスターデータ)
-- [Shared/docs/progress.md](Shared/docs/progress.md) — 実装の進み具合と残タスク
+- [docs/wiki/index.md](docs/wiki/index.md) — **Atlas wiki**(仕様と設計。実装に合わせて更新している。まずはここから)
+- [docs/game-spec.md](docs/game-spec.md) — 仕様概要書(ゲームの内容とルール)
+- [docs/design.md](docs/design.md) — 設計書(APIサーバー・クライアント・バトルサーバー・DB・マスターデータ)
+- [docs/progress.md](docs/progress.md) — 実装の進み具合と残タスク
 
 ## 設計上のポイント
 
 - **自作のgRPC基盤**: ClientとAPIサーバーの通信は、自作のgRPC基盤[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)に乗せる。会員登録なしのデバイス認証・トークンの発行と再認証・エラーのダイアログ・再送しても一度だけ処理する仕組み(RequestID)・1リクエスト1トランザクション・メンテナンスの判定は基盤が受け持ち、Atlasは`.proto`・業務処理・ダイアログの見た目を持つ
-- **DBへの書き込みの一本化**: MySQLへ書き込むのはAPIサーバーだけ。バトルサーバーはDBを持たず、パーティ・選出個体の取得と結果報告を内部API(`X-Internal-Secret`で認証)で行う。対戦の判定はバトルサーバーが権威を持ち、クライアントにはHPを%でしか送らない
+- **DBへの書き込みの一本化**: MySQLへ書き込むのはAPIサーバーだけ。バトルサーバーはDBを持たず、パーティ・選出個体の取得と結果報告を内部API(gRPC。`x-internal-secret`で認証)で行う。対戦の判定はバトルサーバーが権威を持ち、クライアントにはHPを%でしか送らない
 - **共通モジュール**: ダメージ計算・ターン処理(`Atlas.BattleCore`)と通信契約(`Atlas.BattleContracts`)は、同じソースをUnity(ローカルパッケージ)とバトルサーバー(csproj)の両方でコンパイルする
-- **マスターデータ管理**: 正本は`Shared/master-data/`のスキーマとCSV(Googleスプレッドシートからも作れる)。`master-data-pipeline`がRust・C#向けの型とデータを生成し、APIサーバーはDBへ投入したものを起動時に全件読み込んでメモリに持つ。サーバー1台構成の規模に対して、無停止での反映は現時点で導入しない判断とした(詳細は[設計書](Shared/docs/design.md#5-マスターデータ)の「5. マスターデータ」参照)
+- **マスターデータ管理**: 正本は`Shared/master-data/`のスキーマとCSV(Googleスプレッドシートからも作れる)。`master-data-pipeline`がRust・C#向けの型とデータを生成し、APIサーバーはDBへ投入したものを起動時に全件読み込んでメモリに持つ。サーバー1台構成の規模に対して、無停止での反映は現時点で導入しない判断とした(詳細は[マスターデータの生成・配布・運用](docs/wiki/master-data/pipeline.md))
 - **コード生成ツールの自作**: [master-data-pipeline](https://github.com/chinpanGX/master-data-pipeline)(マスターデータの定義・自動生成)は、特定プロジェクトに依存しない汎用ツールとして自作した(詳細はツールの`README.md`を参照)。ClientとAPIサーバーの通信のコードは、`.proto`からgRPC基盤の生成ツールで作る
 
 ## 技術スタック
 
 ### Client
 
-- [Unity 6.6](https://unity.com/releases/unity-6)(6000.6.2f1)
+- [Unity 6.6](https://unity.com/releases/unity-6)(6000.6.5f1)
 
 **アーキテクチャ**
 
@@ -101,7 +102,7 @@ Atlas/
        ↓
       Presentation / Infrastructure    View・Presenter / API通信・Mock・MagicOnion・端末への保存
        ↓
-      Application                      Service、Connection(通信)のインターフェース
+      Application                      Service(通信を含む)のインターフェース
        ↓
 中心  Domain                           Entity、Repository(所持データ)のインターフェース
 ```
@@ -113,9 +114,9 @@ Atlas/
 - 各レイヤーの実装を組み立てるのは最も外側のDI(VContainerのLifetimeScope)だけ
 - 画面はView / Presenterに分け、Presenterが具象のView(`Page`/`Modal`)をコンストラクタで受け取り、ViewのObservableを購読する
   (Viewにインターフェースは作らない)。Presenterは画面を開くたびに作る子スコープで生成し、閉じると破棄する
-- 通信と手元のデータを分ける: サーバーAPIの呼び出しは`Connection`、所持データは`Repository`(メモリに保持)、
-  画面から使う処理は`Service`。所持データを変えるAPIの差分(`playerDiff`)は、Connectionが受け取った直後にRepositoryへ反映する
-- 通信の実装はMock/Realを差し替えられる(対戦は、クライアント内で完結するMock対戦と実サーバーをInspectorで切り替え)
+- 通信と手元のデータを分ける: 画面から使う処理とサーバーAPIの呼び出しは`Service`、所持データは`Repository`(メモリに保持)。
+  所持データを変えるAPIの差分(`player_diff`)は、gRPC基盤の`ApiCore`がレスポンスを返す前にRepositoryへ反映する
+- テストでは通信の送り先だけを偽のサーバーに差し替える(対戦は、クライアント内で完結するMock対戦と実サーバーをInspectorで切り替え)
 - シーンはBootstrap(常駐)/ Home / Battleの3つ。DIのスコープもアプリ・シーン・画面の3段にする
 
 **ライブラリ**
@@ -149,7 +150,7 @@ Atlas/
 **通信**
 
 - [tonic](https://github.com/hyperium/tonic) + [VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)(自作の基盤のクレート。認証・冪等性・トランザクション・メンテナンスの判定)。クライアント向けのAPI
-- [axum](https://github.com/tokio-rs/axum)(BattleServer向けの内部API)
+- tonic(BattleServer向けの内部API。別ポートで、基盤のLayerを付けずに共有シークレットで認証)
 
 **データベース**
 
@@ -167,9 +168,8 @@ Atlas/
 
 **アーキテクチャ**
 
-- レイヤードアーキテクチャ(`grpc`・`api` / `service` / `model` の3層構造)
-  - `grpc`:gRPCのサービスの実装(ハンドラ)。業務処理を基盤のトランザクションの中で動かす
-  - `api`:内部API(REST)のリクエスト/レスポンスの型定義とハンドラ
+- レイヤードアーキテクチャ(`grpc` / `service` / `model` の3層構造)
+  - `grpc`:gRPCのサービスの実装(ハンドラ。クライアント向けと内部API)。業務処理を基盤のトランザクションの中で動かす
   - `service`:DB操作などのコアロジック
   - `model`:DBテーブルに対応するデータ構造
 
@@ -177,7 +177,7 @@ Atlas/
 
 - 標準テスト機構(`cargo test`)
 - DB込みの統合テスト:`sqlx::test`
-- APIレベルの結合テスト:`tower::ServiceExt::oneshot`([tower](https://github.com/tower-rs/tower))
+- APIレベルの結合テスト:テストごとにgRPCサーバーを起動し、tonicのクライアントで呼ぶ
 
 ### BattleServer
 
