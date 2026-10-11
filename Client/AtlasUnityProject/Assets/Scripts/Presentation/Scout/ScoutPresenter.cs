@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
@@ -13,7 +12,7 @@ using ZLinq;
 namespace Atlas.Presentation.Scout
 {
     // 候補は1回目のタップで選択(詳細表示)、選択中の候補をもう一度タップすると確認Modalを出し、
-    // 「はい」でPOST /scout/rolls/{rollId}/selectを送って入手を確定する。
+    // 「はい」で候補の選択を送って入手を確定する。
     // ジェムはロールした時点で消費済みのため、候補を選ぶまでは戻るボタンを押せなくする
     // (ロール中の候補を取り直すAPIが無く、離れると消費したジェムが無駄になるため)。
     [AssetAddress(AddressDefinition.ScoutPage)]
@@ -76,21 +75,14 @@ namespace Atlas.Presentation.Scout
 
         private async UniTaskVoid LoadBannerAsync(CancellationToken cancellation)
         {
-            try
+            var banners = await scoutConnection.GetBannersAsync();
+            // 失敗したときのダイアログは通信の共通処理が出している。スカウトボタンは押せないままにする
+            if (banners is null || cancellation.IsCancellationRequested)
             {
-                banner = (await scoutConnection.GetBannersAsync()).FirstOrDefault();
-            }
-            catch (Exception e) when (e is not OperationCanceledException)
-            {
-                // エラーModalの仕組みが未実装のため、ログのみ(スカウトボタンは押せないまま)。
-                Debug.LogError($"[Scout] バナーの取得に失敗しました: {e.Message}");
                 return;
             }
 
-            if (cancellation.IsCancellationRequested)
-            {
-                return;
-            }
+            banner = banners.FirstOrDefault();
 
             if (banner is null)
             {
@@ -111,13 +103,9 @@ namespace Atlas.Presentation.Scout
 
             view.SetScoutButtonInteractable(false);
             view.SetBackButtonInteractable(false);
-            try
+            roll = await scoutConnection.RollAsync(banner.BannerId);
+            if (roll is null)
             {
-                roll = await scoutConnection.RollAsync(banner.BannerId);
-            }
-            catch (Exception e) when (e is not OperationCanceledException)
-            {
-                Debug.LogError($"[Scout] スカウトに失敗しました: {e.Message}");
                 RefreshState();
                 return;
             }
@@ -163,14 +151,9 @@ namespace Atlas.Presentation.Scout
                 return;
             }
 
-            try
+            if (!await scoutConnection.SelectAsync(roll.RollId, candidate.Index))
             {
-                await scoutConnection.SelectAsync(roll.RollId, candidate.Index);
-            }
-            catch (Exception e) when (e is not OperationCanceledException)
-            {
-                // 候補は残したままにし、もう一度タップすれば再送できるようにする。
-                Debug.LogError($"[Scout] 候補の確定に失敗しました: {e.Message}");
+                // 候補は残したままにし、もう一度タップすれば送り直せるようにする。
                 return;
             }
 

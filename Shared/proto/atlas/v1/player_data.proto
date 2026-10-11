@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+option csharp_namespace = "Atlas.Api.V1";
+
+// 所持しているアイテム1種類。所持数が0になっても行は消さない。
+message PlayerItem {
+  // items マスタの item_id。1 はジェム。
+  int32 item_id = 1;
+  // 所持数(0 以上)。
+  int32 quantity = 2;
+}
+
+// 所持しているパチモン1体。覚えている技・パーティの編成は、別のリソース(PlayerPachimonMove・PartySlot)で持つ。
+message PlayerPachimon {
+  // 所持個体の ID(ULID。大文字の英数字 26 文字)。
+  string player_pachimon_id = 1;
+  // pachimon マスタの pachimon_id。
+  int32 pachimon_id = 2;
+}
+
+// 所持パチモンが覚えている技1つ(技の枠への割当)。
+message PlayerPachimonMove {
+  // 割当の ID(ULID)。同じ枠の技を付け替えても変わらない。
+  string player_pachimon_move_id = 1;
+  // 技を覚えている所持個体の ID(ULID)。
+  string player_pachimon_id = 2;
+  // 技の枠(1〜4)。
+  int32 slot = 3;
+  // moves マスタの move_id。
+  int32 move_id = 4;
+}
+
+// パーティの枠1つへの割当。パーティに入っていない枠は行が無い。
+message PartySlot {
+  // 割当の ID(ULID)。編成し直すたびに作り直す。
+  string party_slot_id = 1;
+  // パーティの枠(1〜6)。
+  int32 slot = 2;
+  // 枠に入れた所持個体の ID(ULID)。
+  string player_pachimon_id = 3;
+}
+
+// プレイヤーの所持データの変更(共通レスポンス項目)。
+// 値は変化量ではなく変更後の値で持つので、同じ差分を2回反映しても結果は変わらない。
+// リソースごとのフィールドは、変わっていなければ無い(null)。
+message PlayerDiff {
+  ItemsDiff items = 1;
+  PachimonDiff pachimon = 2;
+  PachimonMoveMapDiff pachimon_move_map = 3;
+  PartySlotsDiff party_slots = 4;
+}
+
+// アイテムの変更。
+message ItemsDiff {
+  // 追加・更新されたアイテム(変更後の所持数)。
+  repeated PlayerItem upserted = 1;
+  // 無くなったアイテムの item_id。
+  repeated int32 removed = 2;
+}
+
+// 所持パチモンの変更。
+message PachimonDiff {
+  // 追加・更新された所持個体。
+  repeated PlayerPachimon upserted = 1;
+  // 無くなった所持個体の player_pachimon_id。
+  repeated string removed = 2;
+}
+
+// 所持パチモンが覚えている技の変更。
+message PachimonMoveMapDiff {
+  // 追加・更新された割当。
+  repeated PlayerPachimonMove upserted = 1;
+  // 無くなった割当の player_pachimon_move_id。
+  repeated string removed = 2;
+}
+
+// パーティの編成の変更。編成し直すと、以前の割当はすべて removed に、新しい割当が upserted に入る。
+message PartySlotsDiff {
+  // 追加・更新された割当。
+  repeated PartySlot upserted = 1;
+  // 無くなった割当の party_slot_id。
+  repeated string removed = 2;
+}
+
+// プレイヤーの所持データの全件。クライアントは差分としてではなく、置き換えとして反映する。
+message PlayerSnapshot {
+  repeated PlayerItem items = 1;
+  repeated PlayerPachimon pachimon = 2;
+  repeated PlayerPachimonMove pachimon_moves = 3;
+  repeated PartySlot party_slots = 4;
+}

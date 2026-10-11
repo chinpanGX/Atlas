@@ -11,5 +11,8 @@ namespace Atlas.Domain
         void Upsert(PartyEntity partyEntity);
 
         void Delete(string partySlotId);
+
+        // サインインし直すとき(タイトルに戻ったとき)に、サーバーで無くなったものが残らないよう全件を消す。
+        void Clear();
     }
 }

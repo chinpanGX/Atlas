@@ -1,6 +1,8 @@
 using Atlas.BattleServer.Auth;
 using Atlas.BattleServer.Battle;
 using Atlas.BattleServer.Internal;
+using Atlas.Internal.V1;
+using Grpc.Net.Client;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,10 +25,11 @@ builder.Services.AddSingleton(_ => MasterDatabaseFactory.Load(builder.Configurat
 builder.Services.AddSingleton<IParticipantDataSource, ApiParticipantDataSource>();
 builder.Services.AddSingleton<BattleCoordinator>();
 builder.Services.AddSingleton<BattleResultReporter>();
-builder.Services.AddHttpClient(BattleResultReporter.HttpClientName, client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration[BattleResultReporter.BaseUrlConfigKey] ?? BattleResultReporter.DefaultBaseUrl);
-});
+// APIサーバーの内部API(gRPC)。チャンネルは1つを使い回す(HTTP/2の接続を共有する)
+builder.Services.AddSingleton(_ => GrpcChannel.ForAddress(
+    builder.Configuration[BattleResultReporter.BaseUrlConfigKey] ?? BattleResultReporter.DefaultBaseUrl));
+builder.Services.AddSingleton(services =>
+    new BattleInternalService.BattleInternalServiceClient(services.GetRequiredService<GrpcChannel>()));
 
 var app = builder.Build();
 

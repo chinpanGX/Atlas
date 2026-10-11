@@ -1,7 +1,5 @@
-using System;
 using Atlas.Application;
 using Atlas.Domain;
-using Atlas.Infrastructure.Api;
 using Cysharp.Threading.Tasks;
 
 namespace Atlas.Infrastructure
@@ -11,55 +9,40 @@ namespace Atlas.Infrastructure
         // ニックネーム入力画面は未実装のため、サインアップでは固定値を使う。
         private const string DefaultNickname = "プレイヤー";
 
-        private readonly IDeviceCredentialsRepository credentialsRepository;
-        private readonly IDeviceConnection deviceConnection;
         private readonly IPlayerConnection playerConnection;
         private readonly IPlayerProfileRepository playerProfileRepository;
-        private readonly AccessTokenRefresher accessTokenRefresher;
+        private readonly IPlayerSession playerSession;
 
         public SignInService(
-            IDeviceCredentialsRepository credentialsRepository,
-            IDeviceConnection deviceConnection,
             IPlayerConnection playerConnection,
             IPlayerProfileRepository playerProfileRepository,
-            AccessTokenRefresher accessTokenRefresher)
+            IPlayerSession playerSession)
         {
-            this.credentialsRepository = credentialsRepository;
-            this.deviceConnection = deviceConnection;
             this.playerConnection = playerConnection;
             this.playerProfileRepository = playerProfileRepository;
-            this.accessTokenRefresher = accessTokenRefresher;
+            this.playerSession = playerSession;
         }
 
-        // 初回認証もAccessTokenRefresher経由で行い、トークンの書き込み経路を一本化する
-        // (以降の期限前再認証・401時の再認証リトライは各ConnectionがAccessTokenRefresher経由で行う)。
-        // playerDiffの適用(items等)はIPlayerConnection.SignInAsync内部(Infrastructure.Api)で
-        // 完結しており、ここでは行わない。
-        public async UniTask SignInAsync()
+        // サインアップ済みかは端末に覚えず、毎回サインインの結果で判断する。
+        public async UniTask<bool> SignInAsync()
         {
-            var credentials = await credentialsRepository.GetAsync();
-            if (credentials is null)
+            var signIn = await playerConnection.SignInAsync();
+            if (signIn.Status == SignInStatus.PlayerNotFound)
             {
-                var secretKey = Guid.NewGuid().ToString("N");
-                var deviceId = await deviceConnection.RegisterAsync(secretKey);
-                credentials = new DeviceCredentials(deviceId, secretKey);
-                await credentialsRepository.SaveAsync(credentials.Value);
-            }
-
-            await accessTokenRefresher.RefreshAsync();
-
-            SignInResult signIn;
-            try
-            {
+                if (!await playerConnection.SignUpAsync(DefaultNickname))
+                {
+                    return false;
+                }
                 signIn = await playerConnection.SignInAsync();
             }
-            catch (ApiException e) when (e.StatusCode == 404)
+            if (signIn.Status != SignInStatus.SignedIn)
             {
-                await playerConnection.SignUpAsync(DefaultNickname);
-                signIn = await playerConnection.SignInAsync();
+                return false;
             }
 
             await playerProfileRepository.SaveAsync(new PlayerProfile(signIn.PlayerId, signIn.Nickname));
+            playerSession.MarkSignedIn();
+            return true;
         }
     }
 }

@@ -1,8 +1,8 @@
-using System.Net;
+using Grpc.Core;
 
 namespace Atlas.BattleServer.Tests
 {
-    // /internal/battle/resultへの報告の再送方針のテスト。投了で決着させて報告を発生させる
+    // 内部API(BattleInternalService/ReportResult)への報告の再送方針のテスト。投了で決着させて報告を発生させる
     // (BattleServerTestHostは再送間隔10ms・再送1回に設定している)。
     public class BattleResultReporterTests
     {
@@ -10,20 +10,20 @@ namespace Atlas.BattleServer.Tests
         public async Task ServerError_IsRetried()
         {
             await using var host = new BattleServerTestHost();
-            host.ApiServer.EnqueueResponses(HttpStatusCode.InternalServerError, HttpStatusCode.OK);
+            host.ApiServer.EnqueueReportStatuses(StatusCode.Internal, StatusCode.OK);
 
             await ForfeitAsync(host);
 
             await host.ApiServer.WaitForCountAsync(2);
-            var bodies = host.ApiServer.Received.Select(r => r.Body).Distinct();
-            Assert.Single(bodies);
+            var requests = host.ApiServer.Received.Select(r => r.Request).Distinct();
+            Assert.Single(requests);
         }
 
         [Fact]
         public async Task RetriesAreBounded()
         {
             await using var host = new BattleServerTestHost();
-            host.ApiServer.EnqueueResponses(HttpStatusCode.ServiceUnavailable, HttpStatusCode.ServiceUnavailable, HttpStatusCode.ServiceUnavailable);
+            host.ApiServer.EnqueueReportStatuses(StatusCode.Unavailable, StatusCode.Unavailable, StatusCode.Unavailable);
 
             await ForfeitAsync(host);
 
@@ -33,13 +33,13 @@ namespace Atlas.BattleServer.Tests
         }
 
         [Theory]
-        [InlineData(HttpStatusCode.Conflict)]    // 記録済み(二重報告)なので成功扱い
-        [InlineData(HttpStatusCode.BadRequest)]  // 再送しても結果が変わらない
-        [InlineData(HttpStatusCode.Unauthorized)]
-        public async Task ClientError_IsNotRetried(HttpStatusCode status)
+        [InlineData(StatusCode.AlreadyExists)]    // 記録済み(二重報告)なので成功扱い
+        [InlineData(StatusCode.InvalidArgument)]  // 再送しても結果が変わらない
+        [InlineData(StatusCode.Unauthenticated)]
+        public async Task ClientError_IsNotRetried(StatusCode status)
         {
             await using var host = new BattleServerTestHost();
-            host.ApiServer.EnqueueResponses(status, HttpStatusCode.OK);
+            host.ApiServer.EnqueueReportStatuses(status, StatusCode.OK);
 
             await ForfeitAsync(host);
 

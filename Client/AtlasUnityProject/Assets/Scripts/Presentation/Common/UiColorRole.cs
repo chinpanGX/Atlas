@@ -44,5 +44,7 @@ namespace Atlas.Presentation.Common
         HpGaugeMiddle,
         // 残りHPが2割以下のHPゲージ。
         HpGaugeLow,
+        // 通信エラーのダイアログの後ろで、画面を暗くして操作を塞ぐ幕。
+        Scrim,
     }
 }

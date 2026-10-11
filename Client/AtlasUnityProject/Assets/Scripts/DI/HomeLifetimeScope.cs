@@ -1,5 +1,7 @@
 using System.Threading;
+using Atlas.Application;
 using Atlas.Presentation.Home;
+using Atlas.Presentation.Title;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityScreenNavigator;
@@ -33,18 +35,31 @@ namespace Atlas.DI
         }
     }
 
+    // サインインしていなければタイトルから、していればホームから始める(対戦から戻ったときなど)。
     internal sealed class HomeEntryPoint : IAsyncStartable
     {
-        private readonly IScreenNavigator screenNavigator;
+        private const string TitleMessage = "Atlas";
 
-        public HomeEntryPoint(IScreenNavigator screenNavigator)
+        private readonly IScreenNavigator screenNavigator;
+        private readonly IPlayerSession playerSession;
+
+        public HomeEntryPoint(IScreenNavigator screenNavigator, IPlayerSession playerSession)
         {
             this.screenNavigator = screenNavigator;
+            this.playerSession = playerSession;
         }
 
         public async UniTask StartAsync(CancellationToken cancellation)
         {
-            await screenNavigator.PushPageAsync<HomePresenter>();
+            if (playerSession.IsSignedIn)
+            {
+                await screenNavigator.PushPageAsync<HomePresenter>();
+                return;
+            }
+
+            // ホームへ進んだらタイトルには戻らないので、履歴に積まない
+            await screenNavigator.PushPageAsync<TitlePresenter, TitleViewDto>(
+                new TitleViewDto { Message = TitleMessage }, stack: false);
         }
     }
 }

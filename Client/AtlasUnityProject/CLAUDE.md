@@ -9,7 +9,7 @@ Unity 6(IL2CPP前提)のクライアント。プロジェクト全体のアー�
 
 ```
 Bootstrap(起動シーン。一度もアンロードしない)
-  RootLifetimeScope: マスタの読み込み、サインイン、Connection・Repository・ServiceのDI登録
+  RootLifetimeScope: マスタの読み込み、通信の共通処理(ApiCore)・エラーダイアログ、Connection・Repository・ServiceのDI登録
     ▼
 Home / Battle(Addressables。ISceneNavigatorで切り替える)
   HomeLifetimeScope / BattleLifetimeScope: USNのコンテナとIScreenNavigator
@@ -21,6 +21,7 @@ Push単位の子スコープ(ScreenNavigatorが画面を開くたびに作り、
 - DIはVContainer。スコープは Root(アプリの生存期間)→ シーン(`FindParent()`でRootを直接親にする)→ 画面
 - シーンの中の画面遷移はUnityScreenNavigator(USN)のフォークのPage/Modal。Presenterの型でPushし、
   フォークの`ScreenNavigator`が子スコープでPresenterを解決する
+- Homeシーンは、サインインしていなければタイトル(「スタート」でサインイン)から、していればホームから始まる
 - Home→Battleの受け渡し(マッチ情報)はRoot常駐の`BattleEntryStore`を通す(シーンを切り替えるとHomeのスコープは破棄されるため)
 - シーンの切り替えは`TransitionAwareSceneNavigator`が全コンテナの遷移の完了を待ってから行う(遷移アニメーション中に
   画面を破棄すると例外になるため)
@@ -44,16 +45,22 @@ Push単位の子スコープ(ScreenNavigatorが画面を開くたびに作り、
 
 | 抽象 | 置き場所 | 内容 |
 |---|---|---|
-| `IXxxConnection` | `Atlas.Application` | サーバーのAPIの呼び出し。Mock/Realの切り替えはこの単位 |
-| `IXxxRepository` | `Atlas.Domain` | 手元の所持データ。`playerDiff`のリソース種別ごとに1つ。メモリに持つだけ(起動のたびにサインインで取り直す) |
+| `IXxxConnection` | `Atlas.Application` | サーバーのAPIの呼び出し。Domainの型で受け渡し、成否(または結果の型)を返す。例外は投げない |
+| `IXxxRepository` | `Atlas.Domain` | 手元の所持データ。`playerDiff`のリソース種別ごとに1つ。メモリに持つだけ(サインインで取り直す) |
 | `IXxxService` | `Atlas.Application` | Presenterが使う処理。実装は1つ |
+| `IPlayerSession` | `Atlas.Application` | サインインしているか。タイトルに戻るときに所持データを捨てる |
 | `IBattleConnection` | `Atlas.Domain` | 対戦の接続(`RealtimeBattleConnection`/`MockBattleConnection`)。`IBattleConnectionFactory`で対戦ごとに作る |
 
-- `playerDiff`を返すAPIを呼ぶConnectionは、受け取った直後に`IPlayerDiffApplier`で各Repositoryへ反映する。
-  Serviceは`playerDiff`を知らない
-- 要認証APIの呼び出しは`AccessTokenRefresher.SendAsync`で包む(期限前の再認証・401時の1回だけの再送)
-- REST通信のDTO・クライアントは`Infrastructure/Api/Generated/`(`api-codegen`の生成物。手で編集しない)。
-  手書きのConnectionが生成DTOをDomain/Applicationの型へ詰め替える
+- APIサーバーとの通信はgRPC基盤(VolTech gRPC)の`ApiCore`が共通処理を受け持つ(デバイス登録・トークン・再認証、
+  エラーのダイアログと画面遷移、RequestID、`player_diff`の反映)。Connectionの実装(`Atlas.Infrastructure.Grpc`)は、
+  `.proto`から生成したラッパー(`XxxApi`)を呼んで、生成の型とDomainの型を詰め替えるだけ。Serviceは`player_diff`を知らない
+- 通信が失敗したとき、ダイアログ・タイトルへ戻る等は`ApiCore`が済ませている。呼び出し側は成否を見て抜けるだけにし、
+  `try/catch`で通信のエラーを処理しない。画面で自分で処理したいエラーだけ、ラッパーの`handledCodes`に渡す
+- 生成コードは`Infrastructure/Grpc/Generated/`(asmdef `Atlas.Api.V1`。手で編集しない)。`.proto`・`Shared/errors.toml`を
+  変えたら、リポジトリのルートで`make proto-gen`・`make errors-gen`を実行する
+- エラーダイアログ(`ErrorDialog`)はBootstrapシーンに置き、文言は`Presentation/Common/ErrorMessages.cs`に足す
+- テストでサーバーの代わりにするときは、Connectionを差し替えず、`CallInvoker`を基盤の`FakeCallInvoker`
+  (偽のサーバー`FakeServer`を登録したもの)に差し替える
 
 ### アセンブリ
 
@@ -63,11 +70,12 @@ Push単位の子スコープ(ScreenNavigatorが画面を開くたびに作り、
 | asmdef | 置くもの |
 |---|---|
 | `Atlas.Domain` | Entity、`IXxxRepository`、`IBattleConnection`とその型 |
-| `Atlas.Application` | `IXxxService`、`IXxxConnection`、戻り値の型、`BattleEntryStore`、`AddressDefinition`(生成物) |
-| `Atlas.Infrastructure` | Serviceの実装、端末に保存するRepository、`MasterDatabaseLoader` |
-| `Atlas.Infrastructure.Api` / `.Mock` / `.Realtime` | REST通信(生成物と手書きのConnection・Repository)/ Mock / MagicOnion |
-| `Atlas.Navigation` | `TransitionAwareSceneNavigator` |
-| `Atlas.Presentation` | View・Presenter・ViewDto(画面単位の型だけ) |
+| `Atlas.Application` | `IXxxService`、`IXxxConnection`、`IPlayerSession`、戻り値の型、`BattleEntryStore`、`AddressDefinition`(生成物) |
+| `Atlas.Infrastructure` | Serviceの実装、Repositoryの実装、アカウント情報の保存(`FileAccountStore`)、`MasterDatabaseLoader` |
+| `Atlas.Infrastructure.Grpc` / `.Mock` / `.Realtime` | gRPCのConnectionと所持データの反映 / 偽のサーバー・Mockの対戦 / MagicOnion |
+| `Atlas.Api.V1` | `.proto`・`errors.toml`から生成したC#(`Infrastructure/Grpc/Generated/`) |
+| `Atlas.Navigation` | `TransitionAwareSceneNavigator`、通信エラーの後の画面遷移(`ErrorNavigator`) |
+| `Atlas.Presentation` | View・Presenter・ViewDto(画面単位の型だけ)、`ErrorDialog` |
 | `Atlas.DI` | シーン単位の`LifetimeScope`すべて(構成ルート。全レイヤーに依存してよい唯一のアセンブリ) |
 | `Atlas.MasterData` | マスターデータの生成物とローダー(Source Generatorの都合で1アセンブリにまとめる) |
 

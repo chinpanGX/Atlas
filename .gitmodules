@@ -2,10 +2,6 @@
 	path = master-data-pipeline
 	url = git@github.com:chinpanGX/master-data-pipeline.git
 	branch = main
-[submodule "api-codegen"]
-	path = api-codegen
-	url = git@github.com:chinpanGX/api-codegen.git
-	branch = master
 [submodule "UnityScreenNavigator"]
 	path = UnityScreenNavigator
 	url = git@github.com:chinpanGX/UnityScreenNavigator.git

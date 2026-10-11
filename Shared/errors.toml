@@ -1,0 +1,70 @@
+# Atlas の業務エラー(domain: atlas)。基盤の予約エラー(domain: voltech)は書かない(基盤が持つ)。
+# APIサーバーの Rust の定数と、Unity クライアントの C#(Atlas.Api.V1.AtlasErrors。make errors-gen)をここから生成する。
+# action は stay・retry・home・title・update のどれか。消した reason は使い回さない。
+domain = "atlas"
+
+[[errors]]
+reason = "PLAYER_NOT_FOUND"
+action = "title"
+description = "プレイヤーがまだ作られていない。サインインで返ったら SignUp で作る。"
+
+# パーティ編成・技の付け替え
+
+[[errors]]
+reason = "INVALID_PARTY"
+action = "stay"
+description = "編成の人数が1〜6体でない、枠が1〜6でない、または枠か個体が重複している。"
+
+[[errors]]
+reason = "PACHIMON_NOT_OWNED"
+action = "stay"
+description = "指定した個体が自分の所持個体でない。"
+
+[[errors]]
+reason = "INVALID_MOVE_SLOT"
+action = "stay"
+description = "技の枠が1〜4でない。"
+
+[[errors]]
+reason = "MOVE_NOT_LEARNABLE"
+action = "stay"
+description = "指定した技が、その個体の技グループの候補技でない。"
+
+# スカウト
+
+[[errors]]
+reason = "SCOUT_BANNER_NOT_FOUND"
+action = "stay"
+description = "指定したバナーが無い。"
+
+[[errors]]
+reason = "SCOUT_BANNER_CLOSED"
+action = "stay"
+description = "指定したバナーが開催期間外。"
+
+[[errors]]
+reason = "INSUFFICIENT_GEMS"
+action = "stay"
+description = "ロールに使うジェムが足りない。"
+
+[[errors]]
+reason = "SCOUT_ROLL_NOT_FOUND"
+action = "stay"
+description = "指定したロールが無い、または自分のものでない。"
+
+[[errors]]
+reason = "SCOUT_CANDIDATE_OUT_OF_RANGE"
+action = "stay"
+description = "選んだ候補の番号が、ロールの候補の範囲外。"
+
+[[errors]]
+reason = "SCOUT_ROLL_ALREADY_SELECTED"
+action = "stay"
+description = "ロールの候補を選択済み。1つのロールでは1回しか選べない。"
+
+# マッチング
+
+[[errors]]
+reason = "PARTY_EMPTY"
+action = "stay"
+description = "パーティが1体も編成されていないので、待機列に入れない。"

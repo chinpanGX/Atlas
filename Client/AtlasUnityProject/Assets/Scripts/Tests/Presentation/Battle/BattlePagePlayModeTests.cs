@@ -10,13 +10,13 @@ using UnityEngine.UI;
 namespace Atlas.Tests.Presentation.Battle
 {
     // Mock/Fakeをテスト側で個別に組み立てず、アプリが実際に起動する経路
-    // (BootstrapTest→TestRootLifetimeScope→Home→「Battle」ボタン)をそのまま通してBattlePageの
+    // (BootstrapTest→TestRootLifetimeScope→Homeのタイトル→「Start」でサインイン→ホーム→「Battle」ボタン)をそのまま通してBattlePageの
     // ボタンクリックがPresenter→IBattleConnection(MockBattleConnection)→Atlas.BattleCoreまで
     // 伝播し、結果がHP表示へ反映されることを確認する。技の応酬による決着(OnBattleEnd)自体は
     // Infrastructure.Mock.Tests側のEditModeテストで既に確認済みのため、ここでは決着後の画面の
-    // 流れ(結果Modal→Homeへ戻る)を投了で確認するに留める。BootstrapTestはBootstrapシーンの複製で、IDeviceConnection/IPlayerConnection
-    // だけMock(MockDeviceConnection/MockPlayerConnection)に差し替えたTestRootLifetimeScopeを
-    // 使う(TestRootLifetimeScope.cs参照)ため、ローカルAPIサーバー無しで実行できる。
+    // 流れ(結果Modal→Homeへ戻る)を投了で確認するに留める。BootstrapTestはBootstrapシーンの複製で、APIサーバーへの
+    // 通信を偽のサーバー(FakeServer)に差し替えたTestRootLifetimeScopeを使う(TestRootLifetimeScope.cs参照)ため、
+    // ローカルAPIサーバー無しで実行できる。
     public sealed class BattlePagePlayModeTests
     {
         private const int ClickCount = 8;
@@ -26,8 +26,14 @@ namespace Atlas.Tests.Presentation.Battle
         public IEnumerator SetUp()
         {
             yield return SceneManager.LoadSceneAsync("BootstrapTest", LoadSceneMode.Single);
+            yield return WaitUntilOrFail(() => GameObject.Find("StartButton") != null,
+                "Bootstrap起動からタイトル表示までに時間がかかりすぎました。");
+
+            // TitlePageのPush演出が終わるまで待ってから、スタートでサインインしてホームへ進む(下の待機と同じ理由)。
+            yield return new WaitForSeconds(0.5f);
+            GameObject.Find("StartButton").GetComponent<Button>().onClick.Invoke();
             yield return WaitUntilOrFail(() => GameObject.Find("BattleButton") != null,
-                "Bootstrap起動からHome表示までに時間がかかりすぎました。");
+                "サインインからHome表示までに時間がかかりすぎました。");
 
             // HomePageのPush演出(PageContainerの画面遷移アニメーション)が終わるまで待つ。
             // 終わる前に次のPush(Battleボタン押下)を呼ぶとUSNが

@@ -1,0 +1,18 @@
+# Shared/proto の .proto(atlas.v1)→ Unity クライアントの C#。
+# 名前空間は分けない(ラッパーのファイルがメッセージ型の partial class に目印を付けるので、同じ名前空間である必要がある)
+version: v2
+plugins:
+  - protoc_builtin: csharp
+    out: Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Grpc/Generated/Messages
+    opt:
+      - base_namespace=
+  - local: grpc_csharp_plugin
+    out: Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Grpc/Generated/Grpc
+    opt:
+      - no_server
+      - base_namespace=
+  # ApiCore を通して呼ぶラッパー・RPC のパスの定数・共通レスポンス項目の目印のインターフェース
+  - local: protoc-gen-voltech-grpc
+    out: Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Grpc/Generated/Wrappers
+    opt:
+      - package=atlas.v1

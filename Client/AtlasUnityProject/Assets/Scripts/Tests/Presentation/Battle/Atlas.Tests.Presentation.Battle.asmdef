@@ -10,14 +10,16 @@
         "GUID:03e6aa5a9743dd546aae493dc0f59c97",
         "GUID:41261d631a9f02542ba248f84bf54981",
         "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
-        "GUID:27619889b8ba8c24980f49ee34dbb44a"
+        "GUID:27619889b8ba8c24980f49ee34dbb44a",
+        "GUID:a2bb72b22f122374c9fcd20dd5be0031"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-        "nunit.framework.dll"
+        "nunit.framework.dll",
+        "Grpc.Core.Api.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [

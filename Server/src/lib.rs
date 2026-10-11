@@ -1,10 +1,8 @@
-pub mod api;
+pub mod db;
 pub mod error;
-pub mod extractor;
-pub mod http_log;
+pub mod grpc;
 pub mod master;
 pub mod model;
-pub mod openapi;
-pub mod routes;
+pub mod proto;
 pub mod service;
 pub mod state;

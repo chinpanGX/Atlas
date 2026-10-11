@@ -1,5 +1,5 @@
 use chrono::Utc;
-use sqlx::{MySql, MySqlPool, Transaction};
+use sqlx::{MySql, MySqlExecutor, Transaction};
 use ulid::Ulid;
 
 use crate::error::AppError;
@@ -11,60 +11,56 @@ use crate::service::{player_item_service, player_pachimon_service};
 /// (スカウトの紹介コスト150/回の2回分。初回起動時点でスカウトを試せるようにする)。
 const STARTER_GEMS: i32 = 300;
 
-/// 新しいプレイヤーを作成し、デバイスに紐付ける。
+/// デバイス登録で発行した`player_id`でプレイヤーを作成する。
 ///
-/// 1つの`device_id`につきプレイヤーは1件のみ(`players.device_id`はUNIQUE)。
-/// 既に作成済みの`device_id`で呼び出された場合はUNIQUE制約違反となる。
-/// 作成と同時に`starter_party_slots`マスタの内容をそのまま複製して初期パーティを付与し、
-/// 対戦可能な状態でゲームを開始できるようにする。
-/// プレイヤー作成〜初期パーティ付与までは1トランザクションで行い、途中失敗時は
-/// 「プレイヤーはいるがパーティが空」という不整合を防ぐ。
-///
-/// # Arguments
-/// * `pool` - MySQLへのコネクションプール
-/// * `master` - メモリキャッシュされたマスタデータ(`starter_party_slots`等を参照する)
-/// * `device_id` - 認証済みデバイスID
-/// * `nickname` - プレイヤー名
+/// 作成済みなら何も変えずに作成済みのプレイヤーを返す(サインアップは再送されても同じ結果になるよう、
+/// 冪等に作る)。作成と同時に`starter_party_slots`マスタの内容をそのまま複製して初期パーティを付与し、
+/// 対戦可能な状態でゲームを開始できるようにする。呼び出し元のトランザクションで行うので、
+/// 途中で失敗しても「プレイヤーはいるがパーティが空」にはならない。
 ///
 /// # Errors
-/// 既にプレイヤーが作成済みの場合に`AppError::Conflict`を返す。
-/// DBアクセスに失敗した場合は`AppError::InternalError`を返す。
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
 pub async fn create(
-    pool: &MySqlPool,
+    tx: &mut Transaction<'_, MySql>,
     master: &MasterData,
-    device_id: &str,
+    player_id: &str,
     nickname: &str,
 ) -> Result<Player, AppError> {
-    let player_id = Ulid::generate().to_string();
+    // 同じプレイヤーのサインアップが同時に届いても、片方だけが作るように行をロックして確かめる
+    let existing: Option<(String, String, chrono::NaiveDateTime)> = sqlx::query_as(
+        "SELECT player_id, nickname, created_at FROM players WHERE player_id = ? FOR UPDATE",
+    )
+    .bind(player_id)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(|_| AppError::InternalError)?;
+    if let Some((player_id, nickname, created_at)) = existing {
+        return Ok(Player {
+            player_id,
+            nickname,
+            created_at,
+        });
+    }
 
-    let mut tx = pool.begin().await.map_err(|_| AppError::InternalError)?;
-
-    sqlx::query("INSERT INTO players (player_id, device_id, nickname) VALUES (?, ?, ?)")
-        .bind(&player_id)
-        .bind(device_id)
+    sqlx::query("INSERT INTO players (player_id, nickname) VALUES (?, ?)")
+        .bind(player_id)
         .bind(nickname)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
-        .map_err(|err| match &err {
-            sqlx::Error::Database(db_err) if db_err.is_unique_violation() => AppError::Conflict,
-            _ => AppError::InternalError,
-        })?;
+        .map_err(|_| AppError::InternalError)?;
 
-    grant_starter_party(&mut tx, master, &player_id).await?;
+    grant_starter_party(tx, master, player_id).await?;
 
     player_item_service::grant_initial(
-        &mut tx,
-        &player_id,
+        tx,
+        player_id,
         player_item_service::GEM_ITEM_ID,
         STARTER_GEMS,
     )
     .await?;
 
-    tx.commit().await.map_err(|_| AppError::InternalError)?;
-
     Ok(Player {
-        player_id,
-        device_id: device_id.to_string(),
+        player_id: player_id.to_string(),
         nickname: nickname.to_string(),
         created_at: Utc::now().naive_utc(),
     })
@@ -111,26 +107,24 @@ async fn grant_starter_party(
     Ok(())
 }
 
-/// `device_id`に紐づくプレイヤーを取得する。
+/// `player_id`のプレイヤーを取得する。まだ作られていなければ`None`を返す。
 ///
 /// # Errors
-/// プレイヤーが未作成の場合に`AppError::NotFound`を返す。
-/// DBアクセスに失敗した場合は`AppError::InternalError`を返す。
-pub async fn find_by_device_id(pool: &MySqlPool, device_id: &str) -> Result<Player, AppError> {
-    let row: Option<(String, String, String, chrono::NaiveDateTime)> = sqlx::query_as(
-        "SELECT player_id, device_id, nickname, created_at FROM players WHERE device_id = ?",
-    )
-    .bind(device_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
+pub async fn find_by_id(
+    executor: impl MySqlExecutor<'_>,
+    player_id: &str,
+) -> Result<Option<Player>, AppError> {
+    let row: Option<(String, String, chrono::NaiveDateTime)> =
+        sqlx::query_as("SELECT player_id, nickname, created_at FROM players WHERE player_id = ?")
+            .bind(player_id)
+            .fetch_optional(executor)
+            .await
+            .map_err(|_| AppError::InternalError)?;
 
-    let (player_id, device_id, nickname, created_at) = row.ok_or(AppError::NotFound)?;
-
-    Ok(Player {
+    Ok(row.map(|(player_id, nickname, created_at)| Player {
         player_id,
-        device_id,
         nickname,
         created_at,
-    })
+    }))
 }

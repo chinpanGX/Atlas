@@ -29,6 +29,7 @@ namespace Atlas.Presentation.Common
         [SerializeField] private Color textWarning = new(0.8f, 0.15f, 0.15f);
         [SerializeField] private Color hpGaugeMiddle = new(0.98f, 0.76f, 0.18f);
         [SerializeField] private Color hpGaugeLow = new(0.9f, 0.25f, 0.22f);
+        [SerializeField] private Color scrim = new(0f, 0f, 0f, 0.6f);
 
         public Color Get(UiColorRole role) => role switch
         {
@@ -52,6 +53,7 @@ namespace Atlas.Presentation.Common
             UiColorRole.TextWarning => textWarning,
             UiColorRole.HpGaugeMiddle => hpGaugeMiddle,
             UiColorRole.HpGaugeLow => hpGaugeLow,
+            UiColorRole.Scrim => scrim,
             _ => throw new ArgumentOutOfRangeException(nameof(role), role, null),
         };
 

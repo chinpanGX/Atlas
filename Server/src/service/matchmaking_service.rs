@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use chrono::Utc;
 use jsonwebtoken::{EncodingKey, Header};
 use serde::{Deserialize, Serialize};
-use sqlx::MySqlPool;
+use sqlx::{MySql, Transaction};
 use ulid::Ulid;
 
 use crate::error::AppError;
@@ -49,7 +49,7 @@ impl BattleConfig {
     }
 }
 
-/// マッチ成立結果。`GET /battle/queue/status`で取得されるまで`MatchmakingQueue::matched`に保持する。
+/// マッチ成立結果(バトルサーバーへの接続情報)。
 #[derive(Clone)]
 pub struct MatchInfo {
     pub match_id: String,
@@ -62,10 +62,11 @@ pub struct MatchInfo {
 pub struct MatchmakingQueue {
     /// マッチ待ちの`player_id`(先頭ほど古い)
     pub waiting: VecDeque<String>,
-    /// `player_id` -> 未取得のマッチ成立結果
+    /// `player_id` -> マッチ成立結果。状況の確認で返しても消さず、次の参加・離脱か、対戦の結果の報告で消す
+    /// (応答が届かずに確認し直しても、接続情報を失わないため)
     pub matched: HashMap<String, MatchInfo>,
     /// ペアは決まったが`battle_matches`への書き込み中(ロック外)の`player_id`。
-    /// この間に同じプレイヤーが再参加して二重にマッチしないよう、`waiting`/`matched`と同様に扱う
+    /// この間に同じプレイヤーが再参加して二重にマッチしないよう、`waiting`と同様に扱う
     pub pairing: HashSet<String>,
 }
 
@@ -78,18 +79,19 @@ pub struct BattleTokenClaims {
 }
 
 /// 待機列に参加する。他に待機者がいれば先頭の1人と即座にペアを成立させ、`battle_matches`に
-/// `in_progress`の行を作成する(先に待っていた側が`player1`)。
+/// `in_progress`の行を作成する(先に待っていた側が`player1`)。前のマッチの成立結果が残っていれば捨てる。
 ///
 /// DB書き込み中は待機列のロックを保持しない。ペアが決まった2人は書き込みが終わるまで
 /// `pairing`に入れておき、書き込みに失敗した場合は相手を待機列の先頭へ戻す
 /// (DBに行が無い対戦をクライアントへ返さないため)。
-/// 既に待機中・ペアリング中・マッチ成立済み(結果未取得)の場合は何もしない(二重参加防止)。
+/// 既に待機中・ペアリング中の場合は何もしない(二重参加防止)。
+/// 呼び出し元のトランザクション内で`battle_matches`に書く。
 ///
 /// # Errors
 /// 待機列のロック取得・`battle_matches`への書き込み・`battle_token`の発行に失敗した場合に
 /// `AppError::InternalError`を返す。
 pub async fn join(
-    pool: &MySqlPool,
+    tx: &mut Transaction<'_, MySql>,
     queue: &Mutex<MatchmakingQueue>,
     config: &BattleConfig,
     player_id: &str,
@@ -97,12 +99,10 @@ pub async fn join(
     let opponent_id = {
         let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
 
-        if queue.waiting.iter().any(|id| id == player_id)
-            || queue.pairing.contains(player_id)
-            || queue.matched.contains_key(player_id)
-        {
+        if queue.waiting.iter().any(|id| id == player_id) || queue.pairing.contains(player_id) {
             return Ok(());
         }
+        queue.matched.remove(player_id);
 
         let Some(opponent_id) = queue.waiting.pop_front() else {
             queue.waiting.push_back(player_id.to_string());
@@ -115,7 +115,7 @@ pub async fn join(
     };
 
     let match_id = Ulid::generate().to_string();
-    let result = battle_service::create_match(pool, &match_id, &opponent_id, player_id)
+    let result = battle_service::create_match(&mut **tx, &match_id, &opponent_id, player_id)
         .await
         .and_then(|()| {
             [opponent_id.as_str(), player_id]
@@ -151,29 +151,40 @@ pub async fn join(
     }
 }
 
-/// 待機列から離脱する。待機列にいなければ何もしない。
+/// 待機列から離脱し、マッチ成立結果も捨てる。待機列にいなければ何もしない。
 ///
 /// # Errors
 /// 待機列のロック取得に失敗した場合に`AppError::InternalError`を返す。
 pub fn leave(queue: &Mutex<MatchmakingQueue>, player_id: &str) -> Result<(), AppError> {
     let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
     queue.waiting.retain(|id| id != player_id);
+    queue.matched.remove(player_id);
 
     Ok(())
 }
 
-/// マッチ成立結果を取り出す。取得したエントリは`matched`から削除する。
-/// 未成立(待機中、または待機列にいない)なら`None`を返す。
+/// マッチ成立結果を返す(消さない)。未成立(待機中、または待機列にいない)なら`None`を返す。
 ///
 /// # Errors
 /// 待機列のロック取得に失敗した場合に`AppError::InternalError`を返す。
-pub fn take_match(
+pub fn find_match(
     queue: &Mutex<MatchmakingQueue>,
     player_id: &str,
 ) -> Result<Option<MatchInfo>, AppError> {
-    let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
+    let queue = queue.lock().map_err(|_| AppError::InternalError)?;
 
-    Ok(queue.matched.remove(player_id))
+    Ok(queue.matched.get(player_id).cloned())
+}
+
+/// 対戦の結果が報告されたマッチの成立結果を、両方の参加者の分まとめて捨てる。
+///
+/// # Errors
+/// 待機列のロック取得に失敗した場合に`AppError::InternalError`を返す。
+pub fn clear_match(queue: &Mutex<MatchmakingQueue>, match_id: &str) -> Result<(), AppError> {
+    let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
+    queue.matched.retain(|_, info| info.match_id != match_id);
+
+    Ok(())
 }
 
 /// `battle_token`(JWT, HS256)を発行する。有効期限は発行から`BATTLE_TOKEN_TTL_SECONDS`秒。

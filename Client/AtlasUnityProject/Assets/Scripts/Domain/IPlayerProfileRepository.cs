@@ -2,11 +2,14 @@ using Cysharp.Threading.Tasks;
 
 namespace Atlas.Domain
 {
-    // PlayerProfileのローカル永続化(IDeviceCredentialsRepositoryと同じパターン)。
+    // サインインで受け取ったプレイヤーの情報。
     public interface IPlayerProfileRepository
     {
         PlayerProfile Get();
 
         UniTask SaveAsync(PlayerProfile profile);
+
+        // タイトルに戻ってサインインし直すときに消す。
+        void Clear();
     }
 }

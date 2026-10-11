@@ -229,21 +229,19 @@ namespace Atlas.BattleServer.Tests
             Assert.Contains(ra.Turns, t => t.PlayersRequiringForcedSwitch.Length > 0);
 
             await host.ApiServer.WaitForCountAsync(1);
-            Assert.True(host.ApiServer.Received.TryPeek(out var request));
-            Assert.Equal("/internal/battle/result", request.Path);
-            Assert.Equal(BattleServerTestHost.InternalSecret, request.Secret);
+            Assert.True(host.ApiServer.Received.TryPeek(out var received));
+            Assert.Equal(BattleServerTestHost.InternalSecret, received.Secret);
 
-            using var json = JsonDocument.Parse(request.Body);
-            var root = json.RootElement;
-            Assert.Equal("m", root.GetProperty("matchId").GetString());
-            Assert.Equal(ra.Ends[0].WinnerId, root.GetProperty("winnerId").GetString());
-            Assert.Equal("pA", root.GetProperty("player1Id").GetString());
-            Assert.Equal("pB", root.GetProperty("player2Id").GetString());
-            Assert.Equal(["a1", "a2", "a3"], root.GetProperty("player1SelectedPachimon").EnumerateArray().Select(e => e.GetString()));
-            var turns = root.GetProperty("turns").EnumerateArray().ToList();
-            Assert.Equal(ra.Turns.Sum(t => t.Actions.Length), turns.Count);
-            Assert.Equal("Switch", turns[0].GetProperty("actionData").GetProperty("type").GetString());
-            Assert.Equal(1, turns[0].GetProperty("actionData").GetProperty("partySlot").GetInt32());
+            var report = received.Request;
+            Assert.Equal("m", report.MatchId);
+            Assert.Equal(ra.Ends[0].WinnerId, report.WinnerId);
+            Assert.Equal("pA", report.Player1Id);
+            Assert.Equal("pB", report.Player2Id);
+            Assert.Equal(["a1", "a2", "a3"], report.Player1SelectedPachimon);
+            Assert.Equal(ra.Turns.Sum(t => t.Actions.Length), report.Turns.Count);
+            using var actionData = JsonDocument.Parse(report.Turns[0].ActionDataJson);
+            Assert.Equal("Switch", actionData.RootElement.GetProperty("type").GetString());
+            Assert.Equal(1, actionData.RootElement.GetProperty("partySlot").GetInt32());
 
             // 決着後は行動も参加も受け付けない
             await AssertRpcStatus(StatusCode.FailedPrecondition, () => a.SubmitMoveAsync(new MoveRequest("19")));
@@ -400,11 +398,10 @@ namespace Atlas.BattleServer.Tests
             Assert.Equal(new BattleEndPayload("pA", BattleEndReason.DisconnectTimeout), ra.Ends[0]);
 
             await host.ApiServer.WaitForCountAsync(1);
-            Assert.True(host.ApiServer.Received.TryPeek(out var request));
-            using var json = JsonDocument.Parse(request.Body);
-            Assert.Equal("pA", json.RootElement.GetProperty("player1Id").GetString());
-            Assert.Equal("", json.RootElement.GetProperty("player2Id").GetString());
-            Assert.Equal(0, json.RootElement.GetProperty("player2SelectedPachimon").GetArrayLength());
+            Assert.True(host.ApiServer.Received.TryPeek(out var received));
+            Assert.Equal("pA", received.Request.Player1Id);
+            Assert.Equal("", received.Request.Player2Id);
+            Assert.Empty(received.Request.Player2SelectedPachimon);
         }
 
         [Fact]
@@ -499,9 +496,8 @@ namespace Atlas.BattleServer.Tests
         private static async Task AssertReportedWithoutWinnerAsync(BattleServerTestHost host)
         {
             await host.ApiServer.WaitForCountAsync(1);
-            Assert.True(host.ApiServer.Received.TryPeek(out var request));
-            using var json = JsonDocument.Parse(request.Body);
-            Assert.Equal("", json.RootElement.GetProperty("winnerId").GetString());
+            Assert.True(host.ApiServer.Received.TryPeek(out var received));
+            Assert.Equal("", received.Request.WinnerId);
         }
 
         private static async Task HitUntilForcedSwitchAsync(IBattleHub a, TestReceiver ra, IBattleHub b)

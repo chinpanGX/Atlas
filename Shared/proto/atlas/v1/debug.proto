@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+import "atlas/v1/player_data.proto";
+
+option csharp_namespace = "Atlas.Api.V1";
+
+// 開発用の API。サーバーで有効にしたときだけ登録され、無効なら UNIMPLEMENTED になる。
+service DebugService {
+  // ジェムを 450 個付与する(スカウトの動作確認を、ジェム切れせずに繰り返すため)。
+  rpc GrantGems(GrantGemsRequest) returns (GrantGemsResponse);
+
+  // pachimon マスタから重複なしで6体をランダムに選んで新しく付与し、その6体でパーティを編成し直す(対戦相手ボット用)。
+  // 技は技グループの候補技からランダムに最大4つ選ぶ。以前の所持個体は所持したまま残り、以前の編成はすべて解除される。
+  rpc RandomizeParty(RandomizePartyRequest) returns (RandomizePartyResponse);
+}
+
+message GrantGemsRequest {}
+
+message GrantGemsResponse {
+  // 規約: 共通レスポンス項目。items(付与した後のジェム)だけが入る。
+  PlayerDiff player_diff = 1;
+}
+
+message RandomizePartyRequest {}
+
+message RandomizePartyResponse {
+  // 規約: 共通レスポンス項目。pachimon・pachimon_move_map(付与した6体とその技)と party_slots が入る。
+  PlayerDiff player_diff = 1;
+}

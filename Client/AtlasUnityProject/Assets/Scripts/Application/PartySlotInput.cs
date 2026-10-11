@@ -1,6 +1,6 @@
 namespace Atlas.Application
 {
-    // パーティ編成の保存(POST /edit/party)で送る1枠分。slotは1始まり。
+    // パーティ編成の保存で送る1枠分。slotは1始まり。
     public readonly struct PartySlotInput
     {
         public readonly int Slot;

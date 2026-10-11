@@ -8,12 +8,12 @@ namespace Atlas.Infrastructure
     public sealed class PartyService : IPartyService
     {
         private readonly IPartyRepository partyRepository;
-        private readonly IPlayerConnection playerConnection;
+        private readonly IPartyConnection partyConnection;
 
-        public PartyService(IPartyRepository partyRepository, IPlayerConnection playerConnection)
+        public PartyService(IPartyRepository partyRepository, IPartyConnection partyConnection)
         {
             this.partyRepository = partyRepository;
-            this.playerConnection = playerConnection;
+            this.partyConnection = partyConnection;
         }
 
         public IReadOnlyList<PartyEntity> GetAll()
@@ -21,10 +21,10 @@ namespace Atlas.Infrastructure
             return partyRepository.GetAll();
         }
 
-        // IPartyRepositoryへの反映はPlayerConnectionがplayerDiffの適用で行う。
-        public UniTask SaveAsync(IReadOnlyList<PartySlotInput> slots)
+        // IPartyRepositoryへの反映は、通信の共通処理がplayerDiffの適用で行う。
+        public UniTask<bool> SaveAsync(IReadOnlyList<PartySlotInput> slots)
         {
-            return playerConnection.EditPartyAsync(slots);
+            return partyConnection.EditPartyAsync(slots);
         }
     }
 }

@@ -1,10 +1,9 @@
-using System.Collections.Concurrent;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Atlas.BattleServer.Battle;
 using Atlas.BattleContracts;
 using Atlas.BattleServer.Internal;
+using Atlas.Internal.V1;
 using Grpc.Net.Client;
 using MagicOnion.Client;
 using Microsoft.AspNetCore.Hosting;
@@ -15,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Atlas.BattleServer.Tests
 {
     // BattleServerをインプロセス(TestServer)で起動し、MagicOnionクライアントで接続するためのテスト用ホスト。
-    // /internal/battle/resultへの送信はFakeApiServerHandlerで受け止める。
+    // APIサーバーの内部APIへの結果報告はFakeInternalApiで受け止める。
     public sealed class BattleServerTestHost : IAsyncDisposable
     {
         public const string TokenSecret = "test-battle-token-secret-0123456789abcdef";
@@ -25,7 +24,7 @@ namespace Atlas.BattleServer.Tests
         private readonly GrpcChannel channel;
         private readonly List<IBattleHub> hubs = [];
 
-        public FakeApiServerHandler ApiServer { get; } = new();
+        public FakeInternalApi ApiServer { get; } = new();
 
         public BattleServerTestHost(Action<BattleTimingOptions>? configureTiming = null)
         {
@@ -40,8 +39,7 @@ namespace Atlas.BattleServer.Tests
                         options.ResultReportRetryDelays = [TimeSpan.FromMilliseconds(10)];
                         configureTiming?.Invoke(options);
                     });
-                    services.AddHttpClient(BattleResultReporter.HttpClientName)
-                        .ConfigurePrimaryHttpMessageHandler(() => ApiServer);
+                    services.AddSingleton<BattleInternalService.BattleInternalServiceClient>(ApiServer);
                     // Hubの進行だけを検証するため、選出個体の取得(Rustの内部API)は固定値に差し替える。
                     services.AddSingleton<IParticipantDataSource, DummyParticipantDataSource>();
                 });
@@ -145,45 +143,4 @@ namespace Atlas.BattleServer.Tests
             throw new TimeoutException("Receiver condition was not met in time.");
         }
     }
-
-    // Rust APIサーバー(/internal/battle/result)の代わり。受信したリクエストを記録し、
-    // ResponsesにキューされたステータスをFIFOで返す(空なら200)。
-    public sealed class FakeApiServerHandler : HttpMessageHandler
-    {
-        private readonly ConcurrentQueue<HttpStatusCode> responses = new();
-
-        public ConcurrentQueue<ReceivedRequest> Received { get; } = new();
-
-        public void EnqueueResponses(params HttpStatusCode[] statusCodes)
-        {
-            foreach (var statusCode in statusCodes)
-            {
-                responses.Enqueue(statusCode);
-            }
-        }
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
-            var secret = request.Headers.TryGetValues(BattleResultReporter.SecretHeaderName, out var values) ? values.Single() : "";
-            Received.Enqueue(new ReceivedRequest(request.RequestUri!.AbsolutePath, secret, body));
-            return new HttpResponseMessage(responses.TryDequeue(out var status) ? status : HttpStatusCode.OK);
-        }
-
-        public async Task WaitForCountAsync(int count, int timeoutSeconds = 10)
-        {
-            var until = DateTime.UtcNow.AddSeconds(timeoutSeconds);
-            while (Received.Count < count)
-            {
-                if (DateTime.UtcNow >= until)
-                {
-                    throw new TimeoutException($"Expected {count} requests but got {Received.Count}.");
-                }
-
-                await Task.Delay(20);
-            }
-        }
-    }
-
-    public sealed record ReceivedRequest(string Path, string Secret, string Body);
 }

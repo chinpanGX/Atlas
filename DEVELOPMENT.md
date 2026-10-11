@@ -6,9 +6,9 @@ Atlasの開発者(Client / Server / BattleServer)が共通で行う設定と、�
 ## 全体像
 
 ```
-Unity Client ──REST──▶ Server(Rust/Axum)      http://127.0.0.1:3000
+Unity Client ──gRPC──▶ Server(Rust)           gRPC http://127.0.0.1:50051 / 内部API http://127.0.0.1:3000
      │                    │  ▲
-     │                    ▼  │ POST /internal/battle/result(対戦結果)
+     │                    ▼  │ POST /internal/battle/*(パーティ・選出個体の取得、対戦結果)
      │                 MySQL(Docker)            127.0.0.1:3306 / DB: atlas_dev
      │
      └──gRPC/StreamingHub──▶ BattleServer(C#/MagicOnion)  http://127.0.0.1:5000
@@ -17,7 +17,7 @@ Unity Client ──REST──▶ Server(Rust/Axum)      http://127.0.0.1:3000
 | コンポーネント | ディレクトリ | 役割 | ポート |
 |---|---|---|---|
 | Client | `Client/AtlasUnityProject/` | Unityクライアント | — |
-| Server | `Server/` | REST API(認証・スカウト・パーティ・マッチング・結果記録) | 3000 |
+| Server | `Server/` | クライアント向けのgRPC(認証・プレイヤー。乗せ換え中)と、BattleServer向けの内部API(REST) | 50051(gRPC)/ 3000(内部API) |
 | BattleServer | `BattleServer/` | リアルタイム対戦(MagicOnion) | 5000 |
 | MySQL | `Server/docker-compose.yml` | 唯一のデータストア(書き込みはServer経由) | 3306 |
 
@@ -31,9 +31,9 @@ Unity Client ──REST──▶ Server(Rust/Axum)      http://127.0.0.1:3000
 | Unity | 6000.6.2f1 | Client | Unity Hubで確認 |
 | Docker Desktop | — | Server / BattleServer / Client(通しで動かす場合) | `docker compose version` |
 | Rust | edition 2024対応(1.85以上) | Server | `cargo --version` |
-| make | — | Server | `make --version`(Git Bashには無いので導入が必要。下記「makeの導入」参照) |
+| make | — | Server / Unity向けのC#の生成 | `make --version`(Git Bashには無いので導入が必要。下記「makeの導入」参照) |
 | sqlx-cli | — | Server | `sqlx --version`(`cargo install sqlx-cli --no-default-features --features mysql`) |
-| .NET SDK | 10 | BattleServer / api-codegen / master-data-pipeline | `dotnet --version` |
+| .NET SDK | 10 | BattleServer / master-data-pipeline / Unity向けのC#の生成(`make proto-gen`) | `dotnet --version` |
 | Python | 3.10以上 | master-data-pipeline | `python --version`(`pip install -r master-data-pipeline/requirements.txt`) |
 
 Client担当でも、実際のサーバーにつないで動かすならServer・BattleServerを起動できる状態にしておく。
@@ -46,7 +46,7 @@ Client担当でも、実際のサーバーにつないで動かすならServer�
 |---|---|---|
 | JetBrains Rider | Client / BattleServer | C#のIDE。リポジトリ直下の`.editorconfig`の命名ルールがそのまま警告になる |
 | JetBrains RustRover | Server | RustのIDE |
-| Postman | Server | APIの動作確認(Swagger UI `http://127.0.0.1:3000/swagger-ui` でも確認できる) |
+| Postman / grpcurl | Server | gRPCのAPIの動作確認(開発ビルドのサーバーはgRPCリフレクションが有効で、`.proto`無しで呼べる)。Unityでは`Window > VolTech gRPC > gRPC Monitor`で通信を見られる |
 
 ### makeの導入(Git Bash)
 
@@ -65,7 +65,7 @@ git clone --recurse-submodules <リポジトリURL>
 git submodule update --init --recursive
 ```
 
-`master-data-pipeline` / `api-codegen` / `UnityScreenNavigator` はサブモジュール([.gitmodules](.gitmodules))。
+`master-data-pipeline` / `UnityScreenNavigator` はサブモジュール([.gitmodules](.gitmodules))。
 Supplement(自作の共通ユーティリティ)はサブモジュールにせず、Clientの`manifest.json`からgitのURLで参照している。
 `UnityScreenNavigator`(画面遷移ライブラリのフォーク)はClientの`manifest.json`から`file:`で参照しているため、
 サブモジュールを取得しないとUnityプロジェクトを開けない。フォークを直したときは、フォーク側でコミット・pushしてから
@@ -81,8 +81,11 @@ Atlas側でサブモジュールの参照先コミットを更新してコミッ
 | `BATTLE_TOKEN_SECRET` | Server・BattleServer(**同じ値**) | `battleToken`(JWT, HS256)の署名・検証 | **32バイト以上**(BattleServerは未満だと起動時にエラー)。食い違うと`JoinAsync`が全て`InvalidToken`になる |
 | `INTERNAL_API_SECRET` | Server・BattleServer(**同じ値**) | BattleServer→Serverの内部API(`X-Internal-Secret`ヘッダー) | 食い違うと結果記録が`401`になる。BattleServer側が未設定だと結果を送らず警告ログのみ |
 | `DATABASE_URL` | Server | MySQL接続先 | 例: `mysql://root@127.0.0.1:3306/atlas_dev` |
-| `SERVER_ADDR` | Server | APIサーバーの待受アドレス | 省略時`127.0.0.1:3000`。変えたらClientの`ApiBaseUrl`も合わせる |
+| `GRPC_ADDR` | Server | クライアント向けのgRPCの待受アドレス | 省略時`127.0.0.1:50051`。変えたらClientの`RootLifetimeScope.GrpcAddress`も合わせる |
+| `SERVER_ADDR` | Server | BattleServer向けの内部APIの待受アドレス | 省略時`127.0.0.1:3000`。変えたらBattleServerの`API_SERVER_URL`も合わせる |
+| `SERVER_STATUS_PATH` | Server(任意) | メンテナンス・最低バージョン・ゲーム内の日付が変わる時刻の設定ファイル | 省略時`config/server_status.toml`(`Server/`から)。5秒ごとに読み直すので、書き換えれば再起動しなくても効く |
 | `BATTLE_SERVER_URL` | Server | マッチ成立時にクライアントへ返すBattleServerのURL | 省略時`http://127.0.0.1:5000` |
+| `ENABLE_DEBUG_API` | Server(任意) | 開発用のAPI(`DebugService`: ジェムの付与・ランダム編成)を登録するか | `true`・`1`で登録、それ以外の値で登録しない。省略時はデバッグビルド(`cargo run`)だけ登録する。ボットはランダム編成を使う |
 | `API_SERVER_URL` | BattleServer | 対戦結果の送信先(Server) | 省略時`http://127.0.0.1:3000` |
 | `RUST_LOG` | Server(任意) | ログ出力レベル | 下記「Server」参照 |
 
@@ -152,8 +155,8 @@ cd Server
 make setup                          # 2回目以降は make up だけでよい
 cargo run --bin seed_master_data    # マスタデータをDBへ投入(マスタを更新したとき)
 
-# 2) Server
-cargo run                           # http://127.0.0.1:3000
+# 2) Server(起動時に基盤とAtlasのマイグレーションを流す)
+cargo run                           # gRPC http://127.0.0.1:50051 / 内部API http://127.0.0.1:3000
 
 # 3) BattleServer(別ターミナル)
 cd BattleServer
@@ -180,11 +183,13 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
 - `make bot`は`make dev`と同じく.NET 10 SDKを明示して`dotnet run --project BattleBot -- --loop`を実行する
   (素の`dotnet`はGit BashのPATHでUnity付属の.NET 8 SDKが先に見つかり、`NETSDK1045`で失敗することがある)
 - ボットの引数: `--loop`(対戦が終わるたびに再びマッチングに並ぶ)、`--count N`(N体同時に動かす。`--count 2`でボット同士が
-  対戦し、Unity無しでREST・マッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(既定`http://127.0.0.1:3000`)。
-  ボットは起動のたびに新しいプレイヤーを作る(DBにボットのプレイヤーが増える)。パーティは開発用API`POST /debug/randomize_party`で
+  対戦し、Unity無しでマッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(APIサーバーのgRPC。既定`http://127.0.0.1:50051`)。
+  ボットは起動のたびに新しいプレイヤーを作る(DBにボットのプレイヤーが増える)。パーティは開発用API`DebugService/RandomizeParty`で
   pachimonマスタから重複なしの6体・技も候補技からランダムに組み直す。選出は、BattleServerから届くパーティ
   (`OnSelectionStart`)からランダムに3体を選ぶ
-- B・Cでは、同じPCで2人分を動かすとセーブデータ(`deviceCredentials`)が同じになり、自分自身とマッチングしようとして
+- ボットのAPIサーバーのクライアントは、ビルドのときに`.proto`から生成する。基盤のデバイス登録の`.proto`は、初回のビルドで
+  基盤のタグの版を`BattleBot/obj/voltech-grpc-src/`に取ってくる(gitとネットワークが要る)
+- B・Cでは、同じPCで2人分を動かすとセーブデータ(アカウント情報)が同じになり、自分自身とマッチングしようとして
   しまうため、インスタンスごとに保存先を分けている(`Assets/Scripts/DI/SaveDataDirectory.cs`)。Editor本体は既定の`SaveData`、
   Multiplayer Play Modeの追加インスタンスは`SaveData_VP_<id>`、ビルドは`SaveData_Build`(`-saveSlot N`で`SaveData_Build_N`)
 - マッチング成立からBattleServerへの接続までの期限は30秒(`battleToken`の有効期限)
@@ -198,12 +203,11 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
 ```bash
 make up / make down / make restart   # MySQLコンテナの起動・停止
 make mysql                           # mysqlクライアントで接続(root, パスワードなし)
-make migrate / make migrate-revert   # マイグレーション
-make db-reset                        # DBを空から作り直す
+make migrate / make migrate-revert   # Atlasのマイグレーション(基盤のテーブルはサーバーの起動時に作られる)
+make db-reset                        # DBを空から作り直す(Clientの保存したアカウント情報も消す。下記)
 
 cargo run                            # APIサーバー
 cargo test                           # テスト(MySQLコンテナの起動が必要)
-cargo run --bin export_openapi       # Shared/api/openapi.yaml を再生成(api-codegenの入力)
 ```
 
 - ビルドにMySQLは要らない(SQLは実行時に組み立てる`sqlx::query`で、コンパイル時に検査するマクロは使っていない)。
@@ -235,9 +239,14 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 ### Client(Unity) — `Client/AtlasUnityProject/`
 
 - Unity 6000.6.2f1で開く。コーディング規約は[Client/AtlasUnityProject/CLAUDE.md](Client/AtlasUnityProject/CLAUDE.md)
-- ServerのURLは`Assets/Scripts/DI/RootLifetimeScope.cs`の`ApiBaseUrl`(`http://127.0.0.1:3000`固定)。
+- ServerのURLは`Assets/Scripts/DI/RootLifetimeScope.cs`の`GrpcAddress`(`http://127.0.0.1:50051`固定)。
   BattleServerのURLはマッチング成立時にServerから受け取るため、Client側の設定は不要
-- 通信ログはUnity Consoleの`[API] --> ...` / `[API] <-- ...`(Editor・開発ビルドのみ)
+- 通信ログはUnity Consoleの`[Api] → ...` / `[Api] ← ...`(Editor・開発ビルドのみ)。`Window > VolTech gRPC > gRPC Monitor`で
+  リクエスト・レスポンスのヘッダーとBody(JSON)を1件ずつ見られる
+- Bootstrapシーンから再生するとタイトルが出る。「Start」でサインイン(初回はデバイス登録・サインアップ)してホームへ進む
+- アカウント情報(`device_id`等)は、接続先ごとに暗号化して端末に保存する(`account-<接続先>`)。**ServerのDBを作り直したら、
+  保存先のフォルダ(Editorは`Application.persistentDataPath`の`SaveData`)のアカウント情報のファイルを消す**。
+  消さないとトークンを発行できず、タイトルに戻り続ける(gRPC基盤の未解決の課題)
 - `Atlas.BattleCore`は`Packages/manifest.json`から`Shared/BattleCore`を、`Atlas.BattleContracts`は
   `Shared/BattleContracts`をローカルパッケージとして参照している
 - フォント(`Assets/Addressables/Fonts/NotoSansJP-Medium SDF.asset`)は文字を焼き込んだStaticアセット。
@@ -267,16 +276,20 @@ cd master-data-pipeline
 - BattleServer向けを更新したら、`dotnet test BattleServer/Tests/BattleServer.Tests.csproj`で読み込めることを確認してBattleServerを再起動する
 - ツール本体を変更したときだけ`./build.sh tools`が必要
 
-### API(api-codegen) — ServerのAPI(handler/DTO)を変えたとき
+### API(gRPC) — `Shared/proto/`の`.proto`・`Shared/errors.toml`を変えたとき
 
 ```bash
-cd Server && cargo run --bin export_openapi   # Shared/api/openapi.yaml を更新
-cd ../api-codegen
-dotnet run -- generate                         # DTO・APIクライアントを生成
-dotnet run -- copy                             # Client側(Assets/Scripts/Infrastructure/Api/Generated/)へ配置
+make proto-gen    # .proto → Unity向けのC#(メッセージ型・gRPCクライアント・ラッパー)。buf lintも行う
+make errors-gen   # errors.toml → Unity向けのC#のエラーコード(AtlasErrors)
 ```
 
-OpenAPIの`nullable`には対応しない(Rust側で`Option<T>`をレスポンスに含めない)。
+- リポジトリ直下で実行する。初回は、gRPC基盤の同じタグ(`Makefile`の`VOLTECH_TAG`)から生成のツール(buf・protoc・
+  protocプラグイン)を`.tools/`に取ってくる。失敗したら`.tools/voltech-grpc-src/`を消してやり直す
+- 出力先は`Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Grpc/Generated/`(コミットする)
+- Server(Rust)は、ビルドのときに`build.rs`が同じ`.proto`・`errors.toml`から生成する(コミットしない)
+- PATHで先にUnity付属の.NET 8 SDKが見つかるPCでは、`Makefile`が既定で`C:/Program Files/dotnet/dotnet.exe`を使う。
+  別の場所なら`local.mk`(コミットしない)に`DOTNET := <パス>`を書く
+- gRPC基盤のタグを上げるときは、`Makefile`の`VOLTECH_TAG`・`Server/Cargo.toml`・Clientの`manifest.json`の3か所をそろえる
 
 ## 7. トラブルシューティング
 
@@ -287,6 +300,8 @@ OpenAPIの`nullable`には対応しない(Rust側で`Option<T>`をレスポン�
 | BattleServerが`BATTLE_TOKEN_SECRET must be set` / `must be at least 32 bytes`で起動しない | user-secrets(または環境変数)が未設定・短すぎる → 「3. 共通の設定」 |
 | 対戦に入れない(`JoinAsync`が`InvalidToken`) | `BATTLE_TOKEN_SECRET`がServerとBattleServerで違う、またはトークン取得から30秒以上経っている |
 | 対戦結果がDBに記録されない | BattleServerのログを確認。`INTERNAL_API_SECRET is not set` → BattleServer側が未設定。`status=401` → 値の食い違い。報告が届かなかった対戦は、1時間後にServerの定期処理で`aborted`になる |
-| Serverが`battle_matches`の`aborted`等でDBエラーになる | ローカルDBのマイグレーションが古い → `make migrate` |
+| Serverが起動時のマイグレーションで失敗する | 適用済みのマイグレーションの中身が変わった(チェックサムの不一致)→ `make db-reset`でDBを作り直す |
+| Unityでタイトルの「Start」を押すと、すぐタイトルに戻る | ServerのDBを作り直したのに、端末のアカウント情報が残っている → 上記「Client」のとおり、アカウント情報のファイルを消す |
+| Unityで通信エラー(サーバーにつながりませんでした) | Serverが起動していない、または`GRPC_ADDR`とClientの`GrpcAddress`が違う |
 | UnityでCS1704(`Atlas.BattleCore`の重複) | `Shared/BattleCore/`に`bin/`・`obj/`ができている → `.meta`ごと削除する(上記「BattleServer」参照) |
 | マスタを更新したのにServerに反映されない | `seed_master_data`後にServerを再起動していない |

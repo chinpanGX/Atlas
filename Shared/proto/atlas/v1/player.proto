@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+import "atlas/v1/player_data.proto";
+
+option csharp_namespace = "Atlas.Api.V1";
+
+// プレイヤーの作成(サインアップ)と、所持データの全件の取得(サインイン)。
+service PlayerService {
+  // デバイス登録で発行した player_id でプレイヤーを作り、スターターのパーティと初期のアイテムを付与する。
+  // 作成済みならエラーにせず、何も変えずに作成済みのプレイヤーを返す。作った後は、SignIn で所持データを全件取る。
+  rpc SignUp(SignUpRequest) returns (SignUpResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+
+  // プレイヤーの情報と所持データの全件を返す。
+  // プレイヤーがまだ作られていなければ FAILED_PRECONDITION + PLAYER_NOT_FOUND を返す。
+  rpc SignIn(SignInRequest) returns (SignInResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+}
+
+message SignUpRequest {
+  // ニックネーム(1〜50 文字。範囲外なら INVALID_ARGUMENT)。作成済みのときは使わない。
+  string nickname = 1;
+}
+
+message SignUpResponse {
+  // プレイヤーの ID(ULID)。
+  string player_id = 1;
+  // ニックネーム。作成済みだったときは、作成したときの値。
+  string nickname = 2;
+}
+
+message SignInRequest {}
+
+message SignInResponse {
+  // プレイヤーの ID(ULID)。
+  string player_id = 1;
+  // ニックネーム。
+  string nickname = 2;
+  // 所持データの全件。共通レスポンス項目の player_diff とは名前を分け、ApiCore に差分として反映させない。
+  PlayerSnapshot snapshot = 3;
+}

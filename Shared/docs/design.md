@@ -25,17 +25,20 @@ APIサーバー(Rust)・クライアント(Unity)・バトルサーバー(C#/Mag
 
 ```
 Unity Client
-   │ REST (HTTP/JSON)              │ MagicOnion (gRPC / StreamingHub)
+   │ gRPC(VolTech gRPC)           │ MagicOnion (gRPC / StreamingHub)
    ▼                               ▼
 APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
- 認証・プレイヤー・スカウト・      対戦の進行のみ(状態はメモリ上)
- チャット・マッチング・DB書き込み        │
+ 認証・プレイヤー・編成・          対戦の進行のみ(状態はメモリ上)
+ スカウト・マッチング・DB書き込み        │
    ▲─────────── 内部API(REST) ──────────┘  パーティ・選出個体の取得、結果報告
    │
  MySQL(唯一のデータストア。書き込みはAPIサーバーだけが行う)
 ```
 
 - サーバーは1台構成(ローカルでの動作を想定)。スケールアウトは考えない
+- ClientとAPIサーバーの通信は、自作のgRPC基盤[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)(タグで参照)に
+  乗せている。デバイス認証・トークン・再認証・エラーのダイアログ・再送しても一度だけ処理する仕組み(RequestID)・
+  1リクエスト1トランザクション・メンテナンスの判定は基盤が行い、Atlasは`.proto`・業務処理・ダイアログの見た目を持つ
 - DBへの書き込みはAPIサーバーに一本化する。バトルサーバーはDBを持たず、必要なデータは内部APIで
   APIサーバーから取得し、結果も内部APIで報告する
 - 対戦の判定はバトルサーバーが権威を持つ(クライアントは結果を受け取って表示するだけ)
@@ -46,23 +49,23 @@ APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
 
 | 経路 | 方式 | 認証 | 用途 |
 |---|---|---|---|
-| Client → APIサーバー | REST(JSON)。OpenAPIから生成したクライアント([3.1](#31-構成)) | `Authorization: Bearer <access_token>` | 認証・所持データ・スカウト・チャット・マッチング |
+| Client → APIサーバー | gRPC(Unary)。`.proto`から生成したラッパーを基盤の`ApiCore`経由で呼ぶ([3.1](#31-構成)) | `authorization: Bearer <access_token>`(基盤が付与・更新) | 認証・所持データ・編成・スカウト・マッチング・開発用 |
 | Client ⇔ バトルサーバー | MagicOnion StreamingHub(HTTP/2) | `battle_token`(JWT) | 対戦(選出・行動・結果の受信) |
-| バトルサーバー → APIサーバー | REST(JSON)。OpenAPIには載せない | `X-Internal-Secret` | パーティ・選出個体の取得、結果報告 |
+| バトルサーバー → APIサーバー | REST(JSON)。gRPCとは別のポート | `X-Internal-Secret` | パーティ・選出個体の取得、結果報告 |
 
 ### 1.3 リポジトリ構成
 
 | パス | 内容 |
 |---|---|
 | `Client/AtlasUnityProject/` | Unityクライアント |
-| `Server/` | APIサーバー(Rust/axum) |
+| `Server/` | APIサーバー(Rust。クライアント向けはgRPC/tonic、内部APIはREST/axum) |
 | `BattleServer/` | バトルサーバー(ASP.NET Core + MagicOnion)。対戦相手ボット(`BattleBot/`)とテストを含む |
 | `Shared/BattleCore/` | ダメージ計算・ターン処理(`Atlas.BattleCore`)。ClientとBattleServerで同じソースを使う |
 | `Shared/BattleContracts/` | Client⇔BattleServerの通信契約(`Atlas.BattleContracts`) |
 | `Shared/master-data/` | マスターデータのスキーマとCSV(正本) |
-| `Shared/api/openapi.yaml` | APIサーバーのOpenAPI仕様書(生成物) |
+| `Shared/proto/` | ClientとAPIサーバーの通信の定義(`.proto`、パッケージ`atlas.v1`。正本) |
+| `Shared/errors.toml` | APIサーバーの業務エラー(domain `atlas`。正本) |
 | `master-data-pipeline/`(submodule) | マスターデータの生成ツール(自作) |
-| `api-codegen/`(submodule) | OpenAPI → Unity向けDTO・通信クライアントの生成ツール(自作) |
 | `UnityScreenNavigator/`(submodule) | 画面遷移ライブラリ(USN)のフォーク |
 
 起動手順・環境変数は[DEVELOPMENT.md](../../DEVELOPMENT.md)を参照。
@@ -76,7 +79,8 @@ APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
 - DB・Rust: `snake_case`。マスタは修飾語なし、プレイヤーの所持データは`player_`を付ける
   (`pachimon` / `player_pachimon`)
 - 「ポケモン」にあたる語は`pachimon`で統一する(商標と混同しないための独自名)
-- REST APIのJSON: `camelCase`(Rust側は`serde(rename_all = "camelCase")`で変換し、内部は`snake_case`のまま)
+- `.proto`: メッセージ・フィールドは`buf lint`(STANDARD)の規約どおり(フィールドは`snake_case`、C#では`PascalCase`になる)
+- 内部API(REST)のJSON: `camelCase`(Rust側は`serde(rename_all = "camelCase")`で変換し、内部は`snake_case`のまま)
 - C#(Client・BattleServer・通信契約): C#の規約どおり`PascalCase`
 
 ### 2.2 ID
@@ -89,19 +93,23 @@ Rustでは`ulid`クレートで生成する。所持データの「割当」(パ
 
 ### 2.3 nullableを使わない
 
-APIのレスポンスには`nullable`を使わない。`api-codegen`が`nullable`に対応していないためで、
-ツール側に対応を足すのではなく、APIとスキーマの側で表現を工夫する。
+gRPCのAPI(`.proto`)は基盤の規約に従う。スカラー(数値・文字列)は`optional`を使わず、「値なし」は取り決めた
+番兵値(空文字など)で表す。メッセージ型のフィールドは`null`を「変更なし / 該当なし」として使ってよい
+(`playerDiff`のリソースごとのフィールドなど)。
+
+内部API(REST)のレスポンスには`nullable`を使わない。
 
 - 「無い」ことは、行が存在しないことで表す(パーティの未編成の枠は`player_party_slots`に行を作らない)
 - 値が無い文字列は空文字にする(マッチング待ちの`matchId`、勝者なしの`winnerId`)
 - 状態によって中身が無いフィールドは、使う側が別のフィールド(`status`等)で判定する
 
-BattleServerとClientの間(MessagePack)は`nullable`を使ってよい(`api-codegen`を通らないため)。
+BattleServerとClientの間(MessagePack)は`nullable`を使ってよい。
 
 ### 2.4 所持データの差分(`playerDiff`)
 
 プレイヤーの所持データ(アイテム・パチモン・覚えている技・パーティ)を変えるAPIは、レスポンスに
-`playerDiff`を含める。クライアントは受け取った差分を手元のデータに反映する。レスポンスの形をAPIごとに
+`player_diff`(基盤の共通レスポンス項目。`Shared/proto/atlas/v1/player_data.proto`の`PlayerDiff`)を含める。
+クライアントは受け取った差分を手元のデータに反映する。レスポンスの形をAPIごとに
 変えると、クライアントの反映処理がAPIごとにばらばらになるため、共通の形にした。
 
 | 種別 | 中身 | クライアントの扱い |
@@ -119,7 +127,7 @@ BattleServerとClientの間(MessagePack)は`nullable`を使ってよい(`api-cod
 ```
 
 - リソースの種別ごとに`upserted`(追加・更新した行)と`removed`(削除した行のID)を持つ。
-  4種別は常にすべて含め、変化が無い種別は両方とも空配列にする(`nullable`を避けるため)
+  変化が無い種別は`null`(フィールドが無い)にする
 - 値は変化量ではなく変更後の値(ジェムなら残数)
 - 各種別はDBのテーブルに1対1で対応する(`player_items` / `player_pachimon` / `player_pachimon_moves` /
   `player_party_slots`)。技をパチモンに内包させないのは、技の付け替えで変化していないパチモン本体まで
@@ -130,16 +138,17 @@ BattleServerとClientの間(MessagePack)は`nullable`を使ってよい(`api-cod
   (パーティの編成し直しでは`partySlots.removed`を使う)
 - プレイヤーID・ニックネームは差分の考え方に合わないため`playerDiff`に含めず、必要なAPI(サインイン)が
   自分のレスポンスのフィールドとして返す
+- サインインの全件は`player_diff`ではなく`snapshot`(`PlayerSnapshot`)で返す。差分としてではなく手元のデータを
+  置き換える全件で、名前を分けないと基盤が差分として自動で反映してしまうため
 
 | API | `playerDiff`の中身 |
 |---|---|
-| `POST /sign-in` | 全種別の全件(`removed`は常に空)。差分ではなく、手元のデータを置き換える全件として扱う |
-| `POST /edit/party` | `partySlots`(新しい枠を`upserted`、解除した枠を`removed`) |
-| `POST /edit/pachimon_moves` | `pachimonMoveMap`(付け替えた1件) |
-| `POST /scout/rolls` | `items`(消費後のジェム) |
-| `POST /scout/rolls/{rollId}/select` | `pachimon`(入手した1体)と`pachimonMoveMap`(その技) |
-| `POST /debug/grant_gems` | `items`(付与後のジェム) |
-| `POST /debug/randomize_party` | `pachimon`・`pachimonMoveMap`(新しく付与した6体)と`partySlots` |
+| `PartyService/SetParty` | `partySlots`(新しい枠を`upserted`、解除した枠を`removed`) |
+| `PartyService/SetPachimonMove` | `pachimonMoveMap`(付け替えた1件) |
+| `ScoutService/Roll` | `items`(消費後のジェム) |
+| `ScoutService/Select` | `pachimon`(入手した1体)と`pachimonMoveMap`(その技) |
+| `DebugService/GrantGems` | `items`(付与後のジェム) |
+| `DebugService/RandomizeParty` | `pachimon`・`pachimonMoveMap`(新しく付与した6体)と`partySlots` |
 
 ### 2.5 所持リソース(アイテム)
 
@@ -149,10 +158,10 @@ BattleServerとClientの間(MessagePack)は`nullable`を使ってよい(`api-cod
 
 | きっかけ | 増減 | 処理する場所 |
 |---|---|---|
-| プレイヤー作成 | +300 | `POST /signup` |
+| プレイヤー作成 | +300 | `PlayerService/SignUp` |
 | 対戦の勝利 | +50 | `POST /internal/battle/result` |
-| 開発用の付与 | +450 | `POST /debug/grant_gems` |
-| スカウトの紹介 | −(バナーの`cost_per_roll`) | `POST /scout/rolls` |
+| 開発用の付与 | +450 | `DebugService/GrantGems` |
+| スカウトの紹介 | −(バナーの`cost_per_roll`) | `ScoutService/Roll` |
 
 ---
 
@@ -160,42 +169,52 @@ BattleServerとClientの間(MessagePack)は`nullable`を使ってよい(`api-cod
 
 ### 3.1 構成
 
-Rust/axum。ソースは`Server/src/`、詳しい開発手順は[Server/CLAUDE.md](../../Server/CLAUDE.md)。
+Rust。クライアント向けのAPIはgRPC(tonic + 基盤のクレート`voltech-grpc-*`)、BattleServer向けの内部APIはREST(axum)で、
+同じプロセスの別のポートで出す(gRPCは`GRPC_ADDR`、既定`127.0.0.1:50051`。内部APIは`SERVER_ADDR`、既定`127.0.0.1:3000`)。
+同じプロセスにするのは、マッチングの待機列をメモリで共有するため。ポートを分けるのは、基盤のLayer(メンテナンス・認証等)を
+内部APIに付けないためと、BattleServerのHTTP/1.1の呼び出しを変えずに済むため。
+ソースは`Server/src/`、詳しい開発手順は[Server/CLAUDE.md](../../Server/CLAUDE.md)。
 
 | ディレクトリ・ファイル | 役割 |
 |---|---|
-| `api/` | リクエスト・レスポンスの型とハンドラ。`utoipa`でOpenAPIの注釈を付ける |
-| `service/` | 業務処理とDBアクセス |
+| `grpc/` | gRPCのサービスの実装(ハンドラ)と、サーバーの組み立て(Layerの順番・リフレクション) |
+| `grpc/context.rs` | 認証の情報(`AuthContext`)からプレイヤーIDを取り出す。未作成なら`PLAYER_NOT_FOUND` |
+| `proto.rs` | `build.rs`が`Shared/proto`・`Shared/errors.toml`から生成したコード |
+| `api/` | 内部API(REST)のリクエスト・レスポンスの型とハンドラ |
+| `service/` | 業務処理とDBアクセス。gRPCのハンドラからは基盤のトランザクションを受け取って呼ぶ |
 | `model/` | DBのテーブルに対応する構造体 |
 | `master/` | マスターデータの型(生成物)と、起動時に読み込むキャッシュ(`MasterData`) |
-| `extractor.rs` | 認証(`AuthenticatedDevice`: アクセストークン、`InternalService`: 内部APIのシークレット) |
-| `error.rs` | `AppError` → HTTPステータスの変換 |
+| `extractor.rs` | 内部APIの認証(`InternalService`: シークレット) |
+| `error.rs` | `AppError`(サービス層のエラーと、内部APIのHTTPステータスへの変換) |
+| `db.rs` | 起動時のマイグレーション(基盤のテーブル → Atlasのテーブル) |
 | `state.rs` | `AppState`(DB接続プール・マスタのキャッシュ・マッチングの待機列) |
-| `routes.rs` | ルーティング |
-| `openapi.rs` | OpenAPI仕様書(`ApiDoc`)。内部APIは載せない |
+| `routes.rs` | 内部APIのルーティング |
+| `config/server_status.toml` | メンテナンス・最低バージョン・ゲーム内の日付が変わる時刻(5秒ごとに読み直す) |
 
-- エラー: `AppError`の`BadRequest`→400、`Unauthorized`→401、`NotFound`→404、`Conflict`→409、
-  `InternalError`→500
+- gRPCのハンドラは、業務処理を基盤の`Transactions::run`の中で動かす(1リクエスト1トランザクション、冪等性の対象の
+  RPCは同じRequestIDの再送で二重に実行しない)
+- エラー: 業務エラーは`FAILED_PRECONDITION` + `ErrorInfo`(domain `atlas`、reasonは`Shared/errors.toml`)、
+  内部エラーは`INTERNAL`(詳細はサーバーのログだけ)。内部APIは`AppError`の`BadRequest`→400、`Unauthorized`→401、
+  `NotFound`→404、`Conflict`→409、`InternalError`→500
 - マスターデータは起動時にDBから全件読み込み、`Arc<MasterData>`としてメモリに持つ(更新にはサーバーの再起動が要る。
   [5.3](#53-運用))
-- OpenAPI仕様書は`cargo run --bin export_openapi`で`Shared/api/openapi.yaml`に出力し、`api-codegen`で
-  Unity向けのDTOと通信クライアント(`Client/.../Infrastructure/Api/Generated/`)を生成する。
-  API(ハンドラ・DTO)を変えたら生成し直す
-- ログ: `tracing`でリクエスト・レスポンスの本文と実行したSQLを出す(`RUST_LOG`で切り替え)
+- `.proto`を変えたら、Rustはビルドのときに`build.rs`が生成し直す。Unity向けのC#はルートの`make proto-gen`・`make errors-gen`で生成する
+- 開発ビルドではgRPCリフレクションを有効にし、grpcurl・Postmanから`.proto`無しで呼べる
+- ログ: `tracing`でリクエストと実行したSQLを出す(`RUST_LOG`で切り替え)
 
 ### 3.2 認証
 
-**デバイス認証(ゲスト)**
+**デバイス認証(ゲスト)** — 基盤(`voltech-grpc-auth`)が行う
 
-- 会員登録は無く、端末ごとのデバイスで認証する。クライアントが`secret_key`(ランダムな文字列)を作り、
-  `POST /devices`で登録して`device_id`を受け取る。以後は`device_id`と`secret_key`で`POST /devices/authenticate`を
-  呼び、アクセストークンを受け取る
-- `secret_key`はArgon2でハッシュ化して保存する
-- アクセストークンの有効期限は1時間。1つのデバイスにつき有効なトークンは常に1つで、再認証すると
-  古いトークンは無効になる
-- リフレッシュトークンは無く、`POST /devices/authenticate`の再実行が更新を兼ねる(クライアントの更新方法は
-  [6.6](#66-通信と所持データ))
-- デバイス(端末の識別)とプレイヤー(ゲームデータの持ち主)は分ける。プレイヤーは`POST /signup`で作る
+- 会員登録は無く、端末ごとのデバイスで認証する。クライアントが`secret_key`を作って`DeviceService/Register`で登録し、
+  `device_id`と`player_id`を受け取る。以後は`device_id`と`secret_key`で`DeviceService/IssueToken`を呼び、アクセストークンを受け取る。
+  どちらもクライアントの基盤(`ApiCore`)が最初の通信で自動で行う
+- アクセストークンの有効期限は1時間。1つのデバイスにつき有効なトークンは常に1つ
+- `player_id`はデバイス登録で発行するIDだけで、プレイヤー(`players`の行と初期データ)はサインアップで作る。
+  デバイスとプレイヤーの対応は基盤の`devices`だけが持ち、`players`は`device_id`を持たない
+- サーバーがプレイヤーを特定する根拠はトークンだけ(`device_id`・`player_id`はクライアントから受け取らない)
+- 基盤の`AuthLayer`がトークンを検証し、Atlasの`PlayerResolver`の実装(`grpc/player_lookup.rs`)が`players`を引いて
+  プレイヤーが作成済みかを返す(アカウント停止は今は無い)
 
 **内部API**
 
@@ -211,90 +230,85 @@ Rust/axum。ソースは`Server/src/`、詳しい開発手順は[Server/CLAUDE.m
 
 ### 3.3 API一覧
 
-| メソッド | パス | 内容 | 認証 |
-|---|---|---|---|
-| POST | `/devices` | デバイスの登録 | 不要 |
-| POST | `/devices/authenticate` | デバイス認証(アクセストークンの発行) | 不要 |
-| GET | `/auth/verify` | アクセストークンの検証 | 要 |
-| POST | `/signup` | プレイヤーの作成(初期データの付与) | 要 |
-| POST | `/sign-in` | サインイン(所持データの全件取得) | 要 |
-| POST | `/edit/party` | パーティ編成 | 要 |
-| POST | `/edit/pachimon_moves` | 技の付け替え | 要 |
-| POST | `/chat/send` | チャットの送信 | 要 |
-| GET | `/chat/poll` | チャットの取得 | 要 |
-| GET | `/scout/banners` | 開催中のスカウト一覧 | 要 |
-| POST | `/scout/rolls` | 紹介を受ける(ジェム消費・候補10体) | 要 |
-| POST | `/scout/rolls/{rollId}/select` | 候補から1体を選んで入手 | 要 |
-| POST | `/battle/queue` | マッチングの待機列に入る | 要 |
-| DELETE | `/battle/queue` | 待機列から抜ける | 要 |
-| GET | `/battle/queue/status` | マッチ成立の確認(ポーリング) | 要 |
-| POST | `/debug/grant_gems` | 開発用: ジェムを付与 | 要 |
-| POST | `/debug/randomize_party` | 開発用: パーティをランダムに組み直す | 要 |
-| POST | `/internal/battle/party` | 内部: 参加者のパーティ取得 | 内部 |
-| POST | `/internal/battle/loadouts` | 内部: 選出個体の所持データ取得 | 内部 |
-| POST | `/internal/battle/result` | 内部: 対戦結果の記録 | 内部 |
+**gRPC(クライアント向け)** — `.proto`のコメントが各RPCの仕様の正
 
-- パスは動詞をbodyに寄せたRPC寄りの命名にしている(`/edit/party`、`/chat/send`)。識別子もなるべくパスではなく
-  bodyに置く(仕様変更に強くするため。`/scout/rolls/{rollId}/select`は例外)
-- 以下の各APIでは、`playerDiff`の中身は[2.4](#24-所持データの差分playerdiff)の表を参照し、JSONの全体は載せない
+| サービス / RPC | 内容 | 冪等性 |
+|---|---|---|
+| `voltech.v1.DeviceService/Register` | デバイスの登録(基盤) | `IDEMPOTENT` |
+| `voltech.v1.DeviceService/IssueToken` | アクセストークンの発行(基盤) | `IDEMPOTENT` |
+| `atlas.v1.PlayerService/SignUp` | プレイヤーの作成(初期データの付与) | `IDEMPOTENT` |
+| `atlas.v1.PlayerService/SignIn` | サインイン(所持データの全件取得) | `IDEMPOTENT` |
+| `atlas.v1.PartyService/SetParty` | パーティの編成(全置き換え) | 対象 |
+| `atlas.v1.PartyService/SetPachimonMove` | 技の付け替え | 対象 |
+| `atlas.v1.ScoutService/ListBanners` | 開催中のバナー一覧 | `NO_SIDE_EFFECTS` |
+| `atlas.v1.ScoutService/Roll` | 紹介を受ける(ジェムを消費して候補10体) | 対象 |
+| `atlas.v1.ScoutService/Select` | 候補から1体を選んで入手 | 対象 |
+| `atlas.v1.MatchmakingService/JoinQueue` | 待機列に入る(成立すれば対戦を記録) | 対象 |
+| `atlas.v1.MatchmakingService/LeaveQueue` | 待機列から抜ける | `IDEMPOTENT` |
+| `atlas.v1.MatchmakingService/GetQueueStatus` | マッチが成立したかと接続情報 | `NO_SIDE_EFFECTS` |
+| `atlas.v1.DebugService/GrantGems` | 開発用のジェム付与 | 対象 |
+| `atlas.v1.DebugService/RandomizeParty` | 開発用のランダム編成 | 対象 |
 
-### 3.4 デバイス・プレイヤー
+**REST(BattleServer向けの内部API)**
 
-**`POST /devices`** — `{ "secretKey" }` → `{ "deviceId" }`
+| メソッド | パス | 内容 |
+|---|---|---|
+| POST | `/internal/battle/party` | 参加者のパーティ取得 |
+| POST | `/internal/battle/loadouts` | 選出個体の所持データ取得 |
+| POST | `/internal/battle/result` | 対戦結果の記録 |
 
-**`POST /devices/authenticate`** — `{ "deviceId", "secretKey" }` → `{ "accessToken", "expiresIn" }`(秒)。
-`playerDiff`は返さない(トークン発行専用)。
+- 冪等性: `idempotency_level`を書かないRPCは「対象」(クライアントはRequestIDを付けて1つずつ送り、サーバーは同じRequestIDの
+  再送で二重に実行しない)。読むだけのRPCは`NO_SIDE_EFFECTS`、何回実行しても同じ結果になるRPCは`IDEMPOTENT`
+- 以下の各APIでは、`playerDiff`の中身は[2.4](#24-所持データの差分playerdiff)の表を参照する
 
-**`GET /auth/verify`** — 有効なら200、無効(期限切れ・存在しない)なら401。
+### 3.4 プレイヤー
 
-**`POST /signup`** — `{ "nickname" }` → 200(本文なし)
+**`PlayerService/SignUp`** — `nickname` → `player_id`・`nickname`
 
-- 1つのデバイスにプレイヤーは1人(2人目は409)
+- デバイス登録で発行した`player_id`でプレイヤーを作る。作成済みならエラーにせず、何も変えずに作成済みのプレイヤーを返す
+  (再送されても同じ結果になるように、`IDEMPOTENT`にしている)
+- ニックネームは1〜50文字(範囲外は`INVALID_ARGUMENT`)
 - プレイヤーの作成と同じトランザクションで次を付与する
   - スターターパーティ: マスタ`starter_party_slots`の6体をそのまま複製し、初期技込みの`player_pachimon`と
     `player_party_slots`を作る(全員共通の固定編成)
   - ジェム300(`player_items`)
-- 作成したデータは返さない。クライアントは続けて`POST /sign-in`を呼ぶ
+  - 基盤の冪等性のためにロックする行(`last_responses`)
+- 作成したデータは返さない。クライアントは続けて`SignIn`を呼ぶ
 
-**`POST /sign-in`** — 本文なし → `{ "playerId", "nickname", "playerDiff" }`
+**`PlayerService/SignIn`** — 本文なし → `player_id`・`nickname`・`snapshot`(所持データの全件)
 
-- デバイス認証の直後に毎回呼び、所持データの全件を返す
-- プレイヤーが未作成なら404。クライアントは404のときだけ`POST /signup`を呼んでから、もう一度サインインする
+- タイトル画面で毎回呼び、所持データの全件を返す。クライアントは差分としてではなく、手元のデータを置き換える
+- プレイヤーが未作成なら`FAILED_PRECONDITION` + `PLAYER_NOT_FOUND`。クライアントはこのときだけ`SignUp`を呼んでから、
+  もう一度サインインする(サインアップ済みかは端末に覚えない)
 
 ### 3.5 パーティ編成・技の付け替え
 
-**`POST /edit/party`** — `{ "partySlots": [ { "slot", "playerPachimonId" } ] }` → `{ "playerDiff" }`
+**`PartyService/SetParty`** — `party_slots`(`slot`・`player_pachimon_id`の組) → `player_diff`
 
 - 全置き換え。既存の枠を全て削除し、指定された枠を新しいULIDで作り直す(リクエストに無い枠は解除される)
-- 検証: 1〜6体(0体は400)、slotは1〜6で重複しない、同じ個体を2つの枠に入れない(400)、
-  自分の所持個体であること(404)。同じ種族の別の個体は何体でもよい
+- 検証: 1〜6体、slotは1〜6で重複しない、同じ個体を2つの枠に入れない(いずれも`INVALID_PARTY`)、
+  自分の所持個体であること(`PACHIMON_NOT_OWNED`)。同じ種族の別の個体は何体でもよい
+- 割当のIDを作り直すので、2回実行すると結果が変わる。冪等性の対象にし、再送では二重に実行しない
 
-**`POST /edit/pachimon_moves`** — `{ "playerPachimonId", "slot", "moveId" }` → `{ "playerDiff" }`
+**`PartyService/SetPachimonMove`** — `player_pachimon_id`・`slot`・`move_id` → `player_diff`
 
-- 技を、その種族の技グループの候補(`move_group_moves`)から選んで入れ替える。候補に無い技・slotが1〜4の
-  範囲外は400、他人の個体は404
+- 技を、その種族の技グループの候補(`move_group_moves`)から選んで入れ替える。候補に無い技は`MOVE_NOT_LEARNABLE`、
+  slotが1〜4の範囲外は`INVALID_MOVE_SLOT`、他人の個体は`PACHIMON_NOT_OWNED`
 - `INSERT ... ON DUPLICATE KEY UPDATE`で更新する。更新の対象に`player_pachimon_move_id`を含めないため、
   既にある枠の付け替えではIDが変わらない
 
-### 3.6 チャット
-
-全プレイヤー共通の1つのチャンネル(ルームの概念は無い)。
-
-**`POST /chat/send`** — `{ "content" }` → `{ "messageId", "createdAt" }`
-
-**`GET /chat/poll`** — `{ "messages": [ { "messageId", "playerId", "content", "createdAt" } ] }`。新しい順に50件。
-
-### 3.7 スカウト
+### 3.6 スカウト
 
 本家の「紹介(候補10体から1体を選ぶ)」をもとにした2段階の流れ。
 
-**`GET /scout/banners`** — 開催中(`start_at <= 現在 <= end_at`)のバナー一覧
-`{ "banners": [ { "bannerId", "name", "costPerRoll", "startAt", "endAt" } ] }`。排出率は返さない。
+**`ScoutService/ListBanners`** — 本文なし → `banners`(`banner_id`・`name`・`cost_per_roll`・`start_at`・`end_at`)
 
-**`POST /scout/rolls`** — `{ "bannerId" }` → `{ "rollId", "candidates": [ { "index", "pachimonId", "rarity", "moves" } ], "playerDiff" }`
+- 開催中(`start_at <= 現在 <= end_at`)のバナーを開始日時の順に返す。排出率は返さない
 
-1. バナーが開催中か確かめる(存在しなければ404、開催期間外は400)
-2. ジェムから`cost_per_roll`を減らす(足りなければ400)
+**`ScoutService/Roll`** — `banner_id` → `roll_id`・`candidates`(`index`・`pachimon_id`・`move_ids`)・`player_diff`
+
+1. バナーが開催中か確かめる(存在しなければ`SCOUT_BANNER_NOT_FOUND`、開催期間外は`SCOUT_BANNER_CLOSED`)
+2. ジェムから`cost_per_roll`を減らす(足りなければ`INSUFFICIENT_GEMS`)
 3. 候補10体を1体ずつ抽選する
    1. `rate_table`の重みでレア度を決める
    2. そのレア度の種族から等確率で1体選ぶ
@@ -302,10 +316,11 @@ Rust/axum。ソースは`Server/src/`、詳しい開発手順は[Server/CLAUDE.m
 4. 候補10体を`scout_rolls`に保存する(未選択)
 5. 以上を1つのトランザクションで行う
 
-**`POST /scout/rolls/{rollId}/select`** — `{ "index" }` → `{ "playerDiff" }`
+**`ScoutService/Select`** — `roll_id`・`index` → `player_diff`
 
-- 自分のロールであること(存在しない・他人のロールは404)、未選択であること(選択済みは409)、
-  `index`が0〜9であること(範囲外は400)を確かめる
+- 自分のロールであること(存在しない・他人のロールは`SCOUT_ROLL_NOT_FOUND`)、未選択であること
+  (選択済みは`SCOUT_ROLL_ALREADY_SELECTED`)、`index`が0〜9であること(範囲外は`SCOUT_CANDIDATE_OUT_OF_RANGE`)を確かめる。
+  同時に選んでも二重に入手しないよう、ロールの行をロックしてから確かめる
 - 保存しておいた候補をそのまま`player_pachimon`・`player_pachimon_moves`にコピーする(再抽選しない)。
   選ばなかった9体はどこにも残らない
 - ジェムはここでは変わらない(紹介の時点で消費済み)
@@ -320,29 +335,34 @@ Rust/axum。ソースは`Server/src/`、詳しい開発手順は[Server/CLAUDE.m
 - 紹介を選ばずに放置してもジェムは戻らず、ロールの有効期限も設けない。取り直すAPIが無いため、
   クライアントは候補を選ぶまで画面を離れられないようにしている
 
-### 3.8 マッチング
+### 3.7 マッチング
 
-**`POST /battle/queue`** — 本文なし → 200。パーティが0体なら400。既に待機中・成立済み(結果未取得)なら何もしない。
+**`MatchmakingService/JoinQueue`** — 本文なし → 本文なし
 
-**`DELETE /battle/queue`** — 待機列から抜ける。いなくても200。
+- パーティが0体なら`PARTY_EMPTY`。既に待機中なら何もしない。前のマッチの接続情報が残っていれば捨ててから並ぶ
 
-**`GET /battle/queue/status`** — `{ "status", "matchId", "battleServer", "battleToken" }`
+**`MatchmakingService/LeaveQueue`** — 待機列から抜け、成立していたマッチの接続情報も捨てる。いなくても成功する
 
-- 待機中は`status: "waiting"`で他は空文字([2.3](#23-nullableを使わない))。成立時は`"matched"`で、
-  接続先(`battleServer`、環境変数`BATTLE_SERVER_URL`)と`battle_token`を返す
-- 成立の結果は1回取得したら消す
+**`MatchmakingService/GetQueueStatus`** — 本文なし → `status`・`match_id`・`battle_server`・`battle_token`
+
+- 待機中(待機列にいないときも含む)は`QUEUE_STATUS_WAITING`で他は空文字([2.3](#23-nullableを使わない))。成立時は
+  `QUEUE_STATUS_MATCHED`で、接続先(`battle_server`、環境変数`BATTLE_SERVER_URL`)と`battle_token`を返す
+- 成立の結果は返しても消さず、次の`JoinQueue`・`LeaveQueue`か、対戦の結果の報告([3.8](#38-内部apibattleserver用))で消す。
+  応答が届かずに確かめ直しても接続情報を失わず、読むだけのRPC(`NO_SIDE_EFFECTS`)にできるため
 
 実装:
 
 - 待機列はDBに置かず、`AppState`のメモリに`Mutex<VecDeque<player_id>>`(待機列)と
   `HashMap<player_id, MatchInfo>`(成立した結果)で持つ(1台構成のため)
-- `POST /battle/queue`の中で同期的に組む。待っている人がいれば先頭と組み、両者分の`MatchInfo`を保存し、
+- `JoinQueue`の中で同期的に組む。待っている人がいれば先頭と組み、両者分の`MatchInfo`を保存し、
   `battle_matches`に`in_progress`の行を作る(先に待っていた側が`player1`)
-- 通知はポーリング(クライアントは1秒ごと)。1秒の遅れは体験に影響せず、WebSocketを入れる手間に見合わないため
+- `JoinQueue`はメモリの待機列を書き換えた後でトランザクションが失敗すると、メモリだけが残る。待機列への追加は二重に
+  ならない作りなので、そのままにしている
+- 通知はポーリング(クライアントは1秒ごと)。1秒の遅れは体験に影響せず、サーバーからの配信を入れる手間に見合わないため
 
-### 3.9 内部API(BattleServer用)
+### 3.8 内部API(BattleServer用)
 
-`X-Internal-Secret`で認証し、OpenAPIには載せない(`api-codegen`がUnity向けのクライアントを作らないように)。
+`X-Internal-Secret`で認証する。クライアント向けのgRPCとは別のポートで出す([3.1](#31-構成))。
 
 **`POST /internal/battle/party`** — `{ "playerId" }` → `{ "pachimon": [ { "playerPachimonId", "pachimonId" } ] }`
 
@@ -360,17 +380,18 @@ Rust/axum。ソースは`Server/src/`、詳しい開発手順は[Server/CLAUDE.m
 `{ "matchId", "winnerId", "player1Id", "player2Id", "player1SelectedPachimon", "player2SelectedPachimon", "turns": [ { "turnNumber", "playerId", "actionData", "resultData" } ] }` → 200
 
 - 1つのトランザクションで、`battle_matches`の終了状態への更新、`battle_turns`の一括追加、勝者へのジェム50の
-  付与を行う。対象の行を`FOR UPDATE`でロックし、二重の報告は409にする(ジェムを二重に付与しない)
+  付与を行う。対象の行を`FOR UPDATE`でロックし、二重の報告は409にする(ジェムを二重に付与しない)。
+  記録できたら、マッチングの待機列に残っている両者の接続情報を消す
 - `player1`/`player2`はBattleServerに先に参加した側で、マッチ成立時の順と一致するとは限らない。
   IDで`battle_matches`の参加者と突き合わせて保存する
 - `winnerId`が空文字なら勝者なし: `aborted`にし、ジェムは付与しない。相手が一度も参加しなかった場合、
   その側のIDは空文字・選出は空配列
 - `actionData`・`resultData`は中身を解釈せずJSONのまま保存する(HPの実数など、クライアントに送らない値も含む)
-- 報告済みかどうかは選出の列がNULLでないかで判定する。後始末で`aborted`になった対戦([3.10](#310-結果報告が届かない対戦の後始末))に
+- 報告済みかどうかは選出の列がNULLでないかで判定する。後始末で`aborted`になった対戦([3.9](#39-結果報告が届かない対戦の後始末))に
   後から届いた報告は受け付け、内容で上書きする
 - 400: 参加者でない`winnerId`・`player1Id`/`player2Id`・ターンの`playerId`。404: 存在しない`matchId`
 
-### 3.10 結果報告が届かない対戦の後始末
+### 3.9 結果報告が届かない対戦の後始末
 
 BattleServerの再起動(対戦状態はメモリにしか無い)、両者とも一度も接続しなかった対戦、報告の再送失敗により、
 `in_progress`のまま残る対戦がある。APIサーバーは5分ごとに、開始から1時間以上経った`in_progress`の対戦を
@@ -380,12 +401,13 @@ BattleServerの再起動(対戦状態はメモリにしか無い)、両者とも
 - 採用しなかった案: BattleServerの起動時に進行中の対戦をすべて打ち切るよう通知する。再起動のケースは早く片付くが、
   定期処理だけで全ケースを賄えるため見送った
 
-### 3.11 開発用API
+### 3.10 開発用API
 
-正式なゲーム内機能ではなく、動作確認のためのもの。OpenAPIには載せる(Unityのデバッグボタンから呼ぶため)。
+正式なゲーム内機能ではなく、動作確認のためのもの(`DebugService`)。環境変数`ENABLE_DEBUG_API`が`true`・`1`のときだけ
+登録する(未設定ならデバッグビルドだけ)。登録しなければ、呼ぶと`UNIMPLEMENTED`になる。
 
-- **`POST /debug/grant_gems`**: ジェム450(スカウト3回分)を付与する。回数の上限は無い
-- **`POST /debug/randomize_party`**: マスタから重複なしで6体を選んで新しく付与し(技は候補からランダムに最大4つ)、
+- **`DebugService/GrantGems`**: ジェム450(スカウト3回分)を付与する。回数の上限は無い。Unityのホームのデバッグボタンから呼ぶ
+- **`DebugService/RandomizeParty`**: マスタから重複なしで6体を選んで新しく付与し(技は候補からランダムに最大4つ)、
   パーティを組み直す。以前の所持個体は残る。対戦相手ボットが毎回違うパーティで対戦するために使う
 
 ---
@@ -394,7 +416,8 @@ BattleServerの再起動(対戦状態はメモリにしか無い)、両者とも
 
 ### 4.1 方針
 
-- MySQL。スキーマは`Server/migrations/`のマイグレーション(`sqlx migrate`)で管理する
+- MySQL。スキーマは`Server/migrations/`のマイグレーション(`sqlx migrate`)で管理する。基盤のテーブルと合わせて、
+  APIサーバーの起動時に流す
 - プレイヤーの操作で生成する行の主キーはULID(`CHAR(26)`、[2.2](#22-id))。日時は`DATETIME(3)`
 - `NULL`を許す列はなるべく作らない。「無い」ことは行が無いことで表す([2.3](#23-nullableを使わない))。
   例外は`scout_rolls.selected_index`・`battle_matches`の選出・勝者・日時(状態によって値が決まる列)
@@ -406,14 +429,14 @@ BattleServerの再起動(対戦状態はメモリにしか無い)、両者とも
 
 | テーブル | 内容 | 主な書き込み元 |
 |---|---|---|
-| `devices` | 登録されたデバイス | `POST /devices` |
-| `access_tokens` | デバイスごとのアクセストークン(1デバイス1行) | `POST /devices/authenticate` |
-| `players` | プレイヤー(1デバイス1人) | `POST /signup` |
+| `devices` | 登録されたデバイス(基盤) | `DeviceService/Register` |
+| `access_tokens` | デバイスごとのアクセストークン(基盤。1デバイス1行) | `DeviceService/IssueToken` |
+| `last_responses` | 冪等性の対象のRPCの直前のレスポンス(基盤。1プレイヤー1行) | 冪等性の対象のRPC・サインアップ |
+| `players` | プレイヤー | `PlayerService/SignUp` |
 | `player_items` | 所持アイテム(ジェム等)の数 | サインアップ・スカウト・対戦の結果 |
 | `player_pachimon` | 所持しているパチモンの個体 | サインアップ・スカウト |
 | `player_pachimon_moves` | 個体が覚えている技(1個体4行まで) | サインアップ・スカウト・技の付け替え |
 | `player_party_slots` | パーティの編成(1プレイヤー6行まで) | サインアップ・パーティ編成 |
-| `messages` | チャットのメッセージ | `POST /chat/send` |
 | `scout_banners` | スカウトのバナー(排出率・値段・期間) | `seed_scout_banners` |
 | `scout_rolls` | スカウトの紹介と選択の記録 | スカウト |
 | `battle_matches` | 対戦 | マッチ成立・結果報告 |
@@ -421,33 +444,21 @@ BattleServerの再起動(対戦状態はメモリにしか無い)、両者とも
 
 ### 4.3 認証・プレイヤー
 
-**devices**
+**基盤のテーブル(`devices`・`access_tokens`・`last_responses`)**
 
-| 列 | 型 | 制約 | 説明 |
-|---|---|---|---|
-| `device_id` | CHAR(26) | PK | |
-| `secret_key_hash` | VARCHAR(255) | NOT NULL | `secret_key`のArgon2ハッシュ |
-| `created_at` | DATETIME(3) | NOT NULL | |
-
-**access_tokens**
-
-| 列 | 型 | 制約 | 説明 |
-|---|---|---|---|
-| `device_id` | CHAR(26) | PK, FK → `devices` | 1デバイス1トークン。再認証はUPSERTで上書き |
-| `access_token` | VARCHAR(64) | NOT NULL, UNIQUE | ランダムな文字列 |
-| `expires_at` | DATETIME(3) | NOT NULL | 発行から1時間 |
-| `created_at` | DATETIME(3) | NOT NULL | |
+デバイス・アクセストークン・冪等性のための直前のレスポンスは、gRPC基盤のクレートのマイグレーションが作る
+(履歴は`_auth_migrations`・`_transaction_migrations`。Atlasの`_sqlx_migrations`とは別)。列は基盤が決めるので
+ここには書かない。基盤のテーブルの`player_id`は`BINARY(16)`で、Atlasのテーブルの`CHAR(26)`とはつなぎ目で変換する。
 
 **players**
 
 | 列 | 型 | 制約 | 説明 |
 |---|---|---|---|
-| `player_id` | CHAR(26) | PK | |
-| `device_id` | CHAR(26) | NOT NULL, UNIQUE, FK → `devices` | |
+| `player_id` | CHAR(26) | PK | デバイス登録で基盤が発行したULID |
 | `nickname` | VARCHAR(50) | NOT NULL | |
 | `created_at` | DATETIME(3) | NOT NULL | |
 
-ジェム等の数は持たない(`player_items`で持つ)。
+ジェム等の数は持たない(`player_items`で持つ)。デバイスとの対応は基盤の`devices`だけが持つので、`device_id`は持たない。
 
 ### 4.4 所持データ
 
@@ -501,18 +512,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 - 採用しなかった案: `player_pachimon`に`party_slot`(NULL可)の列を持たせる。未編成を`NULL`で表すことになり、
   APIに`nullable`が出てくるため
 
-### 4.5 チャット
-
-**messages**
-
-| 列 | 型 | 制約 | 説明 |
-|---|---|---|---|
-| `message_id` | CHAR(26) | PK | |
-| `player_id` | CHAR(26) | NOT NULL, FK → `players` | 送信者 |
-| `content` | TEXT | NOT NULL | |
-| `created_at` | DATETIME(3) | NOT NULL, INDEX | 新しい順の取得のため |
-
-### 4.6 スカウト
+### 4.5 スカウト
 
 **scout_banners**
 
@@ -536,7 +536,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 | `created_at` | DATETIME(3) | NOT NULL | 紹介を受けた日時(ジェム消費の日時) |
 | `selected_at` | DATETIME(3) | NULL可 | 選んだ日時 |
 
-### 4.7 対戦
+### 4.6 対戦
 
 **battle_matches**
 
@@ -562,7 +562,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 | `created_at` | DATETIME(3) | NOT NULL | |
 
 - 1ターン内の行動ごとに1行
-- マッチングの待機列はDBに置かない(APIサーバーのメモリ、[3.8](#38-マッチング))
+- マッチングの待機列はDBに置かない(APIサーバーのメモリ、[3.7](#37-マッチング))
 - 報酬の付与履歴のテーブルは持たない(`winner_id`と固定額から計算し直せるため)
 - バトルサーバーのIDは持たない(1台構成のため)
 
@@ -695,7 +695,7 @@ ULIDではなく`(player_id, item_id)`の複合主キーにしている。
 - Client・BattleServer: パイプラインで生成して配置し、再起動する(Clientは作り直し)
 - 無停止での反映は、1台構成の規模では過剰なため入れない
 - Clientへの配布をCDN経由にする案は保留(バージョン管理・差分検知を決めていない)
-- スカウトのバナーはマスターデータではない([3.7](#37-スカウト))
+- スカウトのバナーはマスターデータではない([3.6](#36-スカウト))
 
 ---
 
@@ -715,15 +715,16 @@ Unity(`Client/AtlasUnityProject/`)。コーディング規約は[Client/AtlasUni
 | UIのアニメーション | LitMotion | Git |
 | アセット管理 | Addressables | Unity |
 | 画面遷移 | UnityScreenNavigator(USN)のフォーク | submodule(`file:`) |
-| 共通ユーティリティ(ローダー、暗号化セーブ、`IMessageBroker`等) | Supplement | submodule(`file:`) |
+| 共通ユーティリティ(ローダー、暗号化セーブ、`IMessageBroker`等) | Supplement | Git(タグ) |
 | 画面をまたぐ通知 | ZeroMessenger(Supplementの`IMessageBroker`経由でだけ使う) | NuGetForUnity |
 | マスターデータ | MasterMemory + MessagePack(本体とSource Generator) | NuGetForUnity |
 | 対戦の通信 | MagicOnion.Client + YetAnotherHttpHandler + Grpc.Net.Client | OpenUPM + NuGetForUnity + UnityNuGet |
-| REST通信 | `api-codegen`の生成物(UnityWebRequest + UniTask) | 生成コード |
+| APIサーバーとの通信 | VolTech gRPC(自作の基盤。`ApiCore`・認証・エラーダイアログの仕組み・gRPC Monitor)+ `.proto`から生成したラッパー | Git(タグ)+ 生成コード |
 | テスト | Unity Test Framework | Unity |
 
 - MagicOnion・MasterMemory・MessagePackは、UPM版が薄いラッパーでSource Generatorを含まないため、
   NuGet版(本体 + Source Generator)をNuGetForUnityで入れている
+- APIサーバーとの通信と対戦の通信は、同じGrpc.Net.Client(UnityNuGet)とYetAnotherHttpHandlerを使う
 - 対戦の通信は、標準の`SocketsHttpHandler`ではなくYetAnotherHttpHandlerを使う。IL2CPPで標準のHTTP/2
   (ALPN)が不安定なため、Editor・IL2CPPとも同じネイティブのHTTP/2実装にそろえる
 - 画面遷移は、Push/Popのスタック型で足りる規模のため、フロー制御(名前付きルート等)を持つ自作の
@@ -740,7 +741,7 @@ Unity(`Client/AtlasUnityProject/`)。コーディング規約は[Client/AtlasUni
 
 ```
 Bootstrap(ビルド設定の起動シーン。Addressablesの対象外。一度もアンロードしない)
-  RootLifetimeScope: マスタの読み込み、サインイン、Connection・Repository・ServiceのDI登録
+  RootLifetimeScope: マスタの読み込み、通信の共通処理(ApiCore)、Connection・Repository・ServiceのDI登録、エラーダイアログ
     │ 完了後、Homeへ
     ▼
 Home(Addressables)                              Battle(Addressables)
@@ -753,6 +754,7 @@ Home(Addressables)                              Battle(Addressables)
   Page/Modalで行う([6.4](#64-画面遷移))
 - Bootstrapをアンロードしないことで、`RootLifetimeScope`を`DontDestroyOnLoad`等を使わずに常駐させる
 - 次のシーンを読み込んでから前のシーンを外す(切り替え中に何も無い瞬間を作らない)
+- Homeシーンは、サインインしていなければタイトルから、していればホームから始まる([6.6](#66-通信と所持データ))
 - Home→Battleへの対戦情報(`BattleMatch`)の受け渡しは、Root常駐の`BattleEntryStore`を通す
   (シーンを切り替えるとHome側のスコープは破棄されるため)
 - 配置: Page/Modalのprefabは`Assets/Addressables/Views/{機能名}/`、機能をまたぐ部品のprefabは
@@ -819,7 +821,7 @@ README、設計はフォーク側の`feature-screen-navigation-package.md`を参
 - 結果を返さない画面から戻ったことを知りたいだけなら、Push元の`WillPopEnterAsync`を使う
   (ホームがスカウトから戻ったときにジェムを取り直す)
 - 表示だけ・操作をPush元に渡すだけのModalにも、Pushの型として薄いPresenterを用意する
-- Overlay(Modalより手前のレイヤー)はコンテナだけ用意してあり、使う画面はまだ無い([6.9](#69-通信エラーダイアログloading設計案))
+- Overlay(Modalより手前のレイヤー)はコンテナだけ用意してあり、使う画面はまだ無い(通信エラーのダイアログはOverlayではなくBootstrapシーンに置く。[6.9](#69-通信エラーダイアログ))
 
 **遷移の直列化**
 
@@ -857,73 +859,68 @@ README、設計はフォーク側の`feature-screen-navigation-package.md`を参
 
 サーバーとの通信と、クライアントが持つ所持データを別の抽象に分ける。
 
-| 抽象 | 置き場所 | 内容 | Mock/Realの切り替え |
+| 抽象 | 置き場所 | 内容 | 差し替え |
 |---|---|---|---|
-| `IXxxConnection` | `Atlas.Application` | サーバーのAPIの呼び出し(`IDeviceConnection`/`IPlayerConnection`/`IScoutConnection`/`IDebugConnection`) | この単位で切り替える |
-| `IXxxRepository` | `Atlas.Domain` | 手元の所持データの読み書き。`playerDiff`の種別ごとに1つ(`IItemRepository`/`IPachimonRepository`/`IPachimonMoveMapRepository`/`IPartyRepository`)。ほかに`IPlayerProfileRepository`・`IDeviceCredentialsRepository` | 切り替えない |
+| `IXxxConnection` | `Atlas.Application` | サーバーのAPIの呼び出し(`IPlayerConnection`/`IPartyConnection`/`IScoutConnection`/`IDebugConnection`)。Domainの型で受け渡す | 差し替えない(テストは送り先の`CallInvoker`を偽のサーバーにする) |
+| `IXxxRepository` | `Atlas.Domain` | 手元の所持データの読み書き。`playerDiff`の種別ごとに1つ(`IItemRepository`/`IPachimonRepository`/`IPachimonMoveMapRepository`/`IPartyRepository`)。ほかに`IPlayerProfileRepository` | 切り替えない |
 | `IXxxService` | `Atlas.Application` | Presenterが使う処理(`ISignInService`/`IPlayerAccountService`/`IItemFetchService`/`IPartyService`/`IPachimonService`/`IPachimonMoveMappingService`) | 切り替えない(実装は1つ) |
+| `IPlayerSession` | `Atlas.Application` | サインインしているか。タイトルに戻るときに手元の所持データを捨てる | 切り替えない |
 
-- Connectionは`api-codegen`が生成する`XxxApiClient`の単位(タグ)に合わせる。1つの大きなConnectionにしないのは、
-  一部の機能だけ本物のサーバーにつなぐような切り替えをしやすくするため
-- 対戦は、マッチング(REST)とバトル本体(MagicOnion)で生存期間が違うため分ける。
-  `IBattleMatchmaker`(待機列への参加から成立までのポーリング)はRootのSingleton。`IBattleConnection`は
-  対戦ごとの接続のため、`IBattleConnectionFactory`をSingletonにしてBattleシーンのスコープで生成する
-- チャットのConnectionは、画面を作るときに足す
+- 通信の共通処理は、gRPC基盤の`ApiCore`が受け持つ(トークンの付与・期限前の発行し直し・`UNAUTHENTICATED`のときの1回だけの再送、
+  エラーの変換とダイアログ、RequestIDと順番待ち、サーバー時刻・ゲーム内の日付、`player_diff`の反映)。
+  Connectionの実装(`Atlas.Infrastructure.Grpc`)は、`.proto`から生成したラッパー(`PlayerApi`等)を呼び、生成の型とDomainの型を詰め替えるだけ
+- Connectionは成否(または結果の型)だけを返し、例外は投げない。失敗したときのダイアログ・画面遷移は`ApiCore`が済ませている。
+  画面で自分で処理したいエラー(サインインの`PLAYER_NOT_FOUND`)だけ、Connectionの実装が`handledCodes`で受け取る
+- 対戦は、マッチング(APIサーバー)とバトル本体(MagicOnion)で生存期間が違うため分ける。
+  `IBattleMatchmaker`(待機列への参加から成立までのポーリング。実装は`GrpcBattleMatchmaker`)はRootのSingleton。
+  `IBattleConnection`は対戦ごとの接続のため、`IBattleConnectionFactory`をSingletonにしてBattleシーンのスコープで生成する
+- `GrpcBattleMatchmaker`は、通信が失敗したらnullを返し、キャンセルされたら待機列から抜けて`OperationCanceledException`を投げる。
+  基盤の`ApiCore`は1回の通信を途中で止める口を持たないので、キャンセルは状況の確認の合間で見る
 
-**`playerDiff`の適用**
+**所持データの反映**
 
-- `playerDiff`を返すAPIを呼ぶConnectionの実装は、受け取った直後に`IPlayerDiffApplier.ApplyAsync`を呼ぶ。
-  `PlayerDiffApplier`は種別ごとの`XxxDiffApplier`に振り分け、各`XxxDiffApplier`が`upserted`/`removed`を
-  対応するRepositoryの`Upsert`/`Delete`に変換する。APIごとに反映処理を書かないため
-- `XxxDiffApplier`は生成DTOを直接受け取るため`Atlas.Infrastructure.Api`に置く。Serviceは`playerDiff`を
-  知らず、Connectionを呼ぶだけでRepositoryが最新になる
+- `player_diff`は、種別ごとの`XxxDiffApplier`が`upserted`/`removed`を対応するRepositoryの`Upsert`/`Delete`に変換する
+  (`PlayerDiffApplier`が振り分ける)。変わらない種別は`null`で届くので飛ばす。`PlayerDiffApplier`は基盤の`IPlayerDiffApplier`として
+  `ApiCore`に渡し、`ApiCore`が成功したレスポンスを呼び出し側に返す前に反映する。Connection・Serviceは反映に関わらない
+- サインインの全件(`snapshot`)は、`PlayerSnapshotApplier`が各Repositoryを空にしてから入れる(置き換え)。全件には`removed`が無く、
+  先に消さないとサーバーで無くなったものが残るため
 - 汎用のDiff型・汎用のRepositoryは作らず、種別ごとに`XxxDiffApplier`とRepositoryを1組ずつ足す
-- Repositoryはメモリに持つだけでディスクには保存しない。サーバーのDBが正で、起動のたびにサインインで
-  全件を取り直せるため
-- 例外はデバイス情報(`device_id`・`secret_key`)で、`DeviceCredentialsRepository`がSupplementの
-  暗号化セーブで端末に保存する
+- Repositoryはメモリに持つだけでディスクには保存しない。サーバーのDBが正で、サインインで全件を取り直せるため
+- 例外はアカウント情報(`device_id`・`secret_key`・`player_id`)で、基盤の`IAccountStore`をAtlasが実装した
+  `FileAccountStore`が、Supplementの暗号化セーブで接続先ごとのファイルに保存する(基盤の既定はメモリだけで、
+  起動するたびに新しい端末になるため)
 
 **サインインの流れ**
 
-起動時の初期化はSupplementの`BootInitializer`で行う。`BootstrapEntryPoint`が`BootInitializer.RunAsync`を呼び、
-`IBootInitializationTask`として登録したマスタの読み込み(`MasterDataInitializationTask`)とサインイン
-(`SignInInitializationTask`)を同じ優先度で並列に実行してから、Homeへ進む(サインインはマスタを使わないため)。
+起動時の初期化(`BootInitializer`)ではマスタだけを読み込み、Homeへ進む。Homeシーンは、サインインしていなければ
+タイトルから始まる(`IPlayerSession.IsSignedIn`)。タイトルの「スタート」でサインインする。
 
 ```
-BootstrapEntryPoint
-  └─ BootInitializer.RunAsync()
-       ├─ MasterDataInitializationTask → MasterDatabaseLoader.LoadAsync()
-       └─ SignInInitializationTask     → ISignInService.SignInAsync()
-            ├─ IDeviceCredentialsRepository     端末に保存したデバイス情報(無ければ作る)
-            ├─ IDeviceConnection.RegisterAsync  初回だけ
-            ├─ AccessTokenRefresher             デバイス認証 → AccessTokenStore
-            ├─ IPlayerConnection.SignInAsync    POST /sign-in(404ならサインアップしてから再度)
-            │    └─ IPlayerDiffApplier          → 各Repository
-            └─ IPlayerProfileRepository         プレイヤーID・ニックネーム
+TitlePresenter(スタート)
+  └─ ISignInService.SignInAsync()
+       ├─ IPlayerConnection.SignInAsync     PlayerService/SignIn(最初の通信でApiCoreがデバイス登録・トークンの発行を行う)
+       │    └─ PlayerSnapshotApplier         → 各Repository(置き換え)
+       ├─ (PLAYER_NOT_FOUNDなら)IPlayerConnection.SignUpAsync → もう一度SignIn
+       ├─ IPlayerProfileRepository           プレイヤーID・ニックネーム
+       └─ IPlayerSession.MarkSignedIn()
+  → HomePresenterをPush(タイトルは履歴に積まない)
 ```
 
-**アクセストークンの更新**(`AccessTokenRefresher`、トークンを書き込むのはここだけ)
+- サインインを起動処理から外したのは、通信エラーのダイアログや「タイトルへ」の遷移を基盤が出すため。起動処理の中では
+  タイトルへ戻る先が無い
+- サインアップ済みかは端末に覚えず、毎回サインインの結果で判断する
+- `IPlayerSession`を`ISignInService`と分けているのは、エラーの後の画面遷移(`ErrorNavigator`)が`ApiCore`から呼ばれるため。
+  サインイン(通信)に依存すると、`ApiCore` → `ErrorNavigator` → `ISignInService` → Connection → `ApiCore`と循環する
 
-- 要認証APIの呼び出しは`AccessTokenRefresher.SendAsync(() => client.XxxAsync(...))`で包む
-- 送信前: 有効期限(受け取った時刻 + `expiresIn`)の残りが5分未満なら、先に再認証する。
-  バックグラウンドから戻った直後もここで更新される
-- 401が返ったら、再認証して1回だけ送り直す
-- 再認証は同時に1つだけ(サーバーは再認証で古いトークンをすぐ無効にするため)。実行中の再認証があれば
-  それを待ち、送信時のトークンが既に差し替わっていれば再認証せずに送り直す
-- 採用しなかった案: 一定間隔のタイマーでの確認(送信前の確認で足り、バックグラウンド復帰にも対応できる)、
-  毎回の送信前の認証・検証(Argon2の照合でサーバーの負荷が大きく、並行するリクエストのトークンも無効にしてしまう)
+**テストでの差し替え**
 
-**Mock/Realの切り替え**
-
-- `RootLifetimeScope`の`ConfigureAuthConnections`(virtual)に認証系のConnectionの登録を切り出し、
-  本番は常にReal。テスト用の派生スコープ(`TestRootLifetimeScope`)がMockに差し替える
+- `RootLifetimeScope`の`CreateCallInvoker`(virtual)に通信の送り先を切り出し、本番は`ApiChannel`(gRPC)。
+  Battle PlayModeテスト用の派生スコープ(`TestRootLifetimeScope`)は、基盤の`FakeCallInvoker`に偽のサーバー(`FakeServer`)を
+  登録したものに差し替える。ラッパー・`ApiCore`・反映処理は本物と同じに動く
 - 対戦(`IBattleMatchmaker`/`IBattleConnectionFactory`)は`ConfigureBattleConnections`(virtual)に切り出し、
   Bootstrapシーンの`RootLifetimeScope`のInspector(`Use Battle Server`)で切り替える。オンで実サーバー、
   オフで`MockBattleConnection`(BattleCoreをクライアント内で動かし、相手は簡易AI)
-- スカウト・開発用のConnectionはMockを作らず、常にReal
-- 採用しなかった案: Repositoryを切り替えの単位にする(当初は`IPlayerRepository`のMock/Realを用意していた)。
-  サーバーが返すものが「取得結果」ではなく「手元のデータへの差分」になったため、手元のデータ(Repository)と
-  通信(Connection)を分けた
+- 採用しなかった案: Connectionの単位でMockを作る。ラッパーと`ApiCore`を通らず、エラー処理・反映処理が本物と違う動きになるため
 
 ### 6.7 アセンブリとフォルダ
 
@@ -933,13 +930,14 @@ BootstrapEntryPoint
 | asmdef | 置くもの | 参照 |
 |---|---|---|
 | `Atlas.Domain` | Entity、`IXxxRepository`、`IBattleConnection`とその型 | UniTask |
-| `Atlas.Application` | `IXxxService`、`IXxxConnection`、`IBattleMatchmaker`/`IBattleConnectionFactory`、戻り値の型、`BattleEntryStore`、`AddressDefinition` | Domain, MasterData, UniTask |
-| `Atlas.Infrastructure` | Serviceの実装、`DeviceCredentialsRepository`、`MasterDatabaseLoader` | Domain, Application, Infrastructure.Api, MasterData, Supplement |
-| `Atlas.Infrastructure.Api` | `api-codegen`の生成物(`Generated/`)、Connectionの実装、`PlayerDiffApplier`/`XxxDiffApplier`、Repositoryの実装、`AccessTokenStore`/`AccessTokenRefresher`、`ApiBattleMatchmaker` | Domain, Application, UniTask |
-| `Atlas.Infrastructure.Mock` | Mockの認証系Connection、`MockBattleConnection`/`MockBattleMatchmaker` | Domain, Application, MasterData, BattleCore |
+| `Atlas.Application` | `IXxxService`、`IXxxConnection`、`IPlayerSession`、`IBattleMatchmaker`/`IBattleConnectionFactory`、戻り値の型、`BattleEntryStore`、`AddressDefinition` | Domain, MasterData, UniTask |
+| `Atlas.Infrastructure` | Serviceの実装、Repositoryの実装、`PlayerSession`、`FileAccountStore`、`MasterDatabaseLoader` | Domain, Application, MasterData, Supplement, VolTech.Client.Auth |
+| `Atlas.Infrastructure.Grpc` | Connectionの実装、`GrpcBattleMatchmaker`、`PlayerDiffApplier`/`XxxDiffApplier`/`PlayerSnapshotApplier` | Domain, Application, Atlas.Api.V1, VolTech.Client |
+| `Atlas.Api.V1` | `.proto`・`errors.toml`から生成したC#(`Infrastructure/Grpc/Generated/`。手で編集しない) | VolTech.Client, VolTech.V1 |
+| `Atlas.Infrastructure.Mock` | 偽のサーバー`FakeServer`、`MockBattleConnection`/`MockBattleMatchmaker` | Domain, Application, MasterData, BattleCore, Atlas.Api.V1, VolTech.Client |
 | `Atlas.Infrastructure.Realtime` | `RealtimeBattleConnection`(MagicOnionのクライアント) | Domain, Application, BattleContracts, BattleCore, MagicOnion |
-| `Atlas.Navigation` | `TransitionAwareSceneNavigator` | USN, UniTask |
-| `Atlas.Presentation` | View・Presenter・ViewDto(画面単位の型だけ) | Domain, Application, MasterData, USN, VContainer, R3 |
+| `Atlas.Navigation` | `TransitionAwareSceneNavigator`、`ErrorNavigator`(通信エラーの後の画面遷移) | USN, UniTask, Application, VolTech.Client |
+| `Atlas.Presentation` | View・Presenter・ViewDto(画面単位の型だけ)、`ErrorDialog` | Domain, Application, MasterData, USN, VContainer, R3, VolTech.Client |
 | `Atlas.DI` | `RootLifetimeScope`/`HomeLifetimeScope`/`BattleLifetimeScope`(構成ルート) | すべて |
 | `Atlas.MasterData` | マスターデータの生成物([5.1](#51-生成と配布)) | MasterMemory, MessagePack |
 | `Atlas.BattleCore` / `Atlas.BattleContracts` | ローカルパッケージ(`Shared/`、[7.1](#71-構成)) | |
@@ -1045,46 +1043,24 @@ BattleServerとの通信契約([7.3](#73-通信契約))と対になる。
 - Modalは演出を流し終えてから出す(強制交代・相手の交代待ち・結果)
 - 対象外: 送った行動の取り消し、対戦中のチャット・リアクション、観戦
 
-### 6.9 通信エラーダイアログ・Loading(設計案)
+### 6.9 通信エラーダイアログ
 
-**未実装の設計案**(progress.mdのC-4・C-6)。APIサーバーのgRPC化([feature-grpc-foundation.md](proposals/feature-grpc-foundation.md))で
-通信層を作り直すため、実装はそれと合わせて決め直す。
+通信のエラーの扱いはgRPC基盤の`ApiCore`と`DefaultCommonErrorHandler`が決め、Atlasはダイアログの見た目(`ErrorDialog`)と
+エラーの後の画面遷移(`ErrorNavigator`)、文言(`ErrorMessages`)を持つ。
 
-現状の問題:
+- エラーはdomainとreasonの組(`ErrorCode`)で見分け、既定のaction(`Shared/errors.toml`・基盤の予約エラー)でボタンが決まる。
+  OK(留まる)/ 再試行・タイトルへ / ホームへ / タイトルへ / ストアへ。再試行は同じRequestIDで送り直すので、サーバーで処理が
+  終わっていても二重には実行されない
+- `ErrorDialog`はBootstrapシーンの最前面のCanvas(`Assets/Prefabs/ErrorDialog.prefab`)に置く。USNのModalにしないのは、
+  シーンの切り替え中やシーンのスコープが無いときにも出せるようにするため
+- 「タイトルへ」: `ApiCore`がセッション(トークン・順番待ち)を終わらせた後、`ErrorNavigator`が手元の所持データを捨て
+  (`IPlayerSession.SignOut`)、Homeシーンを読み直す(サインインしていないのでタイトルから始まる)。「ホームへ」はHomeシーンを
+  読み直すだけ。ストアはまだ無いので、ログを出すだけ
+- 文言は`ErrorMessages`の表で引き、知らないエラーは「予期しないエラー」として出す。メンテナンスは終了予定を端末の時刻で添える
+- 対戦(MagicOnion)の参加失敗・切断は対象外で、`BattlePresenter`が扱う
+- まだ無いもの: 通信中のLoading(基盤の入力ブロックのフックを使う)、ストアのページ
 
-- 画面を出す`IScreenNavigator`がシーン(Home/Battle)ごとにしか無く、起動時のサインイン中やシーンの切り替え中に
-  出せる画面が無い。EventSystemもHome/Battleにしか無い
-- 通信の失敗は`ApiException`が投げられるだけで、ほとんどの画面はログを出すだけ
-
-方針:
-
-1. **システムレイヤー**: Bootstrapシーン(常駐)に、シーンのUIより常に手前に出るCanvasを置き、Loadingと
-   エラーダイアログを配置する。USNは使わずGameObjectの表示を切り替えるだけにする(Addressablesや通信の失敗時に
-   出すものが、Addressablesの読み込みに依存しないように)。EventSystemもBootstrapへ移す
-2. **公開の仕方**: 用途を絞ったサービスにする(`ISystemDialog`: 同時に1つだけ表示し、表示中の要求は順番待ち。
-   `ILoadingIndicator`: 参照カウントで、0.3秒経っても終わらないときだけ表示。入力は即座に止める)
-3. **エラーの扱い**: 画面では何もできないエラー(通信断・タイムアウト・5xx・再認証の失敗)だけを1か所で捕まえ、
-   ダイアログでリトライさせる。4xxは意味が画面ごとに違うため、そのまま呼び出し元に投げる。同時に失敗した
-   リクエストは1つのダイアログにまとめる。「タイトルへ」ではBootstrapシーンを読み直して起動からやり直す
-   (Rootのスコープごと作り直すため、状態の消し漏れが起きない)
-4. **二重送信の防止**: リトライでは「サーバーでは成功したが応答が届かなかった」リクエストも送り直す。
-   送り直したときに何が起きるかをエンドポイントごとに調べた結果、対応が要るのは次のとおり
-
-   | エンドポイント | 送り直した場合 | 対応 |
-   |---|---|---|
-   | `POST /scout/rolls` | ジェムが二重に引かれる | リクエストにクライアントが作る`requestId`(ULID)を足し、`scout_rolls`に`(player_id, request_id)`の一意制約を付ける。同じ`requestId`なら既存のロールを返す |
-   | `POST /chat/send` | 同じ発言が2回載る | 同じく`requestId`で既存の発言を返す(チャット画面と合わせて行う) |
-   | `POST /signup` | 409(作成済み) | クライアントで409を成功として扱う |
-   | `POST /scout/rolls/{rollId}/select` | 409(選択済み) | クライアントで409を成功として扱い、所持データはサインインし直して合わせる |
-   | `POST /devices` | 使われないデバイスが1件増える | 対応しない(害が無いため) |
-   | その他(`/edit/*`・`/sign-in`・`/devices/authenticate`・GET) | 同じ結果になる | 不要 |
-
-   汎用の`Idempotency-Key`ヘッダーとミドルウェア(全POSTの応答を保存する)は、対象が2つしか無く、応答の保存テーブルと
-   期限切れの掃除を持つほどではないため採らない
-5. 対戦(MagicOnion)の参加失敗・切断は対象外で、`BattlePresenter`がダイアログを直接使う
-
-決めること: 「タイトルへ」の意味、リトライの上限、Loadingをすべての通信で自動にするか、捕まえ漏れの例外の通知、
-タイムアウトの秒数。
+決めること: Loadingをすべての通信で自動にするか、捕まえ漏れの例外の通知。
 
 ---
 
@@ -1277,7 +1253,7 @@ WaitingForJoin ──(2人そろう)──→ Selecting ──(両者が選出)�
 
 ### 7.5 APIサーバーとの連携
 
-- 内部APIは`X-Internal-Secret`付きのREST(`/internal/battle/party`・`loadouts`・`result`、[3.9](#39-内部apibattleserver用))。
+- 内部APIは`X-Internal-Secret`付きのREST(`/internal/battle/party`・`loadouts`・`result`、[3.8](#38-内部apibattleserver用))。
   シークレット(`INTERNAL_API_SECRET`)が無いと対戦を始められないため、未設定なら起動しない
 - 結果報告(`BattleResultReporter`): 通信エラー・5xxは1秒・5秒・15秒の間隔で再送し、409(記録済み)は成功扱い、
   それ以外の4xxは再送しない。再送し切っても失敗した場合の保存はしていない(APIサーバーの後始末で`aborted`になる)。
@@ -1300,8 +1276,11 @@ WaitingForJoin ──(2人そろう)──→ Selecting ──(両者が選出)�
   接続する結合テスト(`BattleHubTests`)、`LoadoutBuilderTests`、`ApiParticipantDataSourceTests`、
   `MasterDatabaseFactoryTests`、`BattleResultReporterTests`。結合テストではAPIサーバーを固定値のデータ源
   (`DummyParticipantDataSource`)に差し替え、制限時間を短くする
-- 対戦相手ボット(`BattleBot`、`make bot`): REST(Unityと同じ順番でデバイス登録〜サインイン)とMagicOnionで自動対戦する。
-  起動のたびに新しいプレイヤーを作り、`/debug/randomize_party`でパーティをランダムにする。選出はパーティから
+- 対戦相手ボット(`BattleBot`、`make bot`): gRPC(Unityと同じ順番でデバイス登録〜サインイン)とMagicOnionで自動対戦する。
+  Unity以外の.NETのクライアントなので基盤の`ApiCore`は使えず、`.proto`から`Grpc.Tools`で生成した素のクライアントに
+  `authorization`・`x-request-id`のヘッダーを自分で付ける(再認証・再送はしない)。基盤のデバイス登録の`.proto`は基盤のRustの
+  クレートにしか無いので、ビルドのときに基盤のタグの版を取ってくる。
+  起動のたびに新しいプレイヤーを作り、`DebugService/RandomizeParty`でパーティをランダムにする。選出はパーティから
   ランダム、技は使えるものからランダム、強制交代は生存している先頭の控え。`--loop`で対戦のたびにマッチングに
   並び直し、`--count 2`でボット同士を対戦させる
 - Clientを実際に操作する結合テスト(パーティ編成→マッチング→対戦→結果)に[Anjin](https://github.com/DeNA/Anjin)を使う案がある
@@ -1316,8 +1295,7 @@ WaitingForJoin ──(2人そろう)──→ Selecting ──(両者が選出)�
 | 論点 | 関係する節 |
 |---|---|
 | ステータスポイントの割り振り・育成チケット・ショップのAPI設計。決まっていること: 技の付け替えと割り振りの変更はそれぞれチケット1枚、64ポイントを6能力に上限なしで割り振り、能力の値にそのまま足す(今の`floor(努力値 / 4)`から計算式を変える)、ショップは販売期間・購入履歴なし | [4.4](#44-所持データ)、[5.2](#52-テーブル)、[7.2](#72-atlasbattlecore) |
-| 通信エラーダイアログ・Loading(gRPC化と合わせて決め直す) | [6.9](#69-通信エラーダイアログloading設計案) |
-| APIサーバーのgRPC化([feature-grpc-foundation.md](proposals/feature-grpc-foundation.md)) | [3](#3-apiサーバー)、[6.6](#66-通信と所持データ) |
+| 通信中のLoadingをすべての通信で自動にするか | [6.9](#69-通信エラーダイアログ) |
 | Clientの再接続と、強制交代ターンの途中で再接続したときの状態の伝え方(`OnMatchStart`に強制交代の状態が無い) | [7.4](#74-対戦の進行) |
 | 報酬額(初期300・勝利50)とスカウト・育成チケットの値段のバランス | [2.5](#25-所持リソースアイテム) |
 | 対戦結果(勝敗・報酬)をHomeへ戻ったときにどう見せるか | [6.8](#68-バトル画面) |

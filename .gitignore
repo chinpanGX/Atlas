@@ -17,3 +17,7 @@ BattleServer/BattleBot/obj/
 BattleServer/MasterData/bin/
 BattleServer/MasterData/obj/
 BattleServer/.idea/
+
+# gRPC基盤の生成ツール(make proto-gen が取ってくる)と、利用者ごとの設定
+.tools/
+local.mk

@@ -30,3 +30,6 @@ MonoBehaviour:
   textOnDark: {r: 1, g: 1, b: 1, a: 1}
   textOnBackground: {r: 0.18, g: 0.19, b: 0.35, a: 1}
   textWarning: {r: 0.8, g: 0.15, b: 0.15, a: 1}
+  hpGaugeMiddle: {r: 0.98, g: 0.76, b: 0.18, a: 1}
+  hpGaugeLow: {r: 0.9, g: 0.25, b: 0.22, a: 1}
+  scrim: {r: 0, g: 0, b: 0, a: 0.6}

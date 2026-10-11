@@ -1,4 +1,4 @@
-use sqlx::{MySql, MySqlPool, Transaction};
+use sqlx::{MySql, MySqlExecutor, Transaction};
 
 use crate::error::AppError;
 use crate::model::player_item::PlayerItem;
@@ -91,13 +91,16 @@ pub async fn add_and_get(
 ///
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
-pub async fn list(pool: &MySqlPool, player_id: &str) -> Result<Vec<PlayerItem>, AppError> {
+pub async fn list(
+    executor: impl MySqlExecutor<'_>,
+    player_id: &str,
+) -> Result<Vec<PlayerItem>, AppError> {
     let rows: Vec<(String, i32, i32)> = sqlx::query_as(
         "SELECT player_id, item_id, quantity FROM player_items \
          WHERE player_id = ? ORDER BY item_id",
     )
     .bind(player_id)
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
     .map_err(|_| AppError::InternalError)?;
 
@@ -111,19 +114,19 @@ pub async fn list(pool: &MySqlPool, player_id: &str) -> Result<Vec<PlayerItem>, 
         .collect())
 }
 
-/// 指定アイテムを`amount`分消費する(`scout_service::create_roll`のgems消費から利用)。
+/// 指定アイテムを`amount`分消費し、消費した後の所持数を返す(`scout_service::create_roll`のgems消費から利用)。
 /// `WHERE quantity >= amount`を満たす行のみUPDATEすることで、所持数不足を1クエリで
 /// 原子的に検出する(呼び出し元のトランザクション内で実行する)。
+/// 所持数が不足している場合(対象行が無い場合を含む)は何も変えずに`None`を返す。
 ///
 /// # Errors
-/// 所持数が不足している場合(対象行が無い場合を含む)に`AppError::BadRequest`、
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
 pub async fn deduct(
     tx: &mut Transaction<'_, MySql>,
     player_id: &str,
     item_id: i32,
     amount: i32,
-) -> Result<PlayerItem, AppError> {
+) -> Result<Option<PlayerItem>, AppError> {
     let update_result = sqlx::query(
         "UPDATE player_items SET quantity = quantity - ? \
          WHERE player_id = ? AND item_id = ? AND quantity >= ?",
@@ -137,7 +140,7 @@ pub async fn deduct(
     .map_err(|_| AppError::InternalError)?;
 
     if update_result.rows_affected() == 0 {
-        return Err(AppError::BadRequest("insufficient items".to_string()));
+        return Ok(None);
     }
 
     let row: (String, i32, i32) = sqlx::query_as(
@@ -150,9 +153,9 @@ pub async fn deduct(
     .await
     .map_err(|_| AppError::InternalError)?;
 
-    Ok(PlayerItem {
+    Ok(Some(PlayerItem {
         player_id: row.0,
         item_id: row.1,
         quantity: row.2,
-    })
+    }))
 }

@@ -16,10 +16,7 @@ todo = "deny"
 unimplemented = "deny"
 
 [dependencies]
-# Webフレームワーク本体(ルーティング・リクエスト/レスポンス処理)
-axum = "0.7"
-
-# 非同期ランタイム。axum/sqlxの async fn を実行するために必須
+# 非同期ランタイム。tonic/sqlxの async fn を実行するために必須
 tokio = { version = "1", features = ["full"] }
 
 # DBアクセス(MySQL)。マイグレーション管理・コンパイル時クエリチェックも担う。
@@ -39,19 +36,10 @@ serde = { version = "1", features = ["derive"] }
 # serdeと組み合わせて実際にJSON文字列⇔Rust構造体の変換処理を行う
 serde_json = "1"
 
-# device_id/player_idの生成に使用するID体系(時系列順にソート可能な26文字ID)
+# プレイヤー・所持データ・対戦等のIDに使用するID体系(時系列順にソート可能な26文字ID)
 ulid = "3"
 
-# secret_keyのハッシュ化(パスワードの安全な保存)に使用
-argon2 = "0.5"
-
-# handlerの#[utoipa::path]注釈からOpenAPI仕様書(api.yaml)を生成する
-utoipa = { version = "5", features = ["chrono", "yaml"] }
-
-# 生成したOpenAPI仕様書をブラウザで確認するためのSwagger UI(/swagger-ui)
-utoipa-swagger-ui = { version = "8", features = ["axum"] }
-
-# スカウトの排出率抽選・個体値のランダム生成に使用
+# スカウトの排出率抽選・ランダム編成に使用
 rand = "0.10"
 
 # 構造化ログ。リクエスト/レスポンス・sqlxの実行SQLを同じ出力先(ターミナル)に流す
@@ -66,10 +54,33 @@ tower-http = { version = "0.7", features = ["trace"] }
 # マッチ成立時にBattleServerへ渡すbattle_token(短命JWT、HS256)の発行に使用
 jsonwebtoken = "9"
 
-# 内部API(/internal/battle/result)のサービス間シークレットを定数時間で比較する(タイミング攻撃対策)
+# 内部API(BattleInternalService)のサービス間シークレットを定数時間で比較する(タイミング攻撃対策)
 subtle = "2"
 
+# gRPCサーバー(クライアント向けのAPIと内部API)。生成コードの実行時のライブラリと、開発時のリフレクション
+tonic = "0.14"
+tonic-prost = "0.14"
+prost = "0.14"
+prost-types = "0.14"
+tonic-reflection = "0.14"
+tokio-stream = { version = "0.1", features = ["net"] }
+# gRPCのサービスにLayer(認証・日付変更)を付ける
+tower = "0.5"
+
+# gRPC基盤(VolTech gRPC)。タグはClient/AtlasUnityProject/Packages/manifest.json・ルートのMakefileと同じにする
+voltech-grpc-auth = { git = "https://github.com/chinpanGX/VolTech-gRPC", tag = "v0.1.0" }
+voltech-grpc-error = { git = "https://github.com/chinpanGX/VolTech-gRPC", tag = "v0.1.0" }
+voltech-grpc-status = { git = "https://github.com/chinpanGX/VolTech-gRPC", tag = "v0.1.0" }
+voltech-grpc-transaction = { git = "https://github.com/chinpanGX/VolTech-gRPC", tag = "v0.1.0" }
+
+[build-dependencies]
+# Shared/protoの.protoとShared/errors.tomlから、gRPCのサーバーの型とエラーコードの定数を生成する
+# (protocを入れなくてもビルドできるように、Rust製のコンパイラprotoxで読み込む)
+protox = "0.10"
+prost = "0.14"
+tonic-prost-build = "0.14"
+voltech-grpc-error-build = { git = "https://github.com/chinpanGX/VolTech-gRPC", tag = "v0.1.0" }
 
 [dev-dependencies]
-# 結合テストでRouterに直接リクエストを送るため(oneshotメソッドを提供)
-tower = { version = "0.4", features = ["util"] }
+# 結合テストで業務エラーの ErrorInfo を読む
+tonic-types = "0.14"

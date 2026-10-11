@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+option csharp_namespace = "Atlas.Api.V1";
+
+// 対戦相手を探すマッチング。待機列はサーバーのメモリにあり、成立したらバトルサーバーへの接続情報を返す。
+service MatchmakingService {
+  // 待機列に入る。ほかに待っているプレイヤーがいれば、その場でマッチを成立させる。成立は GetQueueStatus で確かめる。
+  // 前のマッチの接続情報が残っていれば捨ててから入る。既に待っているときは何もしない。
+  // パーティが1体も編成されていなければ FAILED_PRECONDITION + PARTY_EMPTY を返す。
+  rpc JoinQueue(JoinQueueRequest) returns (JoinQueueResponse);
+
+  // 待機列から抜け、成立していたマッチの接続情報も捨てる。待機列にいなくても成功する。
+  rpc LeaveQueue(LeaveQueueRequest) returns (LeaveQueueResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+
+  // マッチが成立したかを返す。成立していれば接続情報を返す。
+  // 接続情報は返しても消さず、次の JoinQueue・LeaveQueue か、対戦の結果の報告で消す(何回呼んでも同じものが返る)。
+  rpc GetQueueStatus(GetQueueStatusRequest) returns (GetQueueStatusResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+message JoinQueueRequest {}
+
+message JoinQueueResponse {}
+
+message LeaveQueueRequest {}
+
+message LeaveQueueResponse {}
+
+message GetQueueStatusRequest {}
+
+// マッチングの状況。
+enum QueueStatus {
+  QUEUE_STATUS_UNSPECIFIED = 0;
+  // まだ成立していない(待機列にいないときも含む)。
+  QUEUE_STATUS_WAITING = 1;
+  // 成立した。接続情報が入っている。
+  QUEUE_STATUS_MATCHED = 2;
+}
+
+message GetQueueStatusResponse {
+  QueueStatus status = 1;
+  // 対戦の ID(ULID)。成立していなければ空。
+  string match_id = 2;
+  // 接続するバトルサーバーの URL(例: http://127.0.0.1:5000)。成立していなければ空。
+  string battle_server = 3;
+  // バトルサーバーへの参加資格の JWT(有効期限 30 秒)。成立していなければ空。
+  string battle_token = 4;
+}

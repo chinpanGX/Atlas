@@ -13,5 +13,8 @@ namespace Atlas.Domain
         void Upsert(PachimonEntity pachimonEntity);
 
         void Delete(string playerPachimonId);
+
+        // サインインし直すとき(タイトルに戻ったとき)に、サーバーで無くなったものが残らないよう全件を消す。
+        void Clear();
     }
 }

@@ -5,10 +5,11 @@
     "com.atlas.battlecore": "file:../../../Shared/BattleCore",
     "com.chinpangx.supplement": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement#v1.4.0",
     "com.chinpangx.supplement.zeromessenger": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger#v1.4.0",
+    "com.chinpangx.voltech.grpc": "https://github.com/chinpanGX/VolTech-gRPC.git?path=/Unity/com.chinpangx.voltech.grpc#v0.1.0",
     "com.cysharp.magiconion.client.unity": "7.11.0",
     "com.cysharp.r3": "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity",
     "com.cysharp.unitask": "2.5.11",
-    "com.cysharp.yetanotherhttphandler": "1.11.5",
+    "com.cysharp.yetanotherhttphandler": "1.11.6",
     "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity#v4.5.0",
     "com.github.messagepack-csharp": "3.1.9",
     "com.harumak.unityscreennavigator": "file:../../../UnityScreenNavigator/Assets/UnityScreenNavigator",
@@ -74,7 +75,8 @@
     "com.unity.modules.xr": "1.0.0"
   },
   "testables": [
-    "com.atlas.battlecore"
+    "com.atlas.battlecore",
+    "com.chinpangx.voltech.grpc"
   ],
   "scopedRegistries": [
     {

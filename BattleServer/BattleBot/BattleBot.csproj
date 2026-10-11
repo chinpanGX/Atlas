@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- 開発用の対戦相手ボット。APIサーバー(REST)でデバイス登録〜マッチングを行い、BattleServerに
+  <!-- 開発用の対戦相手ボット。APIサーバー(gRPC)でデバイス登録〜マッチングを行い、BattleServerに
        接続してランダムに技を選ぶ。Unity Editor 1つで実サーバー対戦を確認するため、およびボット同士で
-       サーバー全体(REST・マッチング・BattleServer・結果記録)を通しで確認するために使う。
+       サーバー全体(gRPC・マッチング・BattleServer・結果記録)を通しで確認するために使う。
        引数はProgram.cs先頭のコメント参照。 -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -12,13 +12,38 @@
     <RootNamespace>Atlas.BattleBot</RootNamespace>
   </PropertyGroup>
 
+  <!-- gRPC基盤(VolTech gRPC)のタグ。リポジトリ直下のMakefile・Server/Cargo.toml・Unityのmanifest.jsonのタグと同じにする -->
+  <PropertyGroup>
+    <VolTechTag>v0.1.0</VolTechTag>
+    <VolTechRepo>https://github.com/chinpanGX/VolTech-gRPC</VolTechRepo>
+    <VolTechSrc>$(MSBuildProjectDirectory)/obj/voltech-grpc-src/$(VolTechTag)</VolTechSrc>
+    <VolTechProtoRoot>$(VolTechSrc)/server/rust/auth/proto</VolTechProtoRoot>
+    <AtlasProtoRoot>$(MSBuildProjectDirectory)/../../Shared/proto</AtlasProtoRoot>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="MagicOnion.Client" Version="7.11.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.31.1" />
+    <PackageReference Include="Grpc.Tools" Version="2.71.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BattleContracts\Atlas.BattleContracts.csproj" />
   </ItemGroup>
+
+  <!-- APIサーバーのクライアントは.protoから生成する。基盤のデバイス登録(voltech.v1.DeviceService)の.protoは
+       基盤のRustのクレートにだけあり、Unity以外の.NET向けには配られていないので、タグの版を取ってきて使う -->
+  <ItemGroup>
+    <Protobuf Include="$(AtlasProtoRoot)/atlas/v1/*.proto" ProtoRoot="$(AtlasProtoRoot)" GrpcServices="Client" />
+    <Protobuf Include="$(VolTechProtoRoot)/voltech/v1/device.proto" ProtoRoot="$(VolTechProtoRoot)" GrpcServices="Client" />
+    <Protobuf Include="$(VolTechProtoRoot)/voltech/v1/auth_options.proto" ProtoRoot="$(VolTechProtoRoot)" GrpcServices="None" />
+  </ItemGroup>
+
+  <Target Name="FetchVolTechProto" BeforeTargets="BeforeBuild;Protobuf_BeforeCompile" Condition="!Exists('$(VolTechProtoRoot)/voltech/v1/device.proto')">
+    <RemoveDir Directories="$(VolTechSrc)" />
+    <Exec Command="git clone --quiet --depth 1 --filter=blob:none --sparse --branch $(VolTechTag) $(VolTechRepo) &quot;$(VolTechSrc)&quot;" />
+    <Exec Command="git -C &quot;$(VolTechSrc)&quot; sparse-checkout set server/rust/auth/proto" />
+  </Target>
 
 </Project>

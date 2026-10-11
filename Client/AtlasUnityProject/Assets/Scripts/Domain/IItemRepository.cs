@@ -10,5 +10,8 @@ namespace Atlas.Domain
         void Upsert(ItemEntity itemEntity);
 
         void Delete(long itemId);
+
+        // サインインし直すとき(タイトルに戻ったとき)に、サーバーで無くなったものが残らないよう全件を消す。
+        void Clear();
     }
 }

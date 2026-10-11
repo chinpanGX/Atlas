@@ -1,34 +1,51 @@
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
 namespace Atlas.Application
 {
-    // サインアップ・サインイン(POST /signup, POST /sign-in)。IDeviceConnectionと同様、
-    // 唯一の実装しか存在せずMock/Realの切り替えを行わないため、Application層のポートとして
-    // 定義する(「Repository」と呼ばない。Entityの永続化ではなく認証アクション呼び出しのため)。
+    // サインアップ・サインイン。通信の失敗のダイアログ・画面遷移は通信の共通処理が済ませているので、
+    // 呼び出し側は成否だけを見ればよい。サインインの所持データの全件は、実装側が各Repositoryへ反映する。
     public interface IPlayerConnection
     {
-        UniTask SignUpAsync(string nickname);
+        // 作成済みなら何も変えずに成功する。
+        UniTask<bool> SignUpAsync(string nickname);
 
+        // プレイヤーがまだ作られていなければ、ダイアログを出さずにStatusがPlayerNotFoundの結果を返す。
         UniTask<SignInResult> SignInAsync();
+    }
 
-        // 編成の全置き換え。slotsに含まれない枠は解除される(1〜6枠、同じパチモンの重複不可)。
-        UniTask EditPartyAsync(IReadOnlyList<PartySlotInput> slots);
-
-        // 技の付け替え(1回の呼び出しで1スロット分、slotは1〜4)。moveIdはmove_group_movesの
-        // 候補技のみ許可され、範囲外のslot・候補にない技はサーバー側で400になる。
-        UniTask EditPachimonMoveAsync(string playerPachimonId, int slot, int moveId);
+    public enum SignInStatus
+    {
+        SignedIn,
+        PlayerNotFound,
+        Failed,
     }
 
     public sealed class SignInResult
     {
+        public readonly SignInStatus Status;
         public readonly string PlayerId;
         public readonly string Nickname;
 
-        public SignInResult(string playerId, string nickname)
+        private SignInResult(SignInStatus status, string playerId, string nickname)
         {
+            Status = status;
             PlayerId = playerId;
             Nickname = nickname;
+        }
+
+        public static SignInResult SignedIn(string playerId, string nickname)
+        {
+            return new SignInResult(SignInStatus.SignedIn, playerId, nickname);
+        }
+
+        public static SignInResult PlayerNotFound()
+        {
+            return new SignInResult(SignInStatus.PlayerNotFound, string.Empty, string.Empty);
+        }
+
+        public static SignInResult Failed()
+        {
+            return new SignInResult(SignInStatus.Failed, string.Empty, string.Empty);
         }
     }
 }

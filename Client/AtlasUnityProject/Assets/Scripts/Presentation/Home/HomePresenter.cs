@@ -95,11 +95,6 @@ namespace Atlas.Presentation.Home
                 catch (OperationCanceledException)
                 {
                 }
-                catch (Exception e)
-                {
-                    // パーティが空(400)等。エラーModalの仕組み(残タスク)ができるまではログのみ。
-                    Debug.LogError($"[Home] マッチングに失敗しました: {e.Message}");
-                }
             }
 
             await screenNavigator.PopModalAsync(matchmaking);

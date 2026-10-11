@@ -2,12 +2,12 @@ using Cysharp.Threading.Tasks;
 
 namespace Atlas.Application
 {
-    // デバイス登録・認証・プレイヤーのサインアップ/サインイン(未作成なら作ってからサインインし直す)までの
-    // 初回起動フローをまとめて呼び出す窓口。通信リクエスト→レスポンス受信→各リポジトリへの反映
-    // という一連の流れを1サービスで完結させる。完了後はIPlayerAccountService経由の読み出しが
-    // 成功する状態になる。
+    // プレイヤーのサインイン(未作成なら作ってからサインインし直す)。デバイス登録とトークンの発行は、
+    // 最初の通信で通信の共通処理が自動で行う。成功すると所持データが各Repositoryに入り、
+    // IPlayerAccountService経由の読み出しができる状態になる。
     public interface ISignInService
     {
-        UniTask SignInAsync();
+        // 失敗したときのダイアログ・画面遷移は通信の共通処理が済ませているので、成否だけを返す。
+        UniTask<bool> SignInAsync();
     }
 }

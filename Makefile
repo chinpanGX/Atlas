@@ -1,8 +1,35 @@
-.PHONY: dev db server battle bot seed stop
+.PHONY: dev db server battle bot seed stop proto-gen errors-gen
 
 # BattleServerはnet10.0。Git BashのPATHではUnity付属の.NET 8 SDKが先に見つかるため、.NET 10 SDKを明示する
 # (別の場所にある場合は `make dev DOTNET=<dotnetのパス>` で上書き)
 DOTNET ?= C:/Program Files/dotnet/dotnet.exe
+
+# gRPC基盤(VolTech gRPC)のタグ。Client/AtlasUnityProject/Packages/manifest.json・Server/Cargo.toml のタグと同じにする
+VOLTECH_TAG := v0.1.0
+VOLTECH_REPO := https://github.com/chinpanGX/VolTech-gRPC
+VOLTECH_ROOT := .tools/voltech-grpc-src/$(VOLTECH_TAG)
+ATLAS_ERRORS_CS := Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Grpc/Generated/Errors/AtlasErrors.cs
+
+# 生成のツールの準備(buf・protoc・protocプラグイン)は基盤のmk/codegen.mkにある。
+# 読み込むと基盤を取ってくるので、生成するときだけ読み込む(make dev などでは取ってこない)
+ifneq ($(filter proto-gen errors-gen,$(MAKECMDGOALS)),)
+include $(VOLTECH_ROOT)/mk/codegen.mk
+endif
+
+# 基盤が無ければ、生成に使うフォルダだけを取ってくる(sandboxのUnityプロジェクトはパスが長くWindowsで展開できないことがあるため取らない)
+$(VOLTECH_ROOT)/mk/codegen.mk:
+	git clone --quiet --depth 1 --filter=blob:none --sparse --branch $(VOLTECH_TAG) $(VOLTECH_REPO) $(VOLTECH_ROOT)
+	git -C $(VOLTECH_ROOT) sparse-checkout set mk scripts tools/protoc-gen-voltech-grpc
+
+# Shared/proto の .proto から、Unity向けのC#(メッセージ型・gRPCクライアント・ラッパー)を生成する。
+# バトルサーバー向けの内部API(atlas/internal)はクライアントから呼ばないので、atlas/v1 だけを生成する
+proto-gen: voltech-tools
+	$(PROTO_ENV) buf lint
+	$(call voltech_proto_gen,--path Shared/proto/atlas/v1)
+
+# Shared/errors.toml の業務エラーから、Unity向けのC#のエラーコードを生成する
+errors-gen: voltech-tools
+	$(call voltech_errors_gen,Shared/errors.toml,$(ATLAS_ERRORS_CS),Atlas.Api.V1,AtlasErrors)
 
 # MySQL起動+マイグレーション → APIサーバーとBattleServerを並列起動(Ctrl+Cで両方停止)
 dev: db
@@ -12,7 +39,7 @@ dev: db
 db:
 	@$(MAKE) --no-print-directory -C Server setup
 
-# APIサーバー(http://127.0.0.1:3000)
+# APIサーバー(gRPC http://127.0.0.1:50051 / 内部API http://127.0.0.1:3000)
 server:
 	cd Server && cargo run
 

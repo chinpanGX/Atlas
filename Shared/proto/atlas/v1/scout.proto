@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+import "atlas/v1/player_data.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Atlas.Api.V1";
+
+// スカウト(ジェムを消費してパチモンの候補を紹介してもらい、1体を選んで入手する)。
+service ScoutService {
+  // 開催中のバナーを、開始日時の早い順に返す。排出率は返さない。
+  rpc ListBanners(ListBannersRequest) returns (ListBannersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // ジェムを1回分消費して、候補10体を紹介してもらう(ロール)。ジェムの消費はこの時点で確定し、候補を選ばなくても戻らない。
+  // バナーが無いときは SCOUT_BANNER_NOT_FOUND、開催期間外のときは SCOUT_BANNER_CLOSED、
+  // ジェムが足りないときは INSUFFICIENT_GEMS を、FAILED_PRECONDITION で返し、何も変えない。
+  rpc Roll(RollRequest) returns (RollResponse);
+
+  // ロールの候補から1体を選んで入手する。1つのロールにつき1回だけ選べる。候補の技はそのまま引き継ぐ。
+  // ロールが無い・自分のものでないときは SCOUT_ROLL_NOT_FOUND、index が範囲外のときは SCOUT_CANDIDATE_OUT_OF_RANGE、
+  // 選択済みのときは SCOUT_ROLL_ALREADY_SELECTED を、FAILED_PRECONDITION で返し、何も変えない。
+  rpc Select(SelectRequest) returns (SelectResponse);
+}
+
+message ListBannersRequest {}
+
+message ListBannersResponse {
+  // 開催中のバナー。無ければ空。
+  repeated ScoutBanner banners = 1;
+}
+
+// スカウトのバナー1つ。
+message ScoutBanner {
+  // バナーの ID。
+  string banner_id = 1;
+  // 表示名。
+  string name = 2;
+  // 1回のロールで消費するジェムの数。
+  int32 cost_per_roll = 3;
+  // 開催の開始日時。
+  google.protobuf.Timestamp start_at = 4;
+  // 開催の終了日時。
+  google.protobuf.Timestamp end_at = 5;
+}
+
+message RollRequest {
+  // ロールするバナーの ID。
+  string banner_id = 1;
+}
+
+message RollResponse {
+  // ロールの ID(ULID)。Select に渡す。
+  string roll_id = 1;
+  // 候補(10体)。index の順に並ぶ。
+  repeated ScoutCandidate candidates = 2;
+  // 規約: 共通レスポンス項目。items(消費した後のジェム)だけが入る。
+  PlayerDiff player_diff = 3;
+}
+
+// ロールの候補1体。
+message ScoutCandidate {
+  // 候補の番号(0〜9)。Select に渡す。
+  int32 index = 1;
+  // pachimon マスタの pachimon_id。
+  int32 pachimon_id = 2;
+  // 入手したときに覚えている技の moves マスタの move_id。要素の順が技の枠(1〜)の順。
+  repeated int32 move_ids = 3;
+}
+
+message SelectRequest {
+  // Roll で受け取ったロールの ID(ULID)。
+  string roll_id = 1;
+  // 選ぶ候補の番号(0〜9)。
+  int32 index = 2;
+}
+
+message SelectResponse {
+  // 規約: 共通レスポンス項目。pachimon(入手した1体)と pachimon_move_map(その個体の技)だけが入る。
+  PlayerDiff player_diff = 1;
+}

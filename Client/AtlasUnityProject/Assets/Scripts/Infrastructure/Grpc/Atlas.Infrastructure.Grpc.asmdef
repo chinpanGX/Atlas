@@ -1,0 +1,25 @@
+{
+    "name": "Atlas.Infrastructure.Grpc",
+    "rootNamespace": "Atlas.Infrastructure.Grpc",
+    "references": [
+        "GUID:a65db434446d2f5459f591d11d06fd09",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:d272da2a7cb9faf498fcf52f24ac0651",
+        "GUID:1fe3656cf8380224fa23ec72e2b12cff",
+        "GUID:54b297c2a3c94d6eacbd02ee136c2f26",
+        "GUID:a2bb72b22f122374c9fcd20dd5be0031"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "ZLinq.dll",
+        "Google.Protobuf.dll",
+        "Grpc.Core.Api.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

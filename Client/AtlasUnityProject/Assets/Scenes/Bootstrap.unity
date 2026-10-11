@@ -119,6 +119,114 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1001 &1992033015
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 579224157554850370, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1232594458620193692, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+      propertyPath: m_Name
+      value: ErrorDialog
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+--- !u!114 &1992033016 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3122278837384645359, guid: 2b2b66d7f2aa6a243b63d1623a3a2e74, type: 3}
+  m_PrefabInstance: {fileID: 1992033015}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd92ebc224b603a45a37461b20ae09e0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Atlas.Presentation::Atlas.Presentation.Common.ErrorDialog
 --- !u!1 &2140806386
 GameObject:
   m_ObjectHideFlags: 0
@@ -153,6 +261,7 @@ MonoBehaviour:
   autoRun: 1
   autoInjectGameObjects: []
   useBattleServer: 1
+  errorDialog: {fileID: 1992033016}
 --- !u!4 &2140806388
 Transform:
   m_ObjectHideFlags: 0
@@ -173,3 +282,4 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 2140806388}
+  - {fileID: 1992033015}

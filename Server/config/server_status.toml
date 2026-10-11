@@ -1,0 +1,16 @@
+# サーバーの状態(メンテナンス・強制アップデート・ゲーム内の日付)。サーバーが5秒ごとに読み直すので、
+# 書き換えれば再起動しなくても効く。場所は環境変数 SERVER_STATUS_PATH で変えられる。
+
+[maintenance]
+enabled = false
+# end_at = "2026-10-01T15:00:00+09:00"   # ダイアログに出す終了予定(省略可)
+
+# プラットフォームごとの最低バージョン(リリースのたびに増やす整数)。Unity エディタからの通信は判定しない
+[min_version]
+ios = 1
+android = 1
+windows = 1
+
+[game_day]
+reset_hour = 4
+timezone = "Asia/Tokyo"

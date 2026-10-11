@@ -15,7 +15,7 @@ using ZLinq;
 namespace Atlas.Presentation.Party
 {
     // 編成の入れ替えはPartyEditorが手元で持つ状態だけを書き換え、戻るボタンで変更があった時だけ
-    // POST /edit/party(全置き換え)で保存してから前の画面へ戻る。
+    // 編成を全置き換えで保存してから前の画面へ戻る。
     [AssetAddress(AddressDefinition.PartyPage)]
     public sealed class PartyPresenter : IPresenter
     {
@@ -114,14 +114,9 @@ namespace Atlas.Presentation.Party
             if (editor.IsDirty)
             {
                 view.SetBackButtonInteractable(false);
-                try
+                if (!await partyService.SaveAsync(editor.ToInputs()))
                 {
-                    await partyService.SaveAsync(editor.ToInputs());
-                }
-                catch (Exception e) when (e is not OperationCanceledException)
-                {
-                    // エラーModalの仕組みが未実装のため、画面に留まって編集内容を残す。もう一度戻るを押すと再送する。
-                    Debug.LogError($"[Party] パーティ編成の保存に失敗しました: {e.Message}");
+                    // ダイアログは通信の共通処理が出している。画面に留まって編集内容を残し、もう一度戻るを押すと送り直す
                     view.SetBackButtonInteractable(true);
                     return;
                 }

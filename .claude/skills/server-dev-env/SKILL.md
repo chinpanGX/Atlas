@@ -102,19 +102,13 @@ cargo run   # APIサーバー本体(default-run = "Server")
 RUST_LOG="info,Server=debug,sqlx::query=debug" cargo run
 ```
 
-```
-DEBUG request{method=POST uri=/devices}: Server::http_log: request body body={"secretKey":"***"}
-DEBUG request{method=POST uri=/devices}: sqlx::query: ... INSERT INTO devices ...
-DEBUG request{method=POST uri=/devices}: Server::http_log: response body status=200 OK body={"deviceId":"..."}
- INFO request{method=POST uri=/devices}: tower_http::trace::on_response: finished processing request latency=273 ms status=200
-```
-
-- ボディ出力は`src/http_log.rs`のミドルウェアが行う。`secretKey`/`accessToken`は`***`に伏字にし、
-  `Authorization`ヘッダーは出力しない。4096文字を超えるボディは切り詰める
-- Swagger UIのHTML/JSなど、`application/json`・`text/plain`以外のレスポンスはボディを出さない
-- `GET /chat/poll`はクライアントが定期的に呼ぶため、DEBUGでは量が多くなる
-- クライアント側から見た送受信は、Unity Consoleの`[API] --> ...`/`[API] <-- ...`で確認できる
-  (Editor・開発ビルドのみ。`Infrastructure/Api/UnityApiRequestLogger.cs`)
+- 内部API(REST)のボディ出力は`src/http_log.rs`のミドルウェアが行う。`application/json`・`text/plain`以外のレスポンスは
+  ボディを出さず、4096文字を超えるボディは切り詰める
+- gRPCは`tower_http`の`TraceLayer`がRPCごとのspanとステータスを出す。中身を見るときは、開発ビルドで有効なgRPCリフレクションを
+  使ってgrpcurl・Postmanから呼ぶか、クライアント側で見る
+- `MatchmakingService/GetQueueStatus`はクライアントが1秒ごとに呼ぶため、ログの量が多くなる
+- クライアント側から見た送受信は、Unity Consoleの`[Api] → ...`/`[Api] ← ...`と、`Window > VolTech gRPC > gRPC Monitor`で確認できる
+  (Editor・開発ビルドのみ)
 
 ## テスト
 
@@ -122,7 +116,8 @@ DEBUG request{method=POST uri=/devices}: Server::http_log: response body status=
 cargo test
 ```
 
-- `tests/{auth,battle,chat,device,player,scout}_api_test.rs`: `tower::ServiceExt::oneshot` によるAPIレベル結合テスト
+- `tests/*_grpc_test.rs`: 空いているポートで起動したgRPCサーバーに、tonicの生成クライアントで呼ぶ結合テスト
+- `tests/battle_api_test.rs`: 内部API(REST)を`tower::ServiceExt::oneshot`でRouterに直接送る結合テスト
 - `tests/master_data_test.rs` や一部のservice層テストは `sqlx::test` を使い、実際のDBを必要とする
   → 事前に `make up`(または `make setup`)でMySQLコンテナが起動していることを確認する
 - DB不要な単体テストは `src/` 内の `#[cfg(test)] mod tests` にある(例: `src/master/mod.rs` の

@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+import "atlas/v1/player_data.proto";
+
+option csharp_namespace = "Atlas.Api.V1";
+
+// パーティの編成と、所持パチモンの技の付け替え。
+service PartyService {
+  // パーティを編成し直す(全置き換え)。リクエストに含まれない枠は解除される。
+  // 割当の ID を作り直すので、player_diff の party_slots は、以前の割当がすべて removed に、新しい割当が upserted に入る。
+  // 人数が1〜6体でない・枠が1〜6でない・枠か個体が重複しているときは FAILED_PRECONDITION + INVALID_PARTY、
+  // 自分の所持個体でない個体を指定したときは FAILED_PRECONDITION + PACHIMON_NOT_OWNED を返し、何も変えない。
+  rpc SetParty(SetPartyRequest) returns (SetPartyResponse);
+
+  // 所持パチモンの技の枠に、技グループの候補技を入れる(付け替え)。何度でも付け替えられる。
+  // 既にある枠を付け替えても、割当の ID(player_pachimon_move_id)は変わらない。
+  // 枠が1〜4でないときは INVALID_MOVE_SLOT、候補技でないときは MOVE_NOT_LEARNABLE、
+  // 自分の所持個体でないときは PACHIMON_NOT_OWNED を、FAILED_PRECONDITION で返し、何も変えない。
+  rpc SetPachimonMove(SetPachimonMoveRequest) returns (SetPachimonMoveResponse);
+}
+
+message SetPartyRequest {
+  // 編成する枠(1〜6件)。
+  repeated PartySlotInput party_slots = 1;
+}
+
+// 編成する枠1つ。
+message PartySlotInput {
+  // パーティの枠(1〜6)。
+  int32 slot = 1;
+  // 枠に入れる所持個体の ID(ULID)。
+  string player_pachimon_id = 2;
+}
+
+message SetPartyResponse {
+  // 規約: 共通レスポンス項目。party_slots だけが入る。
+  PlayerDiff player_diff = 1;
+}
+
+message SetPachimonMoveRequest {
+  // 技を付け替える所持個体の ID(ULID)。
+  string player_pachimon_id = 1;
+  // 技の枠(1〜4)。
+  int32 slot = 2;
+  // 入れる技の moves マスタの move_id。個体の技グループの候補技だけを受け付ける。
+  int32 move_id = 3;
+}
+
+message SetPachimonMoveResponse {
+  // 規約: 共通レスポンス項目。pachimon_move_map(付け替えた1件)だけが入る。
+  PlayerDiff player_diff = 1;
+}

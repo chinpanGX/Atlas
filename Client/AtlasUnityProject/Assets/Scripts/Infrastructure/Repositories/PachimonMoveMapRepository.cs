@@ -1,0 +1,34 @@
+using System.Collections.Generic;
+using Atlas.Domain;
+using ZLinq;
+
+namespace Atlas.Infrastructure
+{
+    public sealed class PachimonMoveMapRepository : IPachimonMoveMapRepository
+    {
+        private readonly Dictionary<string, PachimonMoveMapEntity> pachimonMoveMapEntities = new();
+
+        public IReadOnlyList<PachimonMoveMapEntity> GetByPlayerPachimonId(string playerPachimonId)
+        {
+            return pachimonMoveMapEntities.Values
+                .Where(entity => entity.PlayerPachimonId == playerPachimonId)
+                .OrderBy(entity => entity.Slot)
+                .ToList();
+        }
+
+        public void Upsert(PachimonMoveMapEntity pachimonMoveMapEntity)
+        {
+            pachimonMoveMapEntities[pachimonMoveMapEntity.PlayerPachimonMoveId] = pachimonMoveMapEntity;
+        }
+
+        public void Delete(string playerPachimonMoveId)
+        {
+            pachimonMoveMapEntities.Remove(playerPachimonMoveId);
+        }
+
+        public void Clear()
+        {
+            pachimonMoveMapEntities.Clear();
+        }
+    }
+}

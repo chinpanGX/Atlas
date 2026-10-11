@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use serde_json::Value;
-use sqlx::{MySql, MySqlPool, QueryBuilder};
+use sqlx::{MySql, MySqlExecutor, MySqlPool, QueryBuilder};
 use ulid::Ulid;
 
 use crate::error::AppError;
@@ -59,7 +59,7 @@ pub struct BattleTurnInput {
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
 pub async fn create_match(
-    pool: &MySqlPool,
+    executor: impl MySqlExecutor<'_>,
     match_id: &str,
     player1_id: &str,
     player2_id: &str,
@@ -72,7 +72,7 @@ pub async fn create_match(
     .bind(player1_id)
     .bind(player2_id)
     .bind(STATUS_IN_PROGRESS)
-    .execute(pool)
+    .execute(executor)
     .await
     .map_err(|_| AppError::InternalError)?;
 
