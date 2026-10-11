@@ -51,7 +51,6 @@ Atlas/
 │   └── docs/                  仕様概要書・設計書・進捗・構想・メモ
 ├── master-data-pipeline/      マスターデータの生成ツール(submodule、自作)
 ├── api-codegen/               OpenAPI → Unity向けDTO・通信クライアントの生成ツール(submodule、自作)
-├── Supplement/                Unity共通ユーティリティ(submodule、自作)
 └── UnityScreenNavigator/      画面遷移ライブラリ(USN)のフォーク(submodule、developブランチ)
 ```
 
