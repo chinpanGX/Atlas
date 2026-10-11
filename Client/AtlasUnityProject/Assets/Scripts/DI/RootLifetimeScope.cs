@@ -11,6 +11,7 @@ using Atlas.Infrastructure.Realtime;
 using Atlas.Navigation;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
+using Supplement.Unity;
 using Supplement.ZeroMessenger;
 using UnityEngine;
 using UnityScreenNavigator;

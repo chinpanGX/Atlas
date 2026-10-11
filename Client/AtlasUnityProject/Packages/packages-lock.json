@@ -26,7 +26,7 @@
       "dependencies": {}
     },
     "com.chinpangx.supplement": {
-      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement",
+      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement#v1.4.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
@@ -34,16 +34,16 @@
         "jp.hadashikick.vcontainer": "1.19.0",
         "com.unity.addressables": "2.7.6"
       },
-      "hash": "6c0db193a07ddd0cc81ba89f3b03219a759387b1"
+      "hash": "56381bab0c2d629efa4173f1938a26c599ecd1db"
     },
     "com.chinpangx.supplement.zeromessenger": {
-      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger",
+      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger#v1.4.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
         "com.chinpangx.supplement": "1.0.0"
       },
-      "hash": "6c0db193a07ddd0cc81ba89f3b03219a759387b1"
+      "hash": "56381bab0c2d629efa4173f1938a26c599ecd1db"
     },
     "com.cysharp.magiconion.client.unity": {
       "version": "7.11.0",
