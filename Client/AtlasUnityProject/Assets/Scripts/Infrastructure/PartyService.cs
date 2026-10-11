@@ -1,30 +1,41 @@
 using System.Collections.Generic;
+using Atlas.Api.V1;
 using Atlas.Application;
 using Atlas.Domain;
 using Cysharp.Threading.Tasks;
+using PartySlotInput = Atlas.Application.PartySlotInput;
 
 namespace Atlas.Infrastructure
 {
-    public sealed class PartyService : IPartyService
+    internal sealed class PartyService : IPartyService
     {
         private readonly IPartyRepository partyRepository;
-        private readonly IPartyConnection partyConnection;
+        private readonly PartyApi partyApi;
 
-        public PartyService(IPartyRepository partyRepository, IPartyConnection partyConnection)
+        public PartyService(IPartyRepository partyRepository, PartyApi partyApi)
         {
             this.partyRepository = partyRepository;
-            this.partyConnection = partyConnection;
+            this.partyApi = partyApi;
         }
 
         public IReadOnlyList<PartyEntity> GetAll()
         {
             return partyRepository.GetAll();
         }
-
-        // IPartyRepositoryへの反映は、通信の共通処理がplayerDiffの適用で行う。
-        public UniTask<bool> SaveAsync(IReadOnlyList<PartySlotInput> slots)
+        
+        public async UniTask<bool> SaveAsync(IReadOnlyList<PartySlotInput> slots)
         {
-            return partyConnection.EditPartyAsync(slots);
+            var request = new SetPartyRequest();
+            foreach (var slot in slots)
+            {
+                request.PartySlots.Add(new Api.V1.PartySlotInput
+                {
+                    Slot = slot.Slot,
+                    PlayerPachimonId = slot.PlayerPachimonId,
+                });
+            }
+            var result = await partyApi.SetPartyAsync(request);
+            return result.IsSuccess;
         }
     }
 }

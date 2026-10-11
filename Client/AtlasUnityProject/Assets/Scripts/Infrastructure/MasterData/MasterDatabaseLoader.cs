@@ -10,7 +10,7 @@ namespace Atlas.Infrastructure
 {
     // マスタ(暗号化したmasterdata.bytes)をAddressablesから読み込み、読み込んだMemoryDatabaseを持つ。
     // 読み込みは起動時の初期化で1回だけ行う。MemoryDatabaseはDIでここから取り出して各所に渡す。
-    public sealed class MasterDatabaseLoader
+    internal sealed class MasterDatabaseLoader
     {
         private readonly IAssetLoader assetLoader;
 

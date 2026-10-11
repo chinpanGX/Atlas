@@ -4,16 +4,16 @@ using Atlas.Api.V1;
 using Atlas.Application;
 using Cysharp.Threading.Tasks;
 
-namespace Atlas.Infrastructure.Grpc
+namespace Atlas.Infrastructure
 {
     // 待機列に入り、成立するまで状況を一定間隔で確かめる。
-    public sealed class GrpcBattleMatchmaker : IBattleMatchmaker
+    public sealed class BattleMatchMaker : IBattleMatchMaker
     {
         private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 
         private readonly MatchmakingApi matchmakingApi;
 
-        public GrpcBattleMatchmaker(MatchmakingApi matchmakingApi)
+        public BattleMatchMaker(MatchmakingApi matchmakingApi)
         {
             this.matchmakingApi = matchmakingApi;
         }

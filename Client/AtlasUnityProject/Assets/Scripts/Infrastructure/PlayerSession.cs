@@ -3,7 +3,7 @@ using Atlas.Domain;
 
 namespace Atlas.Infrastructure
 {
-    public sealed class PlayerSession : IPlayerSession
+    internal sealed class PlayerSession : IPlayerSession
     {
         private readonly IPlayerProfileRepository playerProfileRepository;
         private readonly IItemRepository itemRepository;

@@ -5,7 +5,7 @@ using Cysharp.Threading.Tasks;
 namespace Atlas.Infrastructure.Mock
 {
     // オフライン用。待たずに成立したことにする。
-    public sealed class MockBattleMatchmaker : IBattleMatchmaker
+    public sealed class MockBattleMatchMaker : IBattleMatchMaker
     {
         public UniTask<BattleMatch> FindMatchAsync(CancellationToken cancellation)
         {

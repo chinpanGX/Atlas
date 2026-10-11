@@ -4,7 +4,7 @@ namespace Atlas.Application
 {
     // サインアップ・サインイン。通信の失敗のダイアログ・画面遷移は通信の共通処理が済ませているので、
     // 呼び出し側は成否だけを見ればよい。サインインの所持データの全件は、実装側が各Repositoryへ反映する。
-    public interface IPlayerConnection
+    public interface IPlayerSignInService
     {
         // 作成済みなら何も変えずに成功する。
         UniTask<bool> SignUpAsync(string nickname);

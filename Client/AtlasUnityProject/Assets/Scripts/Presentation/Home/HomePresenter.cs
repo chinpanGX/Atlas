@@ -19,26 +19,26 @@ namespace Atlas.Presentation.Home
 
         private readonly HomePage view;
         private readonly IPlayerAccountService playerService;
-        private readonly IItemFetchService itemFetchService;
-        private readonly IDebugConnection debugConnection;
+        private readonly IItemService itemService;
+        private readonly IDebugConnectService debugConnectService;
         private readonly IScreenNavigator screenNavigator;
         private readonly ISceneNavigator sceneNavigator;
         private readonly BattleEntryStore battleEntryStore;
-        private readonly IBattleMatchmaker battleMatchmaker;
+        private readonly IBattleMatchMaker battleMatchMaker;
         private readonly CompositeDisposable disposables = new();
 
-        public HomePresenter(HomePage view, IPlayerAccountService playerService, IItemFetchService itemFetchService,
-            IDebugConnection debugConnection, IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator,
-            BattleEntryStore battleEntryStore, IBattleMatchmaker battleMatchmaker)
+        public HomePresenter(HomePage view, IPlayerAccountService playerService, IItemService itemService,
+            IDebugConnectService debugConnectService, IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator,
+            BattleEntryStore battleEntryStore, IBattleMatchMaker battleMatchMaker)
         {
             this.view = view;
             this.playerService = playerService;
-            this.itemFetchService = itemFetchService;
-            this.debugConnection = debugConnection;
+            this.itemService = itemService;
+            this.debugConnectService = debugConnectService;
             this.screenNavigator = screenNavigator;
             this.sceneNavigator = sceneNavigator;
             this.battleEntryStore = battleEntryStore;
-            this.battleMatchmaker = battleMatchmaker;
+            this.battleMatchMaker = battleMatchMaker;
         }
 
         // HomeはPush時のViewDtoを持たず、自分でIPlayerAccountServiceから初期データを取得する。
@@ -50,9 +50,9 @@ namespace Atlas.Presentation.Home
             view.OnGrantGemsButtonClicked
                 .SubscribeAwait(async (_, _) =>
                 {
-                    await debugConnection.GrantGemsAsync();
+                    await debugConnectService.GrantGemsAsync();
                     view.Refresh(CreateDto());
-                }, AwaitOperation.Sequential)
+                })
                 .AddTo(disposables);
             // Push完了までの連打で同じPageを重ねて積まないよう、実行中の押下は捨てる。
             view.OnScoutButtonClicked
@@ -90,7 +90,7 @@ namespace Atlas.Presentation.Home
             {
                 try
                 {
-                    match = await battleMatchmaker.FindMatchAsync(matchCancellation.Token);
+                    match = await battleMatchMaker.FindMatchAsync(matchCancellation.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -110,7 +110,7 @@ namespace Atlas.Presentation.Home
         private HomeViewDto CreateDto()
         {
             var player = playerService.Get();
-            var gems = itemFetchService.GetAmount(GemItemId);
+            var gems = itemService.GetAmount(GemItemId);
             return new HomeViewDto { PlayerId = player.PlayerId, Gems = gems };
         }
 

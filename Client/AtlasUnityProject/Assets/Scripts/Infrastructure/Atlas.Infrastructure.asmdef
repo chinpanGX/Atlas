@@ -9,14 +9,20 @@
         "GUID:619451fd5e12658408c1bba68b29ad7a",
         "GUID:5a7785fbb9a243cca8e0d10a345c877a",
         "GUID:41261d631a9f02542ba248f84bf54981",
-        "GUID:1fe3656cf8380224fa23ec72e2b12cff"
+        "GUID:1fe3656cf8380224fa23ec72e2b12cff",
+        "GUID:b4f8e1957a2a9f944b620db617042654",
+        "GUID:54b297c2a3c94d6eacbd02ee136c2f26",
+        "GUID:a2bb72b22f122374c9fcd20dd5be0031",
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
+        "GUID:38bfacf7cd1aad54a86a97a2614e280c"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-        "ZLinq.dll"
+        "ZLinq.dll",
+        "Google.Protobuf.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [],

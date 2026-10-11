@@ -5,7 +5,7 @@ namespace Atlas.Application
 {
     // スカウト。ジェムの消費・入手したパチモンは、通信の共通処理がplayerDiffとして各Repositoryへ反映する。
     // 失敗したときのダイアログは通信の共通処理が済ませているので、失敗はnull・falseで返すだけにする。
-    public interface IScoutConnection
+    public interface IScoutService
     {
         // 開催中のバナー一覧。排出率はサーバーが返さないため持たない。失敗したらnull。
         UniTask<IReadOnlyList<ScoutBanner>> GetBannersAsync();

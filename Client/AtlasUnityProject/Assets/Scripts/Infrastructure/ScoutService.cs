@@ -7,11 +7,11 @@ using ScoutCandidate = Atlas.Application.ScoutCandidate;
 
 namespace Atlas.Infrastructure.Grpc
 {
-    public sealed class ScoutConnection : IScoutConnection
+    internal sealed class ScoutService : IScoutService
     {
         private readonly ScoutApi scoutApi;
 
-        public ScoutConnection(ScoutApi scoutApi)
+        public ScoutService(ScoutApi scoutApi)
         {
             this.scoutApi = scoutApi;
         }

@@ -1,9 +1,8 @@
 using System.Threading;
-using Atlas.Infrastructure;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
 
-namespace Atlas.DI.Boot
+namespace Atlas.Infrastructure
 {
     // サインインはマスタを使わないため、同じ優先度で並列に読み込む。
     internal sealed class MasterDataInitializationTask : IBootInitializationTask

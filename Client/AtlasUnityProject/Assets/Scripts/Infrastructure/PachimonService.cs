@@ -4,7 +4,7 @@ using Atlas.Domain;
 
 namespace Atlas.Infrastructure
 {
-    public sealed class PachimonService : IPachimonService
+    internal sealed class PachimonService : IPachimonService
     {
         private readonly IPachimonRepository pachimonRepository;
 

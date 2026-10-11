@@ -22,8 +22,8 @@ namespace Atlas.Presentation.Scout
         private const int GemItemId = 1;
 
         private readonly ScoutPage view;
-        private readonly IScoutConnection scoutConnection;
-        private readonly IItemFetchService itemFetchService;
+        private readonly IScoutService scoutService;
+        private readonly IItemService itemService;
         private readonly IPachimonService pachimonService;
         private readonly MemoryDatabase database;
         private readonly IScreenNavigator screenNavigator;
@@ -38,15 +38,15 @@ namespace Atlas.Presentation.Scout
 
         public ScoutPresenter(
             ScoutPage view,
-            IScoutConnection scoutConnection,
-            IItemFetchService itemFetchService,
+            IScoutService scoutService,
+            IItemService itemService,
             IPachimonService pachimonService,
             MemoryDatabase database,
             IScreenNavigator screenNavigator)
         {
             this.view = view;
-            this.scoutConnection = scoutConnection;
-            this.itemFetchService = itemFetchService;
+            this.scoutService = scoutService;
+            this.itemService = itemService;
             this.pachimonService = pachimonService;
             this.database = database;
             this.screenNavigator = screenNavigator;
@@ -75,7 +75,7 @@ namespace Atlas.Presentation.Scout
 
         private async UniTaskVoid LoadBannerAsync(CancellationToken cancellation)
         {
-            var banners = await scoutConnection.GetBannersAsync();
+            var banners = await scoutService.GetBannersAsync();
             // 失敗したときのダイアログは通信の共通処理が出している。スカウトボタンは押せないままにする
             if (banners is null || cancellation.IsCancellationRequested)
             {
@@ -103,7 +103,7 @@ namespace Atlas.Presentation.Scout
 
             view.SetScoutButtonInteractable(false);
             view.SetBackButtonInteractable(false);
-            roll = await scoutConnection.RollAsync(banner.BannerId);
+            roll = await scoutService.RollAsync(banner.BannerId);
             if (roll is null)
             {
                 RefreshState();
@@ -151,7 +151,7 @@ namespace Atlas.Presentation.Scout
                 return;
             }
 
-            if (!await scoutConnection.SelectAsync(roll.RollId, candidate.Index))
+            if (!await scoutService.SelectAsync(roll.RollId, candidate.Index))
             {
                 // 候補は残したままにし、もう一度タップすれば送り直せるようにする。
                 return;
@@ -166,7 +166,7 @@ namespace Atlas.Presentation.Scout
 
         private void RefreshState()
         {
-            var gems = itemFetchService.GetAmount(GemItemId);
+            var gems = itemService.GetAmount(GemItemId);
             view.SetGems(gems);
             view.SetScoutButtonInteractable(banner is not null && roll is null && gems >= banner.CostPerRoll);
             view.SetBackButtonInteractable(roll is null);

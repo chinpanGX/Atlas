@@ -3,11 +3,11 @@ using Atlas.Domain;
 
 namespace Atlas.Infrastructure
 {
-    public sealed class ItemFetchService : IItemFetchService
+    internal sealed class ItemService : IItemService
     {
         private readonly IItemRepository itemRepository;
 
-        public ItemFetchService(IItemRepository itemRepository)
+        public ItemService(IItemRepository itemRepository)
         {
             this.itemRepository = itemRepository;
         }

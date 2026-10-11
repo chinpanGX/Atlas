@@ -3,7 +3,7 @@ using Atlas.Domain;
 
 namespace Atlas.Infrastructure
 {
-    public sealed class PlayerAccountService : IPlayerAccountService
+    internal sealed class PlayerAccountService : IPlayerAccountService
     {
         private readonly IPlayerProfileRepository profileRepository;
 

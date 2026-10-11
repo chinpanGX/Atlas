@@ -4,21 +4,21 @@ using Cysharp.Threading.Tasks;
 
 namespace Atlas.Infrastructure
 {
-    public sealed class SignInService : ISignInService
+    internal sealed class SignInService : ISignInService
     {
         // ニックネーム入力画面は未実装のため、サインアップでは固定値を使う。
         private const string DefaultNickname = "プレイヤー";
 
-        private readonly IPlayerConnection playerConnection;
+        private readonly IPlayerSignInService playerSignInService;
         private readonly IPlayerProfileRepository playerProfileRepository;
         private readonly IPlayerSession playerSession;
 
         public SignInService(
-            IPlayerConnection playerConnection,
+            IPlayerSignInService playerSignInService,
             IPlayerProfileRepository playerProfileRepository,
             IPlayerSession playerSession)
         {
-            this.playerConnection = playerConnection;
+            this.playerSignInService = playerSignInService;
             this.playerProfileRepository = playerProfileRepository;
             this.playerSession = playerSession;
         }
@@ -26,14 +26,14 @@ namespace Atlas.Infrastructure
         // サインアップ済みかは端末に覚えず、毎回サインインの結果で判断する。
         public async UniTask<bool> SignInAsync()
         {
-            var signIn = await playerConnection.SignInAsync();
+            var signIn = await playerSignInService.SignInAsync();
             if (signIn.Status == SignInStatus.PlayerNotFound)
             {
-                if (!await playerConnection.SignUpAsync(DefaultNickname))
+                if (!await playerSignInService.SignUpAsync(DefaultNickname))
                 {
                     return false;
                 }
-                signIn = await playerConnection.SignInAsync();
+                signIn = await playerSignInService.SignInAsync();
             }
             if (signIn.Status != SignInStatus.SignedIn)
             {

@@ -32,7 +32,7 @@ namespace Atlas.Tests.Presentation.Battle
         // BootstrapTestシーンのuseRealBattleServerの設定に関わらず、対戦も常にMockにする。
         protected override void ConfigureBattleConnections(IContainerBuilder builder)
         {
-            builder.Register<IBattleMatchmaker, MockBattleMatchmaker>(Lifetime.Singleton);
+            builder.Register<IBattleMatchMaker, MockBattleMatchMaker>(Lifetime.Singleton);
             builder.Register<IBattleConnectionFactory, MockBattleConnectionFactory>(Lifetime.Singleton);
         }
     }

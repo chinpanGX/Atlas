@@ -4,11 +4,11 @@ using Cysharp.Threading.Tasks;
 
 namespace Atlas.Infrastructure.Grpc
 {
-    public sealed class DebugConnection : IDebugConnection
+    internal sealed class DebugConnectService : IDebugConnectService
     {
         private readonly DebugApi debugApi;
 
-        public DebugConnection(DebugApi debugApi)
+        public DebugConnectService(DebugApi debugApi)
         {
             this.debugApi = debugApi;
         }

@@ -1,11 +1,12 @@
 using Atlas.Api.V1;
 using Atlas.Application;
+using Atlas.Infrastructure.Grpc;
 using Cysharp.Threading.Tasks;
 using VolTech.Client;
 
-namespace Atlas.Infrastructure.Grpc
+namespace Atlas.Infrastructure
 {
-    public sealed class PlayerConnection : IPlayerConnection
+    public sealed class PlayerSignInService : IPlayerSignInService
     {
         // サインインの「プレイヤー未作成」は、ダイアログを出さずにサインアップへ進むため自分で受け取る
         private static readonly ErrorCode[] signInHandledCodes = { AtlasErrors.PlayerNotFound };
@@ -13,7 +14,7 @@ namespace Atlas.Infrastructure.Grpc
         private readonly PlayerApi playerApi;
         private readonly PlayerSnapshotApplier snapshotApplier;
 
-        public PlayerConnection(PlayerApi playerApi, PlayerSnapshotApplier snapshotApplier)
+        public PlayerSignInService(PlayerApi playerApi, PlayerSnapshotApplier snapshotApplier)
         {
             this.playerApi = playerApi;
             this.snapshotApplier = snapshotApplier;
