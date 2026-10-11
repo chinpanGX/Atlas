@@ -1,6 +1,6 @@
 ---
 name: uloop-pause-point
-description: "Pauses Unity playback at any source file:line without editing code or recompiling, and returns a snapshot of the locals, parameters, and instance fields at that exact frame. Use for bug investigation, PlayMode/E2E verification, checking variable values at a specific frame, or confirming that a code path executed."
+description: "Breakpoint-like: pause Unity at a source file:line without editing code or recompiling, and get the locals, parameters, and fields there. Use to check values or confirm a code path ran."
 ---
 
 # uloop pause-point
@@ -33,7 +33,7 @@ Enable a pause point so Unity pauses when that code path is reached, either by a
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `--id` | string | - | Named pause point id passed to UloopPausePoint.Pause. Mutually exclusive with File/Line |
-| `--file` | string | - | Project-relative source file path to patch a pause point into. Requires Line; mutually exclusive with Id |
+| `--file` | string | - | Source file to patch a pause point into: `Assets/...`, `Packages/<package-id>/...`, a package folder path, or an absolute path. Requires Line; mutually exclusive with Id |
 | `--line` | integer | - | 1-based source line to resolve within File. Requires File; mutually exclusive with Id |
 | `--timeout-seconds` | integer | `30` | Seconds before the enable request expires and stops pausing late hits |
 | `--mode` | enum | `single-shot` | Capture mode: single-shot pauses once, continuous pauses on every hit, trace records hits without pausing |
@@ -87,7 +87,7 @@ Clear one or all registered C# watch expressions
 
 `uloop pause-point-status` with no target lists every marker; inspect one with `--id "<file>:<line>"` or with `--file`/`--line` together (never both). `await-pause-point` and `clear-pause-point` take the same two forms; await always needs a target.
 
-On a wait timeout, `PAUSE_POINT_EXPIRED`, or an enable failure, read `Error.Details.Hint` or the failure `ErrorCode`, then `RecommendedNextAction`. After hot reload, use `--method <Type.Method>` to constrain `--line`.
+On a wait timeout, `PAUSE_POINT_EXPIRED`, or an enable failure, read `Error.Details.Hint` or the failure `ErrorCode`, then `RecommendedNextAction`. After hot reload, `--line` stays the editor's line number.
 
 ## Requirements & Safety
 
@@ -95,7 +95,7 @@ On a wait timeout, `PAUSE_POINT_EXPIRED`, or an enable failure, read `Error.Deta
 - Patches drop on every compile or domain reload (the compile / Play-entry responses warn). `--persist` re-arms automatically (`references/persist.md`).
 - Physics message methods, their helpers, and pre-bound delegates can miss hits on pre-existing GameObjects; enable warns where detectable.
 - An `--id` marker waits on your `UloopPausePoint.Pause(id)` call (`using io.github.hatayama.UnityCliLoop.Runtime;`); its hits record no `CapturedVariables`.
-- For scripts under `Packages/`, pass the package-id path form (`Packages/<package-id>/...`); physical checkout paths do not resolve.
+- Every `--file` form resolves to the asset path (`Packages/<package-id>/...` for a package script), which the marker `Id` uses; status, await, and clear find it by any form.
 
 ## Reference Guides
 
@@ -109,4 +109,4 @@ Read the one whose trigger matches:
 - `references/condition-triggered-pause.md` — runtime-condition pauses.
 - `references/fast-progressing-games.md` — freezing self-progressing games, `--resume-play`.
 - `references/persist.md` — what `--persist` restores, timeout restart, first-frame gap, the re-arm report.
-- `references/troubleshooting.md` — timeouts, missed hits, hot reload, Debug switch, failure codes.
+- `references/troubleshooting.md` — timeouts, missed hits, hot reload, Debug switch, failure codes, path forms.

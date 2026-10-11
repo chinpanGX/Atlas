@@ -407,7 +407,7 @@
         "com.unity.nuget.newtonsoft-json": "3.2.1",
         "com.unity.nuget.mono-cecil": "1.11.6"
       },
-      "hash": "9083f50f24ab479228a5b41c90013e89b3559ec4"
+      "hash": "2230f8e60195fec4edd1d69622d6b1b641d90b60"
     },
     "jp.co.cyberagent.address-definition-generator": {
       "version": "https://github.com/CyberAgentGameEntertainment/AddressDefinitionGenerator.git?path=/Packages/AddressDefinitionGenerator",
