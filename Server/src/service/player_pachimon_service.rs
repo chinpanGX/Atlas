@@ -530,8 +530,8 @@ pub async fn update_move(
     sqlx::query(
         "INSERT INTO player_pachimon_moves \
             (player_pachimon_move_id, player_pachimon_id, slot, move_id) \
-         VALUES (?, ?, ?, ?) \
-         ON DUPLICATE KEY UPDATE move_id = VALUES(move_id)",
+         VALUES (?, ?, ?, ?) AS new \
+         ON DUPLICATE KEY UPDATE move_id = new.move_id",
     )
     .bind(&new_player_pachimon_move_id)
     .bind(player_pachimon_id)

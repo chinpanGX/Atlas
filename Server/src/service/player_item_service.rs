@@ -42,8 +42,8 @@ pub async fn add(
     amount: i32,
 ) -> Result<(), AppError> {
     sqlx::query(
-        "INSERT INTO player_items (player_id, item_id, quantity) VALUES (?, ?, ?) \
-         ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)",
+        "INSERT INTO player_items (player_id, item_id, quantity) VALUES (?, ?, ?) AS new \
+         ON DUPLICATE KEY UPDATE quantity = player_items.quantity + new.quantity",
     )
     .bind(player_id)
     .bind(item_id)
