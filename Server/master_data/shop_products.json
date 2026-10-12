@@ -1,0 +1,23 @@
+[
+  {
+    "amount": 10,
+    "cost_amount": 50,
+    "cost_item_id": 1,
+    "item_id": 2,
+    "shop_product_id": 1
+  },
+  {
+    "amount": 100,
+    "cost_amount": 450,
+    "cost_item_id": 1,
+    "item_id": 2,
+    "shop_product_id": 2
+  },
+  {
+    "amount": 200,
+    "cost_amount": 800,
+    "cost_item_id": 1,
+    "item_id": 2,
+    "shop_product_id": 3
+  }
+]

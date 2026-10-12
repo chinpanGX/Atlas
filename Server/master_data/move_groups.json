@@ -142,5 +142,405 @@
   {
     "move_group_id": 1036,
     "name": "シャドーグリン"
+  },
+  {
+    "move_group_id": 1037,
+    "name": "マイティルカ"
+  },
+  {
+    "move_group_id": 1038,
+    "name": "ヨロイザウルス"
+  },
+  {
+    "move_group_id": 1039,
+    "name": "スライムドラガ"
+  },
+  {
+    "move_group_id": 1040,
+    "name": "ステルスドラガ"
+  },
+  {
+    "move_group_id": 1041,
+    "name": "ツバサドラガ"
+  },
+  {
+    "move_group_id": 1042,
+    "name": "ガンセキドッグ"
+  },
+  {
+    "move_group_id": 1043,
+    "name": "ハナノジョオウ"
+  },
+  {
+    "move_group_id": 1044,
+    "name": "アメドラガ"
+  },
+  {
+    "move_group_id": 1045,
+    "name": "イカリュウ"
+  },
+  {
+    "move_group_id": 1046,
+    "name": "ネボスケン"
+  },
+  {
+    "move_group_id": 1047,
+    "name": "イカリザル"
+  },
+  {
+    "move_group_id": 1048,
+    "name": "ツインソフト"
+  },
+  {
+    "move_group_id": 1049,
+    "name": "ドリルライノ"
+  },
+  {
+    "move_group_id": 1050,
+    "name": "オンパドラゴ"
+  },
+  {
+    "move_group_id": 1051,
+    "name": "ドラゴフレア"
+  },
+  {
+    "move_group_id": 1052,
+    "name": "ジャングルガ"
+  },
+  {
+    "move_group_id": 1053,
+    "name": "アローフクロウ"
+  },
+  {
+    "move_group_id": 1054,
+    "name": "ヒールタイガー"
+  },
+  {
+    "move_group_id": 1055,
+    "name": "ユウレイウオ"
+  },
+  {
+    "move_group_id": 1056,
+    "name": "ダンスダック"
+  },
+  {
+    "move_group_id": 1057,
+    "name": "ヨロイダンゴ"
+  },
+  {
+    "move_group_id": 1058,
+    "name": "カイシショウ"
+  },
+  {
+    "move_group_id": 1059,
+    "name": "ムーンフォクス"
+  },
+  {
+    "move_group_id": 1060,
+    "name": "ブルームドン"
+  },
+  {
+    "move_group_id": 1061,
+    "name": "リーフォックス"
+  },
+  {
+    "move_group_id": 1062,
+    "name": "スパークフォックス"
+  },
+  {
+    "move_group_id": 1063,
+    "name": "ホノオヨロイ"
+  },
+  {
+    "move_group_id": 1064,
+    "name": "ブレイズフォックス"
+  },
+  {
+    "move_group_id": 1065,
+    "name": "サンフォクス"
+  },
+  {
+    "move_group_id": 1066,
+    "name": "オーロラザウル"
+  },
+  {
+    "move_group_id": 1067,
+    "name": "コオリピエロ"
+  },
+  {
+    "move_group_id": 1068,
+    "name": "シャンデリアン"
+  },
+  {
+    "move_group_id": 1069,
+    "name": "ツインジラフ"
+  },
+  {
+    "move_group_id": 1070,
+    "name": "ヒョウザンガメ"
+  },
+  {
+    "move_group_id": 1071,
+    "name": "マボロシギツネ"
+  },
+  {
+    "move_group_id": 1072,
+    "name": "オリブロム"
+  },
+  {
+    "move_group_id": 1073,
+    "name": "サソリグライド"
+  },
+  {
+    "move_group_id": 1074,
+    "name": "ライトウール"
+  },
+  {
+    "move_group_id": 1075,
+    "name": "マジョボウシ"
+  },
+  {
+    "move_group_id": 1076,
+    "name": "マッチャヌシ"
+  },
+  {
+    "move_group_id": 1077,
+    "name": "リーキナイト"
+  },
+  {
+    "move_group_id": 1078,
+    "name": "ハンマーコビト"
+  },
+  {
+    "move_group_id": 1079,
+    "name": "ボスバーク"
+  },
+  {
+    "move_group_id": 1080,
+    "name": "ヨンウデマン"
+  },
+  {
+    "move_group_id": 1081,
+    "name": "シオゴーレム"
+  },
+  {
+    "move_group_id": 1082,
+    "name": "シールドセイバー"
+  },
+  {
+    "move_group_id": 1083,
+    "name": "エビキャノン"
+  },
+  {
+    "move_group_id": 1084,
+    "name": "ハガネカマキリ"
+  },
+  {
+    "move_group_id": 1085,
+    "name": "カゲシャドウ"
+  },
+  {
+    "move_group_id": 1086,
+    "name": "ヒートファルコ"
+  },
+  {
+    "move_group_id": 1087,
+    "name": "タテガミトプス"
+  },
+  {
+    "move_group_id": 1088,
+    "name": "フロッグボルト"
+  },
+  {
+    "move_group_id": 1089,
+    "name": "トゲヒトデ"
+  },
+  {
+    "move_group_id": 1090,
+    "name": "クリームフェアリ"
+  },
+  {
+    "move_group_id": 1091,
+    "name": "カボチャゴースト"
+  },
+  {
+    "move_group_id": 1092,
+    "name": "ファイトブル"
+  },
+  {
+    "move_group_id": 1093,
+    "name": "ラフラギア"
+  },
+  {
+    "move_group_id": 1094,
+    "name": "ヨロイヤドン"
+  },
+  {
+    "move_group_id": 1095,
+    "name": "ノロカイ"
+  },
+  {
+    "move_group_id": 1096,
+    "name": "セルスライム"
+  },
+  {
+    "move_group_id": 1097,
+    "name": "クモドリ"
+  },
+  {
+    "move_group_id": 1098,
+    "name": "ワイルドブル"
+  },
+  {
+    "move_group_id": 1099,
+    "name": "ユウグレウルフ"
+  },
+  {
+    "move_group_id": 1100,
+    "name": "ペッパロス"
+  },
+  {
+    "move_group_id": 1101,
+    "name": "サーフライチ"
+  },
+  {
+    "move_group_id": 1102,
+    "name": "ブレイヴホーク"
+  },
+  {
+    "move_group_id": 1103,
+    "name": "ノロイセキバン"
+  },
+  {
+    "move_group_id": 1104,
+    "name": "ヒツギゴールド"
+  },
+  {
+    "move_group_id": 1105,
+    "name": "サカサイカ"
+  },
+  {
+    "move_group_id": 1106,
+    "name": "タコファイター"
+  },
+  {
+    "move_group_id": 1107,
+    "name": "ワタボウシ"
+  },
+  {
+    "move_group_id": 1108,
+    "name": "ユキオニ"
+  },
+  {
+    "move_group_id": 1109,
+    "name": "ドクトカゲ"
+  },
+  {
+    "move_group_id": 1110,
+    "name": "ラビエレガ"
+  },
+  {
+    "move_group_id": 1111,
+    "name": "バケヌノ"
+  },
+  {
+    "move_group_id": 1112,
+    "name": "メイドクーン"
+  },
+  {
+    "move_group_id": 1113,
+    "name": "カットプードル"
+  },
+  {
+    "move_group_id": 1114,
+    "name": "ヒラメトラップ"
+  },
+  {
+    "move_group_id": 1115,
+    "name": "カギリング"
+  },
+  {
+    "move_group_id": 1116,
+    "name": "ミノカラ"
+  },
+  {
+    "move_group_id": 1117,
+    "name": "コウスイフワリ"
+  },
+  {
+    "move_group_id": 1118,
+    "name": "カザンラクダ"
+  },
+  {
+    "move_group_id": 1119,
+    "name": "キバシャーク"
+  },
+  {
+    "move_group_id": 1120,
+    "name": "コソドロフォクス"
+  },
+  {
+    "move_group_id": 1121,
+    "name": "スズフウリン"
+  },
+  {
+    "move_group_id": 1122,
+    "name": "ノロイニンギョウ"
+  },
+  {
+    "move_group_id": 1123,
+    "name": "コブラスネク"
+  },
+  {
+    "move_group_id": 1124,
+    "name": "モーターレイス"
+  },
+  {
+    "move_group_id": 1125,
+    "name": "ポストペリカ"
+  },
+  {
+    "move_group_id": 1126,
+    "name": "ノブルキャット"
+  },
+  {
+    "move_group_id": 1127,
+    "name": "アンテネズ"
+  },
+  {
+    "move_group_id": 1128,
+    "name": "ホリホリン"
+  },
+  {
+    "move_group_id": 1129,
+    "name": "ミズマリー"
+  },
+  {
+    "move_group_id": 1130,
+    "name": "ガヤバード"
+  },
+  {
+    "move_group_id": 1131,
+    "name": "メディテア"
+  },
+  {
+    "move_group_id": 1132,
+    "name": "ハリバチ"
+  },
+  {
+    "move_group_id": 1133,
+    "name": "ジュエルアイ"
+  },
+  {
+    "move_group_id": 1134,
+    "name": "オオアゴドール"
+  },
+  {
+    "move_group_id": 1135,
+    "name": "ピリマウス"
+  },
+  {
+    "move_group_id": 1136,
+    "name": "ドロリン"
   }
 ]

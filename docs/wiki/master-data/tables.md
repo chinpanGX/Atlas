@@ -4,7 +4,7 @@ status: current
 area: master-data
 related: [master-data/pipeline, game/pachimon, battle-server/battle-core]
 code: [Shared/master-data/schema, Shared/master-data/csv]
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 # マスターデータのテーブル
@@ -93,7 +93,7 @@ updated: 2026-10-11
 | `cost_item_id` | FK → `items`。支払うアイテム(現状はジェム) |
 | `cost_amount` | 1回の購入で支払う数 |
 
-- 現状は1件(育成チケット1枚 = ジェム50)
+- 現状は3件(育成チケット10枚 = ジェム50、100枚 = 450、200枚 = 800)
 - マスタにある商品はいつでも買える(販売期間を持たない)。パイプラインに日時の型が無いこともあり、期間を持つスカウトのバナーとは違ってマスタで持つ
 - DB のテーブル(マイグレーション)と `seed_master_data` への投入は未作成
 

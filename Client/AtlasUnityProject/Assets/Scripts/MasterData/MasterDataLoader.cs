@@ -19,7 +19,7 @@ namespace Atlas.MasterData
         /// 復号パスワードとして使う。スキーマが変わるとこの値も変わり、
         /// 古い masterdata.bytes は復号できなくなる(想定どおりの挙動)。
         /// </summary>
-        public const string ContentHash = "967755e0cbc87f0e26ecda74ffaa96b8b67c1d0db20aee0483401de26d04641e";
+        public const string ContentHash = "38cb99f7e5eb8a6a493354e460673b16fd4625d1e08d25a309146734203e044a";
 
         // MasterMemoryResolver / MemoryDatabase はこのプロジェクトのビルド時に
         // MasterMemory.SourceGenerator が生成する(同一名前空間に存在する前提)。

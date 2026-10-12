@@ -574,5 +574,1778 @@
     "move_id": 64,
     "move_type": 18,
     "name": "フェアリーショット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 65,
+    "move_type": 1,
+    "name": "スラップ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 66,
+    "move_type": 1,
+    "name": "スピンダッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 67,
+    "move_type": 1,
+    "name": "ガッツアタック"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 68,
+    "move_type": 1,
+    "name": "スラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 85,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 69,
+    "move_type": 1,
+    "name": "ヘビーボディ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 70,
+    "move_type": 1,
+    "name": "フルダッシュ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 150,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 71,
+    "move_type": 1,
+    "name": "メテオインパクト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 72,
+    "move_type": 7,
+    "name": "クイックジャブ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 65,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 73,
+    "move_type": 7,
+    "name": "ロースイープ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 74,
+    "move_type": 7,
+    "name": "ブロックブレイク"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 75,
+    "move_type": 7,
+    "name": "ホーリーセイバー"
+  },
+  {
+    "accuracy": 80,
+    "base_power": 100,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 76,
+    "move_type": 7,
+    "name": "クロスブロー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 77,
+    "move_type": 7,
+    "name": "ラッシュファイト"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 130,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 78,
+    "move_type": 7,
+    "name": "ジャンピングニー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 79,
+    "move_type": 16,
+    "name": "リベンジスナップ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 80,
+    "move_type": 16,
+    "name": "ダークバイト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 81,
+    "move_type": 16,
+    "name": "ナイトスラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 82,
+    "move_type": 16,
+    "name": "グラッジブロー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 83,
+    "move_type": 16,
+    "name": "クランチファング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 85,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 84,
+    "move_type": 16,
+    "name": "ダブルラリアット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 95,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 85,
+    "move_type": 16,
+    "name": "トリックスター"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 86,
+    "move_type": 5,
+    "name": "リーフダッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 87,
+    "move_type": 5,
+    "name": "フラワートリック"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 10,
+    "move_id": 88,
+    "move_type": 5,
+    "name": "ウッドランス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 89,
+    "move_type": 5,
+    "name": "シードボム"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 90,
+    "move_type": 5,
+    "name": "リーフセイバー"
+  },
+  {
+    "accuracy": 85,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 91,
+    "move_type": 5,
+    "name": "ヴァインウィップ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 125,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 92,
+    "move_type": 5,
+    "name": "ソーラーセイバー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 93,
+    "move_type": 3,
+    "name": "アクアダッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 94,
+    "move_type": 3,
+    "name": "ターンスプラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 95,
+    "move_type": 3,
+    "name": "アクアスライサー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 96,
+    "move_type": 3,
+    "name": "フォールクライム"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 97,
+    "move_type": 3,
+    "name": "タイダルテール"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 98,
+    "move_type": 3,
+    "name": "ウェーブクラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 99,
+    "move_type": 12,
+    "name": "バグスナッチ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 100,
+    "move_type": 12,
+    "name": "バグイーター"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 101,
+    "move_type": 12,
+    "name": "フライバック"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 102,
+    "move_type": 12,
+    "name": "シザースラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 100,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 103,
+    "move_type": 12,
+    "name": "ファーストストライク"
+  },
+  {
+    "accuracy": 85,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 104,
+    "move_type": 12,
+    "name": "ギガホーン"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 105,
+    "move_type": 6,
+    "name": "アイスシャード"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 106,
+    "move_type": 6,
+    "name": "スノースライド"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 107,
+    "move_type": 6,
+    "name": "フリーズナックル"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 85,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 108,
+    "move_type": 6,
+    "name": "アイシクルフォール"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 100,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 109,
+    "move_type": 6,
+    "name": "フロストハンマー"
+  },
+  {
+    "accuracy": 85,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 110,
+    "move_type": 6,
+    "name": "グレイシャーフォール"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 111,
+    "move_type": 13,
+    "name": "ロックダッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 112,
+    "move_type": 13,
+    "name": "スカイダウン"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 113,
+    "move_type": 13,
+    "name": "ロックバインド"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 114,
+    "move_type": 13,
+    "name": "ロックスライド"
+  },
+  {
+    "accuracy": 80,
+    "base_power": 100,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 115,
+    "move_type": 13,
+    "name": "ストーンスパイク"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 150,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 116,
+    "move_type": 13,
+    "name": "ボルダーキャノン"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 55,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 117,
+    "move_type": 10,
+    "name": "エアロバット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 118,
+    "move_type": 10,
+    "name": "スワロースラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 119,
+    "move_type": 10,
+    "name": "ドリルビーク"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 120,
+    "move_type": 10,
+    "name": "スカイハイ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 121,
+    "move_type": 10,
+    "name": "ブレイブウィング"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 140,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 122,
+    "move_type": 10,
+    "name": "ゴッドウィング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 123,
+    "move_type": 2,
+    "name": "ブーストフレア"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 65,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 124,
+    "move_type": 2,
+    "name": "ヒートバイト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 125,
+    "move_type": 2,
+    "name": "フレイムナックル"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 85,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 126,
+    "move_type": 2,
+    "name": "ヒートキック"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 127,
+    "move_type": 2,
+    "name": "フレイムウィップ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 128,
+    "move_type": 2,
+    "name": "フレアチャージ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 129,
+    "move_type": 9,
+    "name": "アーストレモア"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 130,
+    "move_type": 9,
+    "name": "ストンピング"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 131,
+    "move_type": 9,
+    "name": "スパイラルドリル"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 95,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 132,
+    "move_type": 9,
+    "name": "マッドストンプ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 100,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 133,
+    "move_type": 9,
+    "name": "テラクエイク"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 134,
+    "move_type": 9,
+    "name": "ランドブラスター"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 65,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 135,
+    "move_type": 4,
+    "name": "スパークバイト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 136,
+    "move_type": 4,
+    "name": "ボルトナックル"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 137,
+    "move_type": 4,
+    "name": "スパークニードル"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 138,
+    "move_type": 4,
+    "name": "ワイルドスパーク"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 100,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 139,
+    "move_type": 4,
+    "name": "サンダーフォール"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 140,
+    "move_type": 4,
+    "name": "ボルトチャージ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 141,
+    "move_type": 17,
+    "name": "メタルジャブ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 142,
+    "move_type": 17,
+    "name": "スチールウィング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 143,
+    "move_type": 17,
+    "name": "アイアンバッシュ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 144,
+    "move_type": 17,
+    "name": "メテオナックル"
+  },
+  {
+    "accuracy": 75,
+    "base_power": 100,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 145,
+    "move_type": 17,
+    "name": "メタルテール"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 130,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 146,
+    "move_type": 17,
+    "name": "スチールローラー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 147,
+    "move_type": 14,
+    "name": "シャドウスニーク"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 148,
+    "move_type": 14,
+    "name": "スピリットコール"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 149,
+    "move_type": 14,
+    "name": "ファントムナックル"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 150,
+    "move_type": 14,
+    "name": "ナイトメアクロー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 151,
+    "move_type": 14,
+    "name": "シャドウステッチ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 110,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 152,
+    "move_type": 14,
+    "name": "ポルタースピリット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 153,
+    "move_type": 15,
+    "name": "ドラコアロー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 154,
+    "move_type": 15,
+    "name": "ワイドテイル"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 155,
+    "move_type": 15,
+    "name": "ドラコテール"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 156,
+    "move_type": 15,
+    "name": "ドラコクロー"
+  },
+  {
+    "accuracy": 75,
+    "base_power": 100,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 157,
+    "move_type": 15,
+    "name": "ドラコダイブ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 158,
+    "move_type": 15,
+    "name": "ドラコレイジ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 30,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 159,
+    "move_type": 8,
+    "name": "ベノムスピン"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 160,
+    "move_type": 8,
+    "name": "トキシックファング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 161,
+    "move_type": 8,
+    "name": "ポイズンニードル"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 162,
+    "move_type": 8,
+    "name": "ポイズンスラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 163,
+    "move_type": 8,
+    "name": "ベノムジャブ"
+  },
+  {
+    "accuracy": 80,
+    "base_power": 120,
+    "category": 1,
+    "max_pp": 8,
+    "move_id": 164,
+    "move_type": 8,
+    "name": "トキシックダンプ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 1,
+    "max_pp": 20,
+    "move_id": 165,
+    "move_type": 11,
+    "name": "マインドカッター"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 80,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 166,
+    "move_type": 11,
+    "name": "マインドヘッド"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 85,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 167,
+    "move_type": 11,
+    "name": "サイコバイト"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 168,
+    "move_type": 11,
+    "name": "バリアチャージ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 1,
+    "max_pp": 16,
+    "move_id": 169,
+    "move_type": 18,
+    "name": "ピクシーストライク"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 90,
+    "category": 1,
+    "max_pp": 12,
+    "move_id": 170,
+    "move_type": 18,
+    "name": "プレイフルタックル"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 171,
+    "move_type": 2,
+    "name": "ジェラスフレイム"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 172,
+    "move_type": 2,
+    "name": "ミスティックフレイム"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 173,
+    "move_type": 2,
+    "name": "ヴォルカニックスモーク"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 174,
+    "move_type": 2,
+    "name": "フレイムスロワー"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 95,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 175,
+    "move_type": 2,
+    "name": "ヒートウェイブ"
+  },
+  {
+    "accuracy": 85,
+    "base_power": 110,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 176,
+    "move_type": 2,
+    "name": "グランドファイア"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 130,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 177,
+    "move_type": 2,
+    "name": "オーバーブレイズ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 150,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 178,
+    "move_type": 2,
+    "name": "ブラストフレア"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 179,
+    "move_type": 3,
+    "name": "コールドスプラッシュ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 180,
+    "move_type": 3,
+    "name": "アクアウェーブ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 181,
+    "move_type": 3,
+    "name": "ボイリングウォーター"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 85,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 182,
+    "move_type": 3,
+    "name": "スナイプジェット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 183,
+    "move_type": 3,
+    "name": "サーフライド"
+  },
+  {
+    "accuracy": 85,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 184,
+    "move_type": 3,
+    "name": "マッドストリーム"
+  },
+  {
+    "accuracy": 80,
+    "base_power": 110,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 185,
+    "move_type": 3,
+    "name": "ハイドロブラスター"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 150,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 186,
+    "move_type": 3,
+    "name": "ハイドロバスター"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 50,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 187,
+    "move_type": 4,
+    "name": "チャージレイ"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 55,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 188,
+    "move_type": 4,
+    "name": "エレキウェブ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 65,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 189,
+    "move_type": 4,
+    "name": "パラボラスパーク"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 190,
+    "move_type": 4,
+    "name": "ボルトシフト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 191,
+    "move_type": 4,
+    "name": "ディスチャージ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 192,
+    "move_type": 4,
+    "name": "メガボルト"
+  },
+  {
+    "accuracy": 70,
+    "base_power": 110,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 193,
+    "move_type": 4,
+    "name": "サンダーストライク"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 130,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 194,
+    "move_type": 4,
+    "name": "エレクトロレイ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 195,
+    "move_type": 11,
+    "name": "ツインレイ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 196,
+    "move_type": 11,
+    "name": "マインドノイズ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 197,
+    "move_type": 11,
+    "name": "ミスティックパワー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 198,
+    "move_type": 11,
+    "name": "サイコインパクト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 199,
+    "move_type": 11,
+    "name": "ウィアードスペル"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 200,
+    "move_type": 11,
+    "name": "テレキネシス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 201,
+    "move_type": 11,
+    "name": "フューチャーサイト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 202,
+    "move_type": 1,
+    "name": "スノアボイス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 203,
+    "move_type": 1,
+    "name": "コーラスソング"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 204,
+    "move_type": 1,
+    "name": "トライアングルレイ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 205,
+    "move_type": 1,
+    "name": "ハウリングボイス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 206,
+    "move_type": 1,
+    "name": "アップロア"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 140,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 207,
+    "move_type": 1,
+    "name": "ブームソニック"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 150,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 208,
+    "move_type": 1,
+    "name": "デストラクトレイ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 60,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 209,
+    "move_type": 5,
+    "name": "シロップボム"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 210,
+    "move_type": 5,
+    "name": "ギガアブソーブ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 211,
+    "move_type": 5,
+    "name": "シェイクキャノン"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 212,
+    "move_type": 5,
+    "name": "グリーンスフィア"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 120,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 213,
+    "move_type": 5,
+    "name": "ソーラーレイ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 130,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 214,
+    "move_type": 5,
+    "name": "リーフテンペスト"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 150,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 215,
+    "move_type": 5,
+    "name": "ハードルート"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 216,
+    "move_type": 8,
+    "name": "アシッドスプレー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 217,
+    "move_type": 8,
+    "name": "クリアミスト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 65,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 218,
+    "move_type": 8,
+    "name": "ベノムスパーク"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 219,
+    "move_type": 8,
+    "name": "スラッジボム"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 95,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 220,
+    "move_type": 8,
+    "name": "スラッジウェーブ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 120,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 221,
+    "move_type": 8,
+    "name": "ガスバースト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 222,
+    "move_type": 18,
+    "name": "ドレインキス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 223,
+    "move_type": 18,
+    "name": "チャームボイス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 224,
+    "move_type": 18,
+    "name": "マジカルグリッター"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 95,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 225,
+    "move_type": 18,
+    "name": "ムーンパワー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 100,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 226,
+    "move_type": 18,
+    "name": "ミストブラスト"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 140,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 227,
+    "move_type": 18,
+    "name": "ルインライト"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 55,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 228,
+    "move_type": 6,
+    "name": "フリーズウィンド"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 60,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 229,
+    "move_type": 6,
+    "name": "フロストブレス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 230,
+    "move_type": 6,
+    "name": "ドライフリーズ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 231,
+    "move_type": 6,
+    "name": "アイスレイ"
+  },
+  {
+    "accuracy": 70,
+    "base_power": 110,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 232,
+    "move_type": 6,
+    "name": "ブリザード"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 65,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 233,
+    "move_type": 14,
+    "name": "カースアイ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 65,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 234,
+    "move_type": 14,
+    "name": "ナイトパレード"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 235,
+    "move_type": 14,
+    "name": "グラッジスピリット"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 236,
+    "move_type": 14,
+    "name": "シャドウスフィア"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 50,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 237,
+    "move_type": 12,
+    "name": "バグレジスト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 238,
+    "move_type": 12,
+    "name": "バグバズ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 239,
+    "move_type": 12,
+    "name": "ポーレンボール"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 240,
+    "move_type": 15,
+    "name": "ドラコレーザー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 85,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 241,
+    "move_type": 15,
+    "name": "ドラコパルス"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 110,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 242,
+    "move_type": 15,
+    "name": "スケイルソニック"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 130,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 243,
+    "move_type": 15,
+    "name": "ドラコメテオ"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 55,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 244,
+    "move_type": 9,
+    "name": "マッドスプレー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 70,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 245,
+    "move_type": 9,
+    "name": "バーニングサンド"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 246,
+    "move_type": 9,
+    "name": "アースパワー"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 55,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 247,
+    "move_type": 16,
+    "name": "バークロア"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 248,
+    "move_type": 16,
+    "name": "ダークパルス"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 90,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 249,
+    "move_type": 16,
+    "name": "ナイトブラスト"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 60,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 250,
+    "move_type": 10,
+    "name": "エアスライサー"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 75,
+    "category": 2,
+    "max_pp": 16,
+    "move_id": 251,
+    "move_type": 10,
+    "name": "エアブレード"
+  },
+  {
+    "accuracy": 70,
+    "base_power": 110,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 252,
+    "move_type": 10,
+    "name": "テンペスト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 40,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 253,
+    "move_type": 7,
+    "name": "バキュームウェーブ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 254,
+    "move_type": 7,
+    "name": "オーラスフィア"
+  },
+  {
+    "accuracy": 70,
+    "base_power": 120,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 255,
+    "move_type": 7,
+    "name": "フォーカスブラスト"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 60,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 256,
+    "move_type": 13,
+    "name": "エンシェントパワー"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 20,
+    "move_id": 257,
+    "move_type": 13,
+    "name": "ジュエルレイ"
+  },
+  {
+    "accuracy": 90,
+    "base_power": 120,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 258,
+    "move_type": 13,
+    "name": "メテオレイ"
+  },
+  {
+    "accuracy": 100,
+    "base_power": 80,
+    "category": 2,
+    "max_pp": 12,
+    "move_id": 259,
+    "move_type": 17,
+    "name": "フラッシュキャノン"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 120,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 260,
+    "move_type": 17,
+    "name": "ゴールドストーム"
+  },
+  {
+    "accuracy": 95,
+    "base_power": 140,
+    "category": 2,
+    "max_pp": 8,
+    "move_id": 261,
+    "move_type": 17,
+    "name": "スチールビーム"
   }
 ]

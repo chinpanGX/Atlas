@@ -10,6 +10,7 @@ pub mod move_group_moves;
 pub mod move_groups;
 pub mod moves;
 pub mod pachimon;
+pub mod shop_products;
 pub mod starter_party_slots;
 pub mod type_chart;
 
@@ -22,5 +23,6 @@ pub use move_group_moves::MoveGroupMoves;
 pub use move_groups::MoveGroups;
 pub use moves::Moves;
 pub use pachimon::Pachimon;
+pub use shop_products::ShopProducts;
 pub use starter_party_slots::StarterPartySlots;
 pub use type_chart::TypeChart;
