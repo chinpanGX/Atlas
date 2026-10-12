@@ -68,7 +68,7 @@ APIサーバー(Rust/axum)        バトルサーバー(C#/MagicOnion)
 | `master-data-pipeline/`(submodule) | マスターデータの生成ツール(自作) |
 | `UnityScreenNavigator/`(submodule) | 画面遷移ライブラリ(USN)のフォーク |
 
-起動手順・環境変数は[DEVELOPMENT.md](DEVELOPMENT.md)を参照。
+起動手順・環境変数は[開発環境ガイド](wiki/development.md)を参照。
 
 ---
 

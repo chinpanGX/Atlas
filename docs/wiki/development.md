@@ -1,7 +1,16 @@
+---
+title: "開発環境ガイド"
+status: current
+area: root
+related: [overview, index]
+code: [Makefile, Server/Makefile, Server/docker-compose.yml]
+updated: 2026-10-13
+---
+
 # 開発環境ガイド
 
 Atlasの開発者(Client / Server / BattleServer)が共通で行う設定と、よく使うコマンドをまとめたもの。
-設計の背景は[README.md](../README.md)・`docs/`、各コンポーネント固有の詳細は下記リンク先を参照。
+設計の背景は[README.md](../../README.md)とこの wiki([概要](overview.md))、各コンポーネント固有の詳細は下記リンク先を参照。
 
 ## 全体像
 
@@ -65,7 +74,7 @@ git clone --recurse-submodules <リポジトリURL>
 git submodule update --init --recursive
 ```
 
-`master-data-pipeline` / `UnityScreenNavigator` はサブモジュール([.gitmodules](../.gitmodules))。
+`master-data-pipeline` / `UnityScreenNavigator` はサブモジュール([.gitmodules](../../.gitmodules))。
 Supplement(自作の共通ユーティリティ)はサブモジュールにせず、Clientの`manifest.json`からgitのURLで参照している。
 `UnityScreenNavigator`(画面遷移ライブラリのフォーク)はClientの`manifest.json`から`file:`で参照しているため、
 サブモジュールを取得しないとUnityプロジェクトを開けない。フォークを直したときは、フォーク側でコミット・pushしてから
@@ -134,12 +143,12 @@ user-secretsは`dotnet run`(launchSettingsの`http`プロファイル、Developm
 
 ## 4. ローカルで全体を動かす(起動順)
 
-リポジトリ直下の`Makefile`で、下記1)〜3)(MySQL起動+マイグレーション、Server、BattleServer)を1コマンドで行える。
+リポジトリ直下の`Makefile`で、下記1)〜3)(MySQL起動+マイグレーション+マスタデータの投入、Server、BattleServer)を1コマンドで行える。
 
 ```bash
-make dev    # MySQL起動+マイグレーション → Server・BattleServerを並列起動(Ctrl+Cで停止)
+make dev    # MySQL起動+マイグレーション → マスタデータの投入 → Server・BattleServerを並列起動(Ctrl+Cで停止)
 make stop   # Ctrl+Cで止まりきらなかったServer・BattleServerのプロセスを強制終了
-make seed   # マスタデータをDBへ投入(投入後はServerを再起動)
+make seed   # マスタデータをDBへ投入だけする(make devも毎回行う。起動中のServerには再起動するまで反映されない)
 make bot    # 対戦相手ボット(別ターミナル)
 ```
 
@@ -198,7 +207,7 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
 
 ### Server(Rust) — 作業ディレクトリ `Server/`
 
-詳細: [Server/CLAUDE.md](../Server/CLAUDE.md)、cargoのコマンド: [notes/cargo-commands.md](notes/cargo-commands.md)
+詳細: [Server/CLAUDE.md](../../Server/CLAUDE.md)、cargoのコマンド: [notes/cargo-commands.md](../notes/cargo-commands.md)
 
 ```bash
 make up / make down / make restart   # MySQLコンテナの起動・停止
@@ -238,7 +247,7 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 
 ### Client(Unity) — `Client/AtlasUnityProject/`
 
-- Unity 6000.6.2f1で開く。コーディング規約は[Client/AtlasUnityProject/CLAUDE.md](../Client/AtlasUnityProject/CLAUDE.md)
+- Unity 6000.6.2f1で開く。コーディング規約は[Client/AtlasUnityProject/CLAUDE.md](../../Client/AtlasUnityProject/CLAUDE.md)
 - ServerのURLは`Assets/Scripts/DI/RootLifetimeScope.cs`の`GrpcAddress`(`http://127.0.0.1:50051`固定)。
   BattleServerのURLはマッチング成立時にServerから受け取るため、Client側の設定は不要
 - 通信ログはUnity Consoleの`[Api] → ...` / `[Api] ← ...`(Editor・開発ビルドのみ)。`Window > VolTech gRPC > gRPC Monitor`で
@@ -272,7 +281,7 @@ cd master-data-pipeline
 ./run.sh realtime  # BattleServer向け(BattleServer/MasterData/ へ同じ生成物をコピー。clientの後に実行)
 ```
 
-- Server向けを更新したら、`cargo run --bin seed_master_data`でDBへ投入してServerを再起動する
+- Server向けを更新したら、`make dev`で起動し直す(投入も行う)。個別に起動しているなら、`cargo run --bin seed_master_data`でDBへ投入してServerを再起動する
 - BattleServer向けを更新したら、`dotnet test BattleServer/Tests/BattleServer.Tests.csproj`で読み込めることを確認してBattleServerを再起動する
 - ツール本体を変更したときだけ`./build.sh tools`が必要
 

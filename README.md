@@ -52,5 +52,5 @@ Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトル�
 | システム構成・通信の経路・リポジトリ構成 | [概要](docs/wiki/overview.md) |
 | 設計の見どころ | [Atlas wiki](docs/wiki/index.md)の「見どころ」 |
 | 仕様と設計(実装に合わせて更新) | [Atlas wiki](docs/wiki/index.md) |
-| 環境構築・起動手順 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| 環境構築・起動手順 | [開発環境ガイド](docs/wiki/development.md) |
 | 残タスク | [GitHub Issues](https://github.com/chinpanGX/Atlas/issues) |

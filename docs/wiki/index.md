@@ -2,7 +2,7 @@
 title: "Atlas wiki"
 status: index
 area: root
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Atlas wiki
@@ -54,7 +54,7 @@ flowchart LR
 - まず全体をつかむ: [概要](overview.md) → [ゲームの仕様](game/index.md)
 - サーバーを見る: [APIサーバー](server/index.md) → [DB](db/index.md) → [バトルサーバー](battle-server/index.md)
 - クライアントを見る: [クライアント](client/index.md)
-- 環境を作って動かす: [DEVELOPMENT.md](../DEVELOPMENT.md)
+- 環境を作って動かす: [開発環境ガイド](development.md)
 - コーディング規約: [共通](../../CLAUDE.md)・[APIサーバー](../../Server/CLAUDE.md)・[バトルサーバー](../../BattleServer/CLAUDE.md)・[クライアント](../../Client/AtlasUnityProject/CLAUDE.md)(各プロジェクトの `CLAUDE.md`)
 
 ## ページ一覧
@@ -66,6 +66,7 @@ flowchart LR
 | ページ | 状態 | 内容 |
 |---|---|---|
 | [概要](overview.md) | `current` | ゲームとシステムの全体像、通信の一覧、リポジトリ構成、生成物 |
+| [開発環境ガイド](development.md) | `current` | 環境構築、共通の設定(環境変数・シークレット)、起動手順、よく使うコマンド、トラブルシューティング |
 | [未確定・保留](open-questions.md) | `open` | 決まっていないこと |
 
 ### [ゲームの仕様](game/index.md)

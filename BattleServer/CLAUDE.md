@@ -12,7 +12,7 @@ C#/MagicOnionのバトルサーバーと、ClientとBattleServerで共有する`
 | BattleCoreの構造と計算式 | [バトルの計算](../docs/wiki/battle-server/battle-core.md) |
 | Hub・Receiverと情報の見せ方 | [通信契約](../docs/wiki/battle-server/contracts.md) |
 | 内部APIの呼び出し・結果報告の再送 | [APIサーバーとの連携](../docs/wiki/battle-server/api-integration.md) |
-| 起動・テストのコマンド | [docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md) |
+| 起動・テストのコマンド | [開発環境ガイド](../docs/wiki/development.md) |
 
 ## コーディングルール
 

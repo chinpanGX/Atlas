@@ -14,7 +14,7 @@ APIサーバー・C#/MagicOnionのバトルサーバーで構成する。この�
 |---|---|
 | 全体の構成・通信の経路・リポジトリ構成 | [docs/wiki/overview.md](docs/wiki/overview.md) |
 | 仕様と設計(実装に合わせたもの) | [docs/wiki/index.md](docs/wiki/index.md)(更新のルールは[docs/wiki/CLAUDE.md](docs/wiki/CLAUDE.md)) |
-| 環境構築・起動手順・コマンド | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| 環境構築・起動手順・コマンド | [docs/wiki/development.md](docs/wiki/development.md) |
 | 残タスク・実装済みの機能 | [GitHub Issues](https://github.com/chinpanGX/Atlas/issues)(実装済みはclosedの[#23](https://github.com/chinpanGX/Atlas/issues/23)) |
 
 ## 構成の上で守ること

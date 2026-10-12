@@ -31,8 +31,10 @@ proto-gen: voltech-tools
 errors-gen: voltech-tools
 	$(call voltech_errors_gen,Shared/errors.toml,$(ATLAS_ERRORS_CS),Atlas.Api.V1,AtlasErrors)
 
-# MySQL起動+マイグレーション → APIサーバーとBattleServerを並列起動(Ctrl+Cで両方停止)
+# MySQL起動+マイグレーション → マスタデータの投入 → APIサーバーとBattleServerを並列起動(Ctrl+Cで両方停止)
+# 投入はUPSERTなので毎回流してよい。生成し直したマスタを投入し忘れたまま起動しないようにする
 dev: db
+	@$(MAKE) --no-print-directory seed
 	@$(MAKE) --no-print-directory -j2 server battle
 
 # MySQLコンテナ起動 + DB起動待ち + マイグレーション(適用済みなら何もしない)

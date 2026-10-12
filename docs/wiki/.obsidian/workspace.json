@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "client/libraries.md",
+                "file": "development.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "libraries"
+              "title": "development"
             }
           }
         ]
@@ -190,20 +190,32 @@
   },
   "active": "57b320a867cc58e1",
   "lastOpenFiles": [
-    "client/index.md",
-    "client/error-dialog.md",
-    "client/battle-screen.md",
-    "client/assemblies.md",
-    "db/index.md",
-    "db/battle-tables.md",
-    "game/gems.md",
-    "game/flow.md",
-    "game/battle-rules.md",
+    "server/index.md",
+    "index.md",
+    "development.md",
     "master-data/pipeline.md",
     "master-data/index.md",
     "master-data/tables.md",
-    "index.md",
-    "open-questions.md",
-    "game/index.md"
+    "game/party-training.md",
+    "db/player-tables.md",
+    "master-data/sedrpwysk",
+    "db/scout-tables.md",
+    "db/index.md",
+    "db/battle-tables.md",
+    "conventions/errors.md",
+    "conventions/index.md",
+    "game/shop.md",
+    "game/scout.md",
+    "game/pachimon.md",
+    "game/out-of-scope.md",
+    "game/index.md",
+    "game/gems.md",
+    "game/flow.md",
+    "game/battle-rules.md",
+    "conventions/nullable.md",
+    "conventions/player-diff.md",
+    "conventions/naming-and-ids.md",
+    "client/battle-screen.md",
+    "client/libraries.md"
   ]
 }

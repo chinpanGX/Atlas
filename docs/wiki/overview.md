@@ -5,7 +5,7 @@ area: root
 related: [game/index, conventions/index, server/structure, client/index, battle-server/index]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/main.rs, Server/src/grpc.rs, BattleServer/Program.cs, Client/AtlasUnityProject/Assets/Scripts/DI/RootLifetimeScope.cs]
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # 概要(ゲームとシステムの全体像)
@@ -73,4 +73,4 @@ APIサーバー(Rust/tonic)        バトルサーバー(C#/MagicOnion)
 | `Shared/proto/`・`Shared/errors.toml` | Rust のサーバーの型・エラーコード(`build.rs`。コミットしない)、Client の `Infrastructure/Grpc/Generated/`、BattleServer・BattleBot のクライアント(`Grpc.Tools`、ビルド時) | Rust・C#(.NET)はビルドで自動。Unity はルートで `make proto-gen`・`make errors-gen` |
 | Addressables の登録 | Client の `AddressDefinition.cs` | Unity のジェネレーター |
 
-起動手順・環境変数・コマンドは [DEVELOPMENT.md](../DEVELOPMENT.md)。
+起動手順・環境変数・コマンドは [開発環境ガイド](development.md)。

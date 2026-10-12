@@ -10,7 +10,7 @@ Rust製のAPIサーバー。クライアント向けのAPIも、BattleServer向�
 | ポート・Layerの順番・ディレクトリの役割・API一覧 | [APIサーバーの構成](../docs/wiki/server/structure.md) |
 | 各APIの振る舞い・内部API・マッチングの待機列 | [APIサーバー](../docs/wiki/server/index.md) |
 | テーブル | [DB](../docs/wiki/db/index.md) |
-| 環境構築・コマンド | [docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md)と`server-dev-env`スキル |
+| 環境構築・コマンド | [開発環境ガイド](../docs/wiki/development.md)と`server-dev-env`スキル |
 | 基盤の使い方 | 基盤のwiki(`docs/wiki/guide/`、特に`add-api.md`・`server-reference.md`) |
 
 ## コーディングルール
