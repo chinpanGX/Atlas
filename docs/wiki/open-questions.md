@@ -3,7 +3,7 @@ title: "未確定・保留"
 status: open
 area: root
 related: [game/party-training, game/shop, client/error-dialog, battle-server/battle-flow, master-data/pipeline]
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 # 未確定・保留
@@ -14,9 +14,8 @@ updated: 2026-10-11
 
 | 論点 | 決まっていること | 関係するページ |
 |---|---|---|
-| ステータスポイントの割り振り・育成チケット・ショップの API 設計 | 技の付け替えと割り振りの変更はそれぞれチケット1枚。64ポイントを6能力に上限なしで割り振り、能力の値にそのまま足す(今の `floor(努力値 / 4)` から計算式を変える)。ショップは販売期間・購入履歴なし | [パーティ編成・育成](game/party-training.md)、[ショップ](game/shop.md)、[バトルの計算](battle-server/battle-core.md) |
-| 初めて割り振るときにもチケットが要るか | | [パーティ編成・育成](game/party-training.md) |
-| ショップのまとめ買い(一度に複数枚)の可否、購入数の上限(1日あたり・所持数) | | [ショップ](game/shop.md) |
+| ステータスポイントの割り振り・育成チケット・ショップの API 設計 | 技の付け替えはチケット5枚、割り振りは増やしたポイント1つにつき1枚。64ポイントを6能力に上限なしで割り振り、能力の値にそのまま足す(今の `floor(努力値 / 4)` から計算式を変える)。ショップは販売期間・購入履歴なし | [パーティ編成・育成](game/party-training.md)、[ショップ](game/shop.md)、[バトルの計算](battle-server/battle-core.md) |
+| 1つの商品を一度に複数個買えるか、購入数の上限(1日あたり・所持数) | チケットは10枚・100枚・200枚の商品に分けてある | [ショップ](game/shop.md) |
 | 報酬額(初期300・勝利50)とスカウト・育成チケットの値段のバランス | いまの値は仮 | [ジェム](game/gems.md) |
 | 技の付け替え・ニックネーム入力の画面 | API はある(ニックネームはサインアップの引数) | [パーティ編成・育成](game/party-training.md)、[サインイン](client/sign-in.md) |
 
