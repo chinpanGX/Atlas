@@ -3,7 +3,7 @@ title: "スカウト"
 status: current
 area: game
 related: [server/scout, db/scout-tables, game/gems]
-code: [Server/src/service/scout_service.rs, Server/src/bin/seed_scout_banners.rs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Scout]
+code: [Server/src/service/scout_service.rs, Shared/master-data/csv/scout_banners_master.csv, Client/AtlasUnityProject/Assets/Scripts/Presentation/Scout]
 updated: 2026-10-11
 ---
 

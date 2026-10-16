@@ -4,8 +4,8 @@ status: current
 area: server
 related: [server/auth, server/internal-api, conventions/errors, conventions/player-diff, db/index]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
-code: [Server/src/main.rs, Server/src/grpc.rs, Server/src/state.rs, Server/src/error.rs, Server/src/db.rs, Server/build.rs, Server/config/server_status.toml]
-updated: 2026-10-11
+code: [Server/src/main.rs, Server/src/grpc.rs, Server/src/config.rs, Server/src/state.rs, Server/src/error.rs, Server/src/db.rs, Server/build.rs, Server/config/server_status.toml]
+updated: 2026-10-16
 ---
 
 # APIサーバーの構成
@@ -25,12 +25,13 @@ updated: 2026-10-11
 
 ## 起動の順番(`main.rs`)
 
-1. `.env` を読み、`config/server_status.toml`(`SERVER_STATUS_PATH` で変更可)を読む。一度も読めなければ起動しない。以後5秒ごとに読み直す
-2. MySQL に接続し、マイグレーションを流す(`db::migrate`。基盤の `voltech_grpc_auth`・`voltech_grpc_transaction` → Atlas の `migrations/`)
-3. `AppState` を作る。マスターデータを DB から全件読み込み、`BATTLE_TOKEN_SECRET`・`INTERNAL_API_SECRET`(どちらも無ければ起動しない)・
+1. `.env` を読み、ログの設定(`LOG_FORMAT`・`RUST_LOG` など。[開発環境ガイド](../development.md))でログを準備する(基盤の `voltech_grpc_log::init`)
+2. `config/server_status.toml`(`SERVER_STATUS_PATH` で変更可)を読む。一度も読めなければ起動しない。以後5秒ごとに読み直す
+3. MySQL に接続し、マイグレーションを流す(`db::migrate`。基盤の `voltech_grpc_auth`・`voltech_grpc_transaction` → Atlas の `migrations/`)
+4. `AppState` を作る。マスターデータを DB から全件読み込み、`BATTLE_TOKEN_SECRET`・`INTERNAL_API_SECRET`(どちらも無ければ起動しない)・
    `BATTLE_SERVER_URL` を読む
-4. [結果報告が届かない対戦の後始末](stale-match-cleanup.md) の定期処理を起動する
-5. 2つのポートで待ち受ける
+5. [結果報告が届かない対戦の後始末](stale-match-cleanup.md) の定期処理を起動する
+6. 2つのポートで待ち受ける
 
 `config/server_status.toml` はメンテナンス・最低バージョン・ゲーム内の日付が変わる時刻を持つ(基盤の `ServerStatus`)。
 再起動せずにメンテナンスを切り替えられる。
@@ -38,7 +39,7 @@ updated: 2026-10-11
 ## Layer の順番(クライアント向け)
 
 ```
-TraceLayer                    リクエストのログ
+RpcLogLayer                   RPC ごとの span とアクセスログ(メンテナンス・認証のエラーも出すように一番外側)
 └ ServerStatusLayer           強制アップデートとメンテナンス(認証より先に全サービスで判定)
   └ RpcMethodLayer            RPC の名前を extensions に入れる(Transactions::run が読む)
     ├ DeviceService           デバイス登録・トークン発行(認証なし)
@@ -48,7 +49,19 @@ TraceLayer                    リクエストのログ
 ```
 
 - 開発ビルドでは gRPC リフレクションを有効にし、grpcurl・Postman から `.proto` 無しで呼べる
-- ログは `tracing`。`RUST_LOG` 未指定なら `info`(リクエストごとのメソッド・ステータス・処理時間)。SQL まで見るときは `RUST_LOG=debug`
+- 内部 API には `RpcLogLayer` だけを付ける
+
+## ログ
+
+ログの出力の準備と、RPC ごとの span・アクセスログは基盤(`voltech-grpc-log`)が行う。Atlas は環境変数から設定を読んで渡すだけ(`config.rs`)。
+
+- 標準出力に1行1件の JSON で出す(`LOG_FORMAT=text` で人が読む形)。どの行にもサービス名 `atlas-api` と環境名(`APP_ENV`)が付く
+- RPC の span には `request_id`(`x-request-id`)・`rpc.method`・`player_id`(`AuthLayer` が書く)が入り、その中で出たログにも付く。
+  RPC の終わりに、ステータス・業務エラーの reason・処理時間のアクセスログが1行出る
+- 内部 API はプレイヤーをリクエストの本文で受け取るので、`GetParty`・`GetLoadouts` はハンドラが span に `player_id` を書く。
+  `x-internal-secret` が合わなかったときは warn を出す
+- 内部エラーは、原因(DB のエラーなど)をたどった連なりと発生した場所を error で出す。クライアント・バトルサーバーには詳細を返さない
+- 業務の出来事を info で出す: マッチ成立(`battle match formed`)、対戦結果の記録(`battle result recorded`)、古い対戦の打ち切り(失敗したときは原因を error で)
 
 ## 技術スタック
 
@@ -79,9 +92,10 @@ TraceLayer                    リクエストのログ
 | `model/` | DB のテーブルに対応する構造体 |
 | `master/` | マスターデータの型(生成物)と、起動時に読み込むキャッシュ(`MasterData`) |
 | `error.rs` | `AppError`(サービス層のエラー) |
+| `config.rs` | ログの設定とゲームログの出力先を環境変数から読む |
 | `db.rs` | 起動時のマイグレーション |
 | `state.rs` | `AppState`(DB 接続プール・マスタのキャッシュ・マッチングの待機列・対戦の設定) |
-| `bin/` | `seed_master_data`・`seed_scout_banners`(DB への投入) |
+| `bin/` | `seed_master_data`(マスターデータの DB への投入) |
 
 ## トランザクションと冪等性
 
@@ -98,6 +112,8 @@ TraceLayer                    リクエストのログ
 - サービス層は `AppError`(`BadRequest`・`NotFound`・`Conflict`・`InternalError`)か、機能ごとのエラー型(`PartyError`・`ScoutError`)を返し、
   ハンドラが `tonic::Status` に変える。クライアント向けでは機能ごとのエラーを業務エラーに、`AppError` を `INTERNAL` にする。
   内部 API では `AppError` を `INVALID_ARGUMENT`・`NOT_FOUND`・`ALREADY_EXISTS`・`INTERNAL` にする
+- 内部エラー(`AppError::InternalError`・`PartyError::Internal`・`ScoutError::Internal`)は基盤の `Internal` を持つ。DB などのエラーからは `?` で作れ、
+  原因と `?` を書いた場所を持ったまま運ばれる。ハンドラは `internal(err)`(または `or_internal()`)で `INTERNAL` にし、そのときに原因がログに出る
 
 ## API 一覧
 

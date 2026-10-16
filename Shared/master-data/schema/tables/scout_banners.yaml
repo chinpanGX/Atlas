@@ -1,0 +1,26 @@
+# スカウトのバナーマスタ。1行が1バナーで、開催期間中だけロールできる。
+#
+# banner_id: scout_rolls が外部キーで参照するので、一度使った値は変えない。
+# start_at / end_at: このパイプラインには日時の型が無いので string で持ち、UTC の
+#   "YYYY-MM-DD HH:MM:SS" に固定する。日時として読めること・start_at < end_at は、
+#   パイプラインの validate では確かめられないので seed_master_data が確かめる。
+#
+# targets: [server] — 開催中のバナーはクライアントに通信で返すため、client向けには出力しない。
+name: scout_banners
+input_csv: scout_banners_master
+targets: [server]
+fields:
+  - name: banner_id
+    type: string
+    primary_key: true
+  - name: name
+    type: string
+  - name: cost_per_roll
+    type: int
+  - name: start_at
+    type: string
+  - name: end_at
+    type: string
+validate:
+  unique:
+    - banner_id

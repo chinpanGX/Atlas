@@ -25,13 +25,12 @@ dependencies = [
  "tonic-reflection",
  "tonic-types",
  "tower",
- "tower-http",
  "tracing",
- "tracing-subscriber",
  "ulid",
  "voltech-grpc-auth",
  "voltech-grpc-error",
  "voltech-grpc-error-build",
+ "voltech-grpc-log",
  "voltech-grpc-status",
  "voltech-grpc-transaction",
 ]
@@ -2475,23 +2474,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tower-http"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08a05a66a4fdd61cbbe0a1d755ffe0ca6aba159dd4820936a0ff8a8278245b9c"
-dependencies = [
- "bitflags 2.13.2",
- "bytes",
- "http",
- "http-body",
- "percent-encoding",
- "pin-project-lite",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
 name = "tower-layer"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2670,8 +2652,8 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "voltech-grpc-auth"
-version = "0.2.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
+version = "0.3.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.3.0#dc51cfcc56f3b3f3c9a2799caa35a246c924d8ce"
 dependencies = [
  "argon2",
  "http",
@@ -2688,12 +2670,13 @@ dependencies = [
  "tracing",
  "ulid",
  "voltech-grpc-error",
+ "voltech-grpc-log",
 ]
 
 [[package]]
 name = "voltech-grpc-error"
-version = "0.2.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
+version = "0.3.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.3.0#dc51cfcc56f3b3f3c9a2799caa35a246c924d8ce"
 dependencies = [
  "tonic",
  "tonic-types",
@@ -2703,17 +2686,36 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-error-build"
-version = "0.2.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
+version = "0.3.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.3.0#dc51cfcc56f3b3f3c9a2799caa35a246c924d8ce"
 dependencies = [
  "serde",
  "toml",
 ]
 
 [[package]]
+name = "voltech-grpc-log"
+version = "0.3.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.3.0#dc51cfcc56f3b3f3c9a2799caa35a246c924d8ce"
+dependencies = [
+ "futures-util",
+ "http",
+ "http-body",
+ "jiff",
+ "pin-project-lite",
+ "serde_json",
+ "tonic",
+ "tonic-types",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "voltech-grpc-error",
+]
+
+[[package]]
 name = "voltech-grpc-status"
-version = "0.2.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
+version = "0.3.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.3.0#dc51cfcc56f3b3f3c9a2799caa35a246c924d8ce"
 dependencies = [
  "http",
  "jiff",
@@ -2728,17 +2730,21 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-transaction"
-version = "0.2.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.2.0#408ddddc2cc861d5095615a027828414d4779ed0"
+version = "0.3.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.3.0#dc51cfcc56f3b3f3c9a2799caa35a246c924d8ce"
 dependencies = [
  "http",
  "prost",
  "prost-types",
+ "serde_json",
  "sqlx",
  "tonic",
  "tower",
+ "tracing",
  "ulid",
+ "voltech-grpc-auth",
  "voltech-grpc-error",
+ "voltech-grpc-log",
 ]
 
 [[package]]

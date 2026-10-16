@@ -2,7 +2,7 @@
 title: "APIサーバー"
 status: index
 area: server
-updated: 2026-10-11
+updated: 2026-10-16
 ---
 
 # APIサーバー
@@ -11,7 +11,8 @@ Rust(tonic + gRPC 基盤のクレート `voltech-grpc-*`)。ソースは `Server
 
 ## ページ
 
-- [構成](structure.md) — ポート、Layer の順番、ディレクトリ、トランザクションとエラー、API 一覧
+- [構成](structure.md) — ポート、Layer の順番、ログ、ディレクトリ、トランザクションとエラー、API 一覧
+- [ゲームログ](game-log.md) — 所持データの変化の履歴
 - [認証](auth.md) — デバイス認証(基盤)、`PlayerResolver`、`battle_token`、内部 API のシークレット
 - [プレイヤー(サインアップ・サインイン)](player.md) — プレイヤーの作成と初期データ、所持データの全件
 - [パーティ編成・技の付け替え](party.md) — `SetParty`・`SetPachimonMove`

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
-use voltech_grpc_error::internal;
+use voltech_grpc_error::ResultExt;
 use voltech_grpc_transaction::Transactions;
 
-use crate::grpc::context::{auth_context, internal_error, player_id, player_not_found};
+use crate::grpc::context::{auth_context, player_id, player_not_found};
 use crate::grpc::player_data::{
     item_to_proto, move_to_proto, pachimon_to_proto, party_slot_to_proto,
 };
@@ -13,6 +13,7 @@ use crate::proto::atlas::v1::player_service_server::{PlayerService, PlayerServic
 use crate::proto::atlas::v1::{
     PlayerSnapshot, SignInRequest, SignInResponse, SignUpRequest, SignUpResponse,
 };
+use crate::service::game_log::GameLogCollector;
 use crate::service::{player_item_service, player_pachimon_service, player_service};
 
 /// ニックネームの最大文字数(`players.nickname` の `VARCHAR(50)`)。
@@ -58,16 +59,19 @@ impl PlayerService for PlayerServiceImpl {
 
         let response = self
             .transactions
-            .run(&request, None, move |tx| {
+            .run(&request, None, move |ctx| {
                 Box::pin(async move {
-                    let player = player_service::create(tx, &master, &player_id, &nickname)
-                        .await
-                        .map_err(internal_error)?;
-                    let ulid = ulid::Ulid::from_string(&player.player_id).map_err(internal)?;
+                    let mut logs = GameLogCollector::default();
+                    let player =
+                        player_service::create(ctx.tx(), &mut logs, &master, &player_id, &nickname)
+                            .await
+                            .or_internal()?;
+                    let ulid = ulid::Ulid::from_string(&player.player_id).or_internal()?;
                     // 冪等性の対象の RPC でロックする行を、プレイヤーと一緒に作っておく
-                    voltech_grpc_transaction::create_last_response(tx, ulid)
+                    voltech_grpc_transaction::create_last_response(ctx.tx(), ulid)
                         .await
-                        .map_err(internal)?;
+                        .or_internal()?;
+                    logs.write_to(ctx)?;
                     Ok(SignUpResponse {
                         player_id: player.player_id,
                         nickname: player.nickname,
@@ -86,25 +90,26 @@ impl PlayerService for PlayerServiceImpl {
 
         let response = self
             .transactions
-            .run(&request, None, move |tx| {
+            .run(&request, None, move |ctx| {
                 Box::pin(async move {
-                    let player = player_service::find_by_id(&mut **tx, &player_id)
+                    let player = player_service::find_by_id(&mut **ctx.tx(), &player_id)
                         .await
-                        .map_err(internal_error)?
+                        .or_internal()?
                         .ok_or_else(player_not_found)?;
-                    let items = player_item_service::list(&mut **tx, &player_id)
+                    let items = player_item_service::list(&mut **ctx.tx(), &player_id)
                         .await
-                        .map_err(internal_error)?;
+                        .or_internal()?;
                     let pachimon =
-                        player_pachimon_service::list_owned_pachimon(&mut **tx, &player_id)
+                        player_pachimon_service::list_owned_pachimon(&mut **ctx.tx(), &player_id)
                             .await
-                            .map_err(internal_error)?;
-                    let moves = player_pachimon_service::list_owned_moves(&mut **tx, &player_id)
+                            .or_internal()?;
+                    let moves =
+                        player_pachimon_service::list_owned_moves(&mut **ctx.tx(), &player_id)
+                            .await
+                            .or_internal()?;
+                    let party = player_pachimon_service::list_party(&mut **ctx.tx(), &player_id)
                         .await
-                        .map_err(internal_error)?;
-                    let party = player_pachimon_service::list_party(&mut **tx, &player_id)
-                        .await
-                        .map_err(internal_error)?;
+                        .or_internal()?;
                     Ok(SignInResponse {
                         player_id: player.player_id,
                         nickname: player.nickname,

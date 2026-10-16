@@ -4,6 +4,9 @@ use serde_json::Value;
 use sqlx::MySqlPool;
 use subtle::ConstantTimeEq;
 use tonic::{Request, Response, Status};
+use tracing::Span;
+use voltech_grpc_error::internal;
+use voltech_grpc_log::field;
 
 use crate::error::AppError;
 use crate::proto::atlas::internal::v1::battle_internal_service_server::{
@@ -56,6 +59,8 @@ fn check_secret(request: &Request<()>, secret: &str) -> Result<(), Status> {
     if given.ct_eq(secret.as_bytes()).into() {
         Ok(())
     } else {
+        // BattleServerとシークレットの設定が食い違っていると、対戦の取得・結果の報告がすべて失敗するので気づけるように出す
+        tracing::warn!("{INTERNAL_SECRET_HEADER} does not match");
         Err(Status::unauthenticated("invalid internal secret"))
     }
 }
@@ -66,6 +71,7 @@ impl BattleInternalService for BattleInternalServiceImpl {
         &self,
         request: Request<GetPartyRequest>,
     ) -> Result<Response<GetPartyResponse>, Status> {
+        record_player(&request.get_ref().player_id);
         let party =
             player_pachimon_service::list_battle_party(&self.pool, &request.get_ref().player_id)
                 .await
@@ -87,6 +93,7 @@ impl BattleInternalService for BattleInternalServiceImpl {
         request: Request<GetLoadoutsRequest>,
     ) -> Result<Response<GetLoadoutsResponse>, Status> {
         let request = request.get_ref();
+        record_player(&request.player_id);
         let loadouts = player_pachimon_service::find_battle_loadouts(
             &self.pool,
             &request.player_id,
@@ -147,8 +154,21 @@ impl BattleInternalService for BattleInternalServiceImpl {
             .map_err(to_status)?;
         // 対戦が終わったので、マッチングの状況の確認で返していた接続情報はもう要らない
         matchmaking_service::clear_match(&self.queue, &input.match_id).map_err(to_status)?;
+        tracing::info!(
+            match_id = input.match_id,
+            winner_id = input.winner_id,
+            player1_id = input.player1_id,
+            player2_id = input.player2_id,
+            turns = input.turns.len(),
+            "battle result recorded"
+        );
         Ok(Response::new(ReportResultResponse {}))
     }
+}
+
+/// 内部APIはプレイヤーをリクエストの本文で受け取るので、ログからプレイヤーで探せるように RPC の span に書く。
+fn record_player(player_id: &str) {
+    Span::current().record(field::PLAYER_ID, player_id);
 }
 
 /// 行動・結果は中身を解釈せずに JSON の列へ保存するが、JSON として読めないものは受け付けない。
@@ -162,6 +182,6 @@ fn to_status(err: AppError) -> Status {
         AppError::BadRequest(message) => Status::invalid_argument(message),
         AppError::NotFound => Status::not_found("not found"),
         AppError::Conflict => Status::already_exists("already recorded"),
-        AppError::InternalError => Status::internal("internal error"),
+        AppError::InternalError(err) => internal(err),
     }
 }

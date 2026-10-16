@@ -1,0 +1,5 @@
+スカウトのバナーマスタ,,,,
+出典: なし(オリジナル)。日時はUTCの YYYY-MM-DD HH:MM:SS。banner_id は scout_rolls が参照するので変えない。SCOUT000000000000000000001 は常設のレギュラースカウト(end_at を十分先にして、いつでもロールできるようにする),,,,
+string,string,int,string,string
+banner_id,name,cost_per_roll,start_at,end_at
+SCOUT000000000000000000001,レギュラースカウト,150,2026-01-01 00:00:00,2126-01-01 00:00:00

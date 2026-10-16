@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use Server::service::battle_service;
 use Server::state::AppState;
-use Server::{db, grpc};
-use tracing_subscriber::EnvFilter;
+use Server::{config, db, grpc};
+use voltech_grpc_log::RpcLogLayer;
 use voltech_grpc_status::{FileStatusSource, ServerStatus};
 
 /// クライアント向けの gRPC サーバーの待ち受け先(環境変数 `GRPC_ADDR` で上書きできる)。
@@ -15,21 +15,13 @@ const DEFAULT_SERVER_STATUS_PATH: &str = "config/server_status.toml";
 /// サーバーの状態の設定を読み直す間隔。再起動せずにメンテナンスを切り替えられる
 const STATUS_RELOAD_INTERVAL: Duration = Duration::from_secs(5);
 
-/// `RUST_LOG`未指定時のログ出力レベル。
-/// 通常はリクエストごとの method/uri/ステータス/処理時間のみ出す。
-/// ボディ・実行SQLまで見たいときは`RUST_LOG=debug`等で上書きする(server-dev-envスキル参照)
-const DEFAULT_LOG_FILTER: &str = "info";
-
 #[tokio::main]
 async fn main() -> Result<(), grpc::BoxError> {
     dotenvy::dotenv().ok();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(DEFAULT_LOG_FILTER)),
-        )
-        .init();
+    let log = config::log_config_from_env()?;
+    voltech_grpc_log::init(&log)?;
+    let game_log_sink = config::game_log_sink_from_env()?;
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env");
     let grpc_addr = std::env::var("GRPC_ADDR").unwrap_or_else(|_| DEFAULT_GRPC_ADDR.to_string());
@@ -50,11 +42,16 @@ async fn main() -> Result<(), grpc::BoxError> {
 
     let grpc_listener = tokio::net::TcpListener::bind(&grpc_addr).await?;
     let internal_listener = tokio::net::TcpListener::bind(&server_addr).await?;
-    tracing::info!("gRPC server running on http://{}", grpc_addr);
-    tracing::info!("Internal API running on http://{}", server_addr);
+    tracing::info!(addr = grpc_addr, "gRPC server listening");
+    tracing::info!(addr = server_addr, "internal API listening");
 
     // クライアント向けと内部APIは、マッチングの待機列(メモリ)を共有するため同じプロセスで動かす
-    let internal = grpc::serve_internal(internal_listener, state.clone(), shutdown_signal());
+    let internal = grpc::serve_internal(
+        internal_listener,
+        state.clone(),
+        RpcLogLayer::new(&log),
+        shutdown_signal(),
+    );
     let dev = grpc::DevFeatures {
         // 開発中だけ gRPC リフレクションを有効にし、grpcurl や Postman から .proto 無しで呼べるようにする
         reflection: cfg!(debug_assertions),
@@ -63,7 +60,15 @@ async fn main() -> Result<(), grpc::BoxError> {
     if dev.debug_api {
         tracing::info!("DebugService is enabled");
     }
-    let grpc = grpc::serve(grpc_listener, state, status, dev, shutdown_signal());
+    let grpc = grpc::serve(
+        grpc_listener,
+        state,
+        status,
+        RpcLogLayer::new(&log),
+        game_log_sink,
+        dev,
+        shutdown_signal(),
+    );
     tokio::try_join!(internal, grpc)?;
     Ok(())
 }

@@ -4,7 +4,7 @@ status: current
 area: master-data
 related: [master-data/pipeline, game/pachimon, battle-server/battle-core]
 code: [Shared/master-data/schema, Shared/master-data/csv]
-updated: 2026-10-12
+updated: 2026-10-16
 ---
 
 # マスターデータのテーブル
@@ -94,8 +94,35 @@ updated: 2026-10-12
 | `cost_amount` | 1回の購入で支払う数 |
 
 - 現状は3件(育成チケット10枚 = ジェム50、100枚 = 450、200枚 = 800)
-- マスタにある商品はいつでも買える(販売期間を持たない)。パイプラインに日時の型が無いこともあり、期間を持つスカウトのバナーとは違ってマスタで持つ
+- マスタにある商品はいつでも買える(販売期間を持たない)
 - DB のテーブル(マイグレーション)と `seed_master_data` への投入は未作成
+
+## scout_banners
+
+スカウトのバナー。サーバーだけに出力する([スカウト(API)](../server/scout.md))。
+
+| 列 | 説明 |
+|---|---|
+| `banner_id` | PK(文字列)。`scout_rolls` が外部キーで参照するので、一度使った値は変えない |
+| `name` | |
+| `cost_per_roll` | 紹介1回のジェム |
+| `start_at` / `end_at` | 開催期間。UTC の `YYYY-MM-DD HH:MM:SS`(パイプラインに日時の型が無いので文字列)。`start_at < end_at` |
+
+- 現状は常設の「レギュラースカウト」(`SCOUT000000000000000000001`、150ジェム、2126年まで)の1件
+
+## scout_banner_rates
+
+バナーごとの、レア度の排出率。サーバーだけに出力する(排出率をクライアントに配らない)。
+
+| 列 | 説明 |
+|---|---|
+| `scout_banner_rate_id` | PK(代理キー。`(banner_id, rarity)` の複合主キーを持てないため) |
+| `banner_id` | FK → `scout_banners` |
+| `rarity` | `Rarity` |
+| `weight` | 1万分率の整数(3% = 300)。バナーごとの合計は10000 |
+
+- レギュラースカウトは S 300・A 1200・B 3500・C 5000
+- 日時の形・前後関係・重みの合計・同じレア度の重複は、パイプラインの `validate` では確かめられないので `seed_master_data` が確かめる
 
 ## Enum
 

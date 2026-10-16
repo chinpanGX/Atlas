@@ -17,9 +17,9 @@ Rust製のAPIサーバー。クライアント向けのAPIも、BattleServer向�
 
 ### サーバーの組み立て
 
-- `grpc.rs`のLayerの順番には意味がある(`ServerStatusLayer` → `RpcMethodLayer` → サービスごとに`AuthLayer` → `DateChangeLayer`)。
+- `grpc.rs`のLayerの順番には意味がある(`RpcLogLayer` → `ServerStatusLayer` → `RpcMethodLayer` → サービスごとに`AuthLayer` → `DateChangeLayer`)。
   **クライアント向けのアプリのサービスには必ず`AuthLayer`と`DateChangeLayer`を付ける**
-- 内部API(`grpc/internal_battle.rs`)には基盤のLayerを付けない(メンテナンス中でも結果の報告を受けるため)。認証は
+- 内部API(`grpc/internal_battle.rs`)には基盤のLayerのうち`RpcLogLayer`だけを付ける(メンテナンス中でも結果の報告を受けるため)。認証は
   `x-internal-secret`のinterceptorで行う
 
 ### API(gRPC)
@@ -34,20 +34,25 @@ Rust製のAPIサーバー。クライアント向けのAPIも、BattleServer向�
   自分でトランザクションを始めない(内部APIの`ReportResult`は基盤を通らないので、`battle_service::record_result`が自分で張る)
 - ハンドラはプレイヤーIDを`grpc::context::player_id`で取り出す(リクエストから受け取らない)
 - 所持データを変えるRPCは、`PlayerDiffCollector`に記録し、レスポンスに`PlayerDiff player_diff`を持たせる(変わらない種別は`None`)
+- 所持アイテムを増減する関数は、`GameLogCollector`に増減と理由(`ItemReason`)を記録する。ハンドラーは処理の最後に`logs.write_to(ctx)?`で
+  基盤のゲームログに書く(コミットしたときだけ残る)。アイテムの増減は`player_item_service`の関数を通し、直接`player_items`を書き換えない
 - 業務エラーは`Shared/errors.toml`に足し、`voltech_grpc_error::failed_precondition(proto::errors::XXX, "...")`で返す。
-  内部エラーは`voltech_grpc_error::internal(...)`(詳細はログだけ)。消したreasonは使い回さない
+  内部エラーは`voltech_grpc_error::internal(err)`か`.or_internal()`で、原因ごと渡す(原因はログにだけ出る)。消したreasonは使い回さない
 - 内部APIは業務エラーを使わず、`AppError`をgRPCの標準のステータスに変える(`BadRequest`→`INVALID_ARGUMENT`、
   `NotFound`→`NOT_FOUND`、`Conflict`→`ALREADY_EXISTS`)
 - `.proto`・`errors.toml`を変えたら、ルートで`make proto-gen`・`make errors-gen`を実行してUnity向けのC#も生成し直す
 - フィールド番号・名前は一度使ったら使い回さない(消したら`reserved`)
-- DBのエラーは`.map_err(|_| AppError::InternalError)?`で変換する(DBの詳細を呼び出し元へ返さない)
+- DBなどのエラーは`?`で`AppError::InternalError`(機能ごとのエラーなら`PartyError::Internal`など)にする。どれも基盤の`Internal`を持ち、
+  原因と`?`を書いた場所をログまで運ぶ。`.map_err(|_| ...)`で原因を捨てない。元のエラーが無いときは`AppError::internal("...")`
+- ログは`tracing`のマクロで出す(出力の準備とRPCごとのアクセスログは基盤が行う)。業務の出来事は`info`で、名前は書かずIDだけを書く
 
 ### 状態とマスターデータ
 
 - マスターデータは起動時にDBから読み込んだ`Arc<MasterData>`を使い、リクエストのたびにマスタのテーブルへ問い合わせない
 - マスターデータの生成物(`src/master/generated/`、`master_data/*.json`)は手で編集しない。`seed_master_data`が投入するテーブルを
   増やすときは`master-data-schema-add`スキルに従い、`seed_master_data.rs`(必要なら`cache.rs`も)を拡張する
-- スカウトのバナー(`scout_banners`)はマスターデータの対象外で、`seed_scout_banners`が投入する
+- スカウトのバナー(`scout_banners`・`scout_banner_rates`)もマスターデータで、`seed_master_data`が投入する。パイプラインの`validate`で
+  確かめられない決まり(日時の形・合計値など)は`seed_master_data`が投入の前に確かめる
 - マッチングの待機列(`AppState.matchmaking`)は`std::sync::Mutex`。ロックを持ったまま`await`しない
 - 基盤の`player_id`は`ulid::Ulid`(DBは`BINARY(16)`)、Atlasのテーブルは`CHAR(26)`の文字列なので、つなぎ目で
   `to_string()`/`from_string()`で変える

@@ -3,7 +3,7 @@ title: "ジェム"
 status: current
 area: game
 related: [conventions/items, game/scout, game/shop, open-questions]
-code: [Server/src/service/player_service.rs, Server/src/service/battle_service.rs, Server/src/grpc/debug.rs, Server/src/bin/seed_scout_banners.rs]
+code: [Server/src/service/player_service.rs, Server/src/service/battle_service.rs, Server/src/grpc/debug.rs]
 updated: 2026-10-12
 ---
 

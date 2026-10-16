@@ -2,10 +2,14 @@ pub mod cache;
 #[rustfmt::skip] // master-data-pipeline生成物。rustfmtが並び順を書き換えるのを防ぐ(Server/rustfmt.toml参照)
 pub mod generated;
 
+pub mod scout_banner;
+
 pub use cache::MasterData;
 pub use generated::{
-    Items, MoveGroupMoves, MoveGroups, Moves, Pachimon, PachimonType, Rarity, StarterPartySlots,
+    Items, MoveGroupMoves, MoveGroups, Moves, Pachimon, PachimonType, Rarity, ScoutBannerRates,
+    ScoutBanners, StarterPartySlots,
 };
+pub use scout_banner::{ScoutBanner, ScoutBannerRate};
 
 /// master-data-pipelineが生成した各種マスタのJSON。
 ///
@@ -21,6 +25,8 @@ const MOVES_JSON: &str = include_str!("../../master_data/moves.json");
 const MOVE_GROUP_MOVES_JSON: &str = include_str!("../../master_data/move_group_moves.json");
 const STARTER_PARTY_SLOTS_JSON: &str = include_str!("../../master_data/starter_party_slots.json");
 const ITEMS_JSON: &str = include_str!("../../master_data/items.json");
+const SCOUT_BANNERS_JSON: &str = include_str!("../../master_data/scout_banners.json");
+const SCOUT_BANNER_RATES_JSON: &str = include_str!("../../master_data/scout_banner_rates.json");
 
 /// パチモンマスタのJSON文字列をパースする。
 ///
@@ -121,6 +127,40 @@ pub fn seed_items_data() -> Vec<Items> {
     parse_items(ITEMS_JSON).expect("master_data/items.json のパースに失敗しました")
 }
 
+/// スカウトのバナーマスタのJSON文字列をパースする。
+///
+/// # Errors
+/// JSONの形式が不正な場合に`serde_json::Error`を返す。
+pub fn parse_scout_banners(json: &str) -> Result<Vec<ScoutBanners>, serde_json::Error> {
+    serde_json::from_str(json)
+}
+
+/// スカウトのバナー排出率マスタのJSON文字列をパースする。
+///
+/// # Errors
+/// JSONの形式が不正な場合に`serde_json::Error`を返す。
+pub fn parse_scout_banner_rates(json: &str) -> Result<Vec<ScoutBannerRates>, serde_json::Error> {
+    serde_json::from_str(json)
+}
+
+/// `seed_master_data`コマンドが参照する、埋め込み済みスカウトのバナーマスタのシードデータ。
+///
+/// # Panics
+/// 埋め込み済みJSONのパースに失敗した場合(ビルド成果物の不整合)にpanicする。
+pub fn seed_scout_banners_data() -> Vec<ScoutBanners> {
+    parse_scout_banners(SCOUT_BANNERS_JSON)
+        .expect("master_data/scout_banners.json のパースに失敗しました")
+}
+
+/// `seed_master_data`コマンドが参照する、埋め込み済みスカウトのバナー排出率マスタのシードデータ。
+///
+/// # Panics
+/// 埋め込み済みJSONのパースに失敗した場合(ビルド成果物の不整合)にpanicする。
+pub fn seed_scout_banner_rates_data() -> Vec<ScoutBannerRates> {
+    parse_scout_banner_rates(SCOUT_BANNER_RATES_JSON)
+        .expect("master_data/scout_banner_rates.json のパースに失敗しました")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,7 +169,7 @@ mod tests {
     #[test]
     fn test_parse_pachimon_loads_master_data() {
         let pachimon = parse_pachimon(PACHIMON_JSON).expect("パースに成功するはず");
-        assert_eq!(pachimon.len(), 36);
+        assert_eq!(pachimon.len(), 136);
     }
 
     /// 不正なJSONを渡した場合にエラーを返すことを確認する。
@@ -163,28 +203,28 @@ mod tests {
     /// `seed_pachimon_data`経由でも同じデータが取得できることを確認する。
     #[test]
     fn test_seed_pachimon_data_matches_parse() {
-        assert_eq!(seed_pachimon_data().len(), 36);
+        assert_eq!(seed_pachimon_data().len(), 136);
     }
 
     /// master_data/move_groups.jsonが正しくパースできることを確認する。
     #[test]
     fn test_parse_move_groups_loads_master_data() {
         let move_groups = parse_move_groups(MOVE_GROUPS_JSON).expect("パースに成功するはず");
-        assert_eq!(move_groups.len(), 36);
+        assert_eq!(move_groups.len(), 136);
     }
 
     /// master_data/moves.jsonが正しくパースできることを確認する。
     #[test]
     fn test_parse_moves_loads_master_data() {
         let moves = parse_moves(MOVES_JSON).expect("パースに成功するはず");
-        assert_eq!(moves.len(), 64);
+        assert_eq!(moves.len(), 261);
     }
 
     /// master_data/move_group_moves.jsonが正しくパースできることを確認する。
     #[test]
     fn test_parse_move_group_moves_loads_master_data() {
         let rows = parse_move_group_moves(MOVE_GROUP_MOVES_JSON).expect("パースに成功するはず");
-        assert_eq!(rows.len(), 180);
+        assert_eq!(rows.len(), 4403);
     }
 
     /// move_group_movesの`unique_id`が重複していないことを確認する(マスタデータの整合性検証)。
@@ -284,7 +324,7 @@ mod tests {
     #[test]
     fn test_parse_items_loads_master_data() {
         let items = parse_items(ITEMS_JSON).expect("パースに成功するはず");
-        assert_eq!(items.len(), 1);
+        assert_eq!(items.len(), 2);
         assert_eq!(items[0].item_id, 1);
         assert_eq!(items[0].name, "ジェム");
     }
@@ -297,5 +337,19 @@ mod tests {
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), items.len());
+    }
+
+    /// 埋め込み済みのスカウトのバナーマスタが、seed_master_dataの検証(日時・期間・重みの合計)を通ることを確認する。
+    #[test]
+    fn test_scout_banners_master_data_is_valid() {
+        let banners = seed_scout_banners_data();
+        let rates = seed_scout_banner_rates_data();
+        let built = scout_banner::build_scout_banners(&banners, &rates).expect("検証を通るはず");
+        assert!(
+            built
+                .iter()
+                .any(|banner| banner.banner_id == "SCOUT000000000000000000001"),
+            "常設のレギュラースカウトが無い"
+        );
     }
 }

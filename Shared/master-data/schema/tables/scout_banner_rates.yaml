@@ -1,0 +1,30 @@
+# スカウトのバナーごとの、レア度の排出率。候補1体ごとに weight の重みでレア度を決め、
+# そのレア度のパチモンから等確率で選ぶ。
+#
+# scout_banner_rate_id: このパイプラインは複合PKに対応していないので、
+#   (banner_id, rarity) の代わりに代理キーを1列持つ。
+# weight: 1万分率の整数(3% = 300)。バナーごとの合計が 10000 であることは、
+#   パイプラインの validate では確かめられないので seed_master_data が確かめる。
+#
+# targets: [server] — 排出率は抽選の生の値なので、クライアントに配らない。
+name: scout_banner_rates
+input_csv: scout_banner_rates_master
+targets: [server]
+fields:
+  - name: scout_banner_rate_id
+    type: int
+    primary_key: true
+  - name: banner_id
+    type: string
+  - name: rarity
+    type: enum
+    enum_type: Rarity
+  - name: weight
+    type: int
+validate:
+  unique:
+    - scout_banner_rate_id
+  check_relation:
+    - field: banner_id
+      table: scout_banners
+      target_field: banner_id

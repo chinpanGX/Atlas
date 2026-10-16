@@ -1,19 +1,21 @@
-use std::collections::HashMap;
-
-use chrono::Utc;
+use chrono::{NaiveDateTime, Utc};
 use rand::RngExt;
 use rand::distr::Distribution;
 use rand::distr::weighted::WeightedIndex;
 use sqlx::types::Json;
-use sqlx::{MySql, MySqlExecutor, Transaction};
+use sqlx::{MySql, Transaction};
 use ulid::Ulid;
+use voltech_grpc_error::Internal;
 
 use crate::error::AppError;
-use crate::master::{MasterData, Pachimon, Rarity};
-use crate::model::scout_banner::ScoutBanner;
+use crate::master::{MasterData, Pachimon, Rarity, ScoutBanner};
 use crate::model::scout_roll::{ScoutCandidate, ScoutRoll};
+use crate::service::game_log::{GameLogCollector, ItemReason};
 use crate::service::player_diff::PlayerDiffCollector;
 use crate::service::{player_item_service, player_pachimon_service};
+
+/// 1回のロールで出す候補の数。
+const CANDIDATES_PER_ROLL: usize = 10;
 
 /// スカウトのロール・候補の選択の失敗。
 #[derive(Debug)]
@@ -31,97 +33,47 @@ pub enum ScoutError {
     /// ロールの候補を選択済み。
     RollAlreadySelected,
     /// DBアクセスやマスタの不整合。
-    Internal,
+    Internal(Internal),
 }
 
 impl From<AppError> for ScoutError {
-    fn from(_: AppError) -> Self {
-        Self::Internal
+    #[track_caller]
+    fn from(err: AppError) -> Self {
+        Self::Internal(Internal::from(err))
     }
 }
 
-fn rarity_from_label(label: &str) -> Option<Rarity> {
-    match label {
-        "S" => Some(Rarity::S),
-        "A" => Some(Rarity::A),
-        "B" => Some(Rarity::B),
-        "C" => Some(Rarity::C),
-        _ => None,
+impl<E> From<E> for ScoutError
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(err: E) -> Self {
+        Self::Internal(Internal::from(err))
     }
 }
 
-/// 開催中のスカウトバナー一覧を取得する。
-///
-/// # Errors
-/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
-pub async fn list_active_banners(
-    executor: impl MySqlExecutor<'_>,
-) -> Result<Vec<ScoutBanner>, AppError> {
-    let rows: Vec<(
-        String,
-        String,
-        Json<HashMap<String, f64>>,
-        i32,
-        chrono::NaiveDateTime,
-        chrono::NaiveDateTime,
-    )> = sqlx::query_as(
-        "SELECT banner_id, name, rate_table, cost_per_roll, start_at, end_at \
-         FROM scout_banners WHERE start_at <= NOW(3) AND end_at >= NOW(3) ORDER BY start_at",
-    )
-    .fetch_all(executor)
-    .await
-    .map_err(|_| AppError::InternalError)?;
-
-    Ok(rows
-        .into_iter()
-        .map(
-            |(banner_id, name, rate_table, cost_per_roll, start_at, end_at)| ScoutBanner {
-                banner_id,
-                name,
-                rate_table: rate_table.0,
-                cost_per_roll,
-                start_at,
-                end_at,
-            },
-        )
-        .collect())
+/// `scout_rolls.candidates`に保存するレア度の表現。
+fn rarity_label(rarity: Rarity) -> &'static str {
+    match rarity {
+        Rarity::S => "S",
+        Rarity::A => "A",
+        Rarity::B => "B",
+        Rarity::C => "C",
+    }
 }
 
-async fn find_banner(
-    executor: impl MySqlExecutor<'_>,
-    banner_id: &str,
-) -> Result<ScoutBanner, ScoutError> {
-    let row: Option<(
-        String,
-        String,
-        Json<HashMap<String, f64>>,
-        i32,
-        chrono::NaiveDateTime,
-        chrono::NaiveDateTime,
-    )> = sqlx::query_as(
-        "SELECT banner_id, name, rate_table, cost_per_roll, start_at, end_at \
-         FROM scout_banners WHERE banner_id = ?",
-    )
-    .bind(banner_id)
-    .fetch_optional(executor)
-    .await
-    .map_err(|_| ScoutError::Internal)?;
-
-    let (banner_id, name, rate_table, cost_per_roll, start_at, end_at) =
-        row.ok_or(ScoutError::BannerNotFound)?;
-
-    Ok(ScoutBanner {
-        banner_id,
-        name,
-        rate_table: rate_table.0,
-        cost_per_roll,
-        start_at,
-        end_at,
-    })
+/// `now`(UTC)に開催中のバナーを、開催の始まりの順に返す。
+pub fn list_active_banners(master: &MasterData, now: NaiveDateTime) -> Vec<&ScoutBanner> {
+    master
+        .scout_banners
+        .iter()
+        .filter(|banner| banner.is_open(now))
+        .collect()
 }
 
-/// 候補10体をロールし、ジェム(item_id=1)を消費して`scout_rolls`へ保存する。
-/// 消費した後のジェムを`diff`に記録する。呼び出し元のトランザクション内で実行する。
+/// 候補を`CANDIDATES_PER_ROLL`体ロールし、ジェム(item_id=1)を消費して`scout_rolls`へ保存する。
+/// 消費した後のジェムを`diff`に、消費をゲームログに記録する。呼び出し元のトランザクション内で実行する。
 ///
 /// # Errors
 /// バナーが存在しない場合に`ScoutError::BannerNotFound`、開催期間外の場合に`ScoutError::BannerClosed`、
@@ -129,27 +81,32 @@ async fn find_banner(
 pub async fn create_roll(
     tx: &mut Transaction<'_, MySql>,
     diff: &mut PlayerDiffCollector,
+    logs: &mut GameLogCollector,
     master: &MasterData,
     player_id: &str,
     banner_id: &str,
 ) -> Result<ScoutRoll, ScoutError> {
-    let banner = find_banner(&mut **tx, banner_id).await?;
-
-    let now = Utc::now().naive_utc();
-    if now < banner.start_at || now > banner.end_at {
+    let banner = master
+        .scout_banners
+        .iter()
+        .find(|banner| banner.banner_id == banner_id)
+        .ok_or(ScoutError::BannerNotFound)?;
+    if !banner.is_open(Utc::now().naive_utc()) {
         return Err(ScoutError::BannerClosed);
     }
 
     let remaining_gems = player_item_service::deduct(
         tx,
+        logs,
         player_id,
         player_item_service::GEM_ITEM_ID,
         banner.cost_per_roll,
+        ItemReason::ScoutRoll,
     )
     .await?
     .ok_or(ScoutError::InsufficientGems)?;
 
-    let candidates = roll_candidates(master, &banner.rate_table)?;
+    let candidates = roll_candidates(master, banner)?;
 
     let roll_id = Ulid::generate().to_string();
     sqlx::query(
@@ -160,8 +117,7 @@ pub async fn create_roll(
     .bind(banner_id)
     .bind(Json(&candidates))
     .execute(&mut **tx)
-    .await
-    .map_err(|_| ScoutError::Internal)?;
+    .await?;
 
     diff.record_item(remaining_gems);
 
@@ -174,21 +130,18 @@ pub async fn create_roll(
     })
 }
 
-/// 候補10体を独立に抽選する(`rate_table`の重みでレアリティを決め、そのレアリティの種族から等確率で選ぶ)。
+/// 候補を`CANDIDATES_PER_ROLL`体、独立に抽選する(バナーの排出率の重みでレア度を決め、そのレア度の種族から等確率で選ぶ)。
 fn roll_candidates(
     master: &MasterData,
-    rate_table: &HashMap<String, f64>,
+    banner: &ScoutBanner,
 ) -> Result<Vec<ScoutCandidate>, ScoutError> {
     let mut rng = rand::rng();
 
-    let labels: Vec<&str> = rate_table.keys().map(String::as_str).collect();
-    let weights: Vec<f64> = labels.iter().map(|label| rate_table[*label]).collect();
-    let dist = WeightedIndex::new(&weights).map_err(|_| ScoutError::Internal)?;
+    let dist = WeightedIndex::new(banner.rates.iter().map(|rate| rate.weight))?;
 
-    let mut candidates = Vec::with_capacity(10);
-    for _ in 0..10 {
-        let label = labels[dist.sample(&mut rng)];
-        let rarity = rarity_from_label(label).ok_or(ScoutError::Internal)?;
+    let mut candidates = Vec::with_capacity(CANDIDATES_PER_ROLL);
+    for _ in 0..CANDIDATES_PER_ROLL {
+        let rarity = banner.rates[dist.sample(&mut rng)].rarity;
 
         let pool: Vec<&Pachimon> = master
             .pachimon
@@ -196,7 +149,10 @@ fn roll_candidates(
             .filter(|p| p.rarity == rarity)
             .collect();
         if pool.is_empty() {
-            return Err(ScoutError::Internal);
+            return Err(ScoutError::Internal(Internal::msg(format!(
+                "banner {} rolled {rarity:?}, but no pachimon has that rarity",
+                banner.banner_id
+            ))));
         }
         let pachimon = pool[rng.random_range(0..pool.len())];
 
@@ -209,7 +165,7 @@ fn roll_candidates(
 
         candidates.push(ScoutCandidate {
             pachimon_id: pachimon.pachimon_id,
-            rarity: label.to_string(),
+            rarity: rarity_label(rarity).to_string(),
             moves,
         });
     }
@@ -239,8 +195,7 @@ pub async fn select_candidate(
     .bind(roll_id)
     .bind(player_id)
     .fetch_optional(&mut **tx)
-    .await
-    .map_err(|_| ScoutError::Internal)?;
+    .await?;
 
     let (Json(candidates), selected_index) = row.ok_or(ScoutError::RollNotFound)?;
     if selected_index.is_some() {
@@ -259,8 +214,7 @@ pub async fn select_candidate(
     .bind(roll_id)
     .bind(player_id)
     .execute(&mut **tx)
-    .await
-    .map_err(|_| ScoutError::Internal)?;
+    .await?;
 
     let (player_pachimon, moves) =
         player_pachimon_service::grant(tx, player_id, candidate.pachimon_id, &candidate.moves)

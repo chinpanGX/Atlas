@@ -18,6 +18,7 @@ use Server::proto::atlas::internal::v1::{
 use Server::service::battle_service::{
     BATTLE_WIN_REWARD_GEMS, STALE_MATCH_TIMEOUT, abort_stale_matches,
 };
+use Server::service::game_log::GameLogCollector;
 use Server::service::{matchmaking_service, player_service};
 use common::{TestServer, prepare_db};
 
@@ -54,9 +55,15 @@ fn authorized<T>(message: T) -> Request<T> {
 async fn create_player(server: &TestServer, nickname: &str) -> String {
     let player_id = Ulid::generate().to_string();
     let mut tx = server.state.pool.begin().await.unwrap();
-    player_service::create(&mut tx, &server.state.master, &player_id, nickname)
-        .await
-        .unwrap_or_else(|err| panic!("failed to create player: {}", err.kind()));
+    player_service::create(
+        &mut tx,
+        &mut GameLogCollector::default(),
+        &server.state.master,
+        &player_id,
+        nickname,
+    )
+    .await
+    .unwrap_or_else(|err| panic!("failed to create player: {err:?}"));
     tx.commit().await.unwrap();
     player_id
 }
@@ -70,14 +77,14 @@ async fn join_queue(server: &TestServer, player_id: &str) {
         player_id,
     )
     .await
-    .unwrap_or_else(|err| panic!("failed to join queue: {}", err.kind()));
+    .unwrap_or_else(|err| panic!("failed to join queue: {err:?}"));
     tx.commit().await.unwrap();
 }
 
 /// マッチが成立していればその match_id を返す。
 fn matched_id(server: &TestServer, player_id: &str) -> Option<String> {
     matchmaking_service::find_match(&server.state.matchmaking, player_id)
-        .unwrap_or_else(|err| panic!("failed to find match: {}", err.kind()))
+        .unwrap_or_else(|err| panic!("failed to find match: {err:?}"))
         .map(|info| info.match_id)
 }
 

@@ -19,7 +19,9 @@ use tonic_types::StatusExt;
 use ulid::Ulid;
 use voltech_grpc_auth::proto::voltech::v1::device_service_client::DeviceServiceClient;
 use voltech_grpc_auth::proto::voltech::v1::{IssueTokenRequest, RegisterRequest};
+use voltech_grpc_log::RpcLogLayer;
 use voltech_grpc_status::{ServerStatus, StatusConfig};
+use voltech_grpc_transaction::GameLogSink;
 
 /// テストで使うサーバーの状態(メンテナンスなし・最低バージョンなし)。
 const TEST_SERVER_STATUS: &str = r#"
@@ -82,6 +84,8 @@ impl TestServer {
             listener,
             state.clone(),
             status,
+            RpcLogLayer::default(),
+            GameLogSink::Database,
             grpc::DevFeatures {
                 reflection: false,
                 debug_api: true,
@@ -94,6 +98,7 @@ impl TestServer {
         tokio::spawn(grpc::serve_internal(
             internal_listener,
             state.clone(),
+            RpcLogLayer::default(),
             std::future::pending(),
         ));
 
@@ -205,4 +210,35 @@ pub fn with_request_id<T>(message: T, token: &str, request_id: &str) -> Request<
 /// 業務エラーの `ErrorInfo` の reason を読む。業務エラーでなければ `None`。
 pub fn error_reason(status: &tonic::Status) -> Option<String> {
     status.get_details_error_info().map(|info| info.reason)
+}
+
+/// ゲームログのアイテムの増減の1件(`game_logs` の `kind = 'item'` の行)。
+#[derive(Debug, PartialEq, Eq)]
+pub struct ItemGameLog {
+    pub method: String,
+    pub item_id: String,
+    pub delta: i64,
+    pub after: i64,
+    pub reason: String,
+}
+
+/// プレイヤーのアイテムの増減のゲームログを、書いた順に返す。
+pub async fn item_game_logs(pool: &MySqlPool, player_id: &str) -> Vec<ItemGameLog> {
+    let player_id = Ulid::from_string(player_id).unwrap();
+    let rows: Vec<(String, sqlx::types::Json<serde_json::Value>)> = sqlx::query_as(
+        "SELECT method, body FROM game_logs WHERE player_id = ? AND kind = 'item' ORDER BY log_id",
+    )
+    .bind(player_id.to_bytes().as_slice())
+    .fetch_all(pool)
+    .await
+    .unwrap();
+    rows.into_iter()
+        .map(|(method, body)| ItemGameLog {
+            method,
+            item_id: body["target_id"].as_str().unwrap().to_owned(),
+            delta: body["delta"].as_i64().unwrap(),
+            after: body["after"].as_i64().unwrap(),
+            reason: body["reason"].as_str().unwrap().to_owned(),
+        })
+        .collect()
 }

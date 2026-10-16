@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use chrono::Utc;
 use jsonwebtoken::{EncodingKey, Header};
@@ -97,7 +97,7 @@ pub async fn join(
     player_id: &str,
 ) -> Result<(), AppError> {
     let opponent_id = {
-        let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
+        let mut queue = lock(queue)?;
 
         if queue.waiting.iter().any(|id| id == player_id) || queue.pairing.contains(player_id) {
             return Ok(());
@@ -135,13 +135,19 @@ pub async fn join(
                 .collect::<Result<Vec<_>, AppError>>()
         });
 
-    let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
+    let mut queue = lock(queue)?;
     queue.pairing.remove(&opponent_id);
     queue.pairing.remove(player_id);
 
     match result {
         Ok(infos) => {
             queue.matched.extend(infos);
+            tracing::info!(
+                match_id,
+                player1_id = opponent_id,
+                player2_id = player_id,
+                "battle match formed"
+            );
             Ok(())
         }
         Err(e) => {
@@ -156,7 +162,7 @@ pub async fn join(
 /// # Errors
 /// 待機列のロック取得に失敗した場合に`AppError::InternalError`を返す。
 pub fn leave(queue: &Mutex<MatchmakingQueue>, player_id: &str) -> Result<(), AppError> {
-    let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
+    let mut queue = lock(queue)?;
     queue.waiting.retain(|id| id != player_id);
     queue.matched.remove(player_id);
 
@@ -171,7 +177,7 @@ pub fn find_match(
     queue: &Mutex<MatchmakingQueue>,
     player_id: &str,
 ) -> Result<Option<MatchInfo>, AppError> {
-    let queue = queue.lock().map_err(|_| AppError::InternalError)?;
+    let queue = lock(queue)?;
 
     Ok(queue.matched.get(player_id).cloned())
 }
@@ -181,7 +187,7 @@ pub fn find_match(
 /// # Errors
 /// 待機列のロック取得に失敗した場合に`AppError::InternalError`を返す。
 pub fn clear_match(queue: &Mutex<MatchmakingQueue>, match_id: &str) -> Result<(), AppError> {
-    let mut queue = queue.lock().map_err(|_| AppError::InternalError)?;
+    let mut queue = lock(queue)?;
     queue.matched.retain(|_, info| info.match_id != match_id);
 
     Ok(())
@@ -198,10 +204,17 @@ fn issue_battle_token(secret: &str, match_id: &str, player_id: &str) -> Result<S
         exp: Utc::now().timestamp() + BATTLE_TOKEN_TTL_SECONDS,
     };
 
-    jsonwebtoken::encode(
+    let token = jsonwebtoken::encode(
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(secret.as_bytes()),
-    )
-    .map_err(|_| AppError::InternalError)
+    )?;
+    Ok(token)
+}
+
+/// 待機列をロックする。ロックを持ったままpanicしたスレッドがあれば内部エラーにする。
+fn lock(queue: &Mutex<MatchmakingQueue>) -> Result<MutexGuard<'_, MatchmakingQueue>, AppError> {
+    queue
+        .lock()
+        .map_err(|_| AppError::internal("matchmaking queue lock is poisoned"))
 }

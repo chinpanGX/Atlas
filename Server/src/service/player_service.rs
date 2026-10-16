@@ -5,6 +5,7 @@ use ulid::Ulid;
 use crate::error::AppError;
 use crate::master::MasterData;
 use crate::model::player::Player;
+use crate::service::game_log::GameLogCollector;
 use crate::service::{player_item_service, player_pachimon_service};
 
 /// signup時にitem_id=1(ジェム)として初期付与する数量
@@ -16,12 +17,13 @@ const STARTER_GEMS: i32 = 300;
 /// 作成済みなら何も変えずに作成済みのプレイヤーを返す(サインアップは再送されても同じ結果になるよう、
 /// 冪等に作る)。作成と同時に`starter_party_slots`マスタの内容をそのまま複製して初期パーティを付与し、
 /// 対戦可能な状態でゲームを開始できるようにする。呼び出し元のトランザクションで行うので、
-/// 途中で失敗しても「プレイヤーはいるがパーティが空」にはならない。
+/// 途中で失敗しても「プレイヤーはいるがパーティが空」にはならない。初期の付与は、作ったときだけゲームログに記録する。
 ///
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
 pub async fn create(
     tx: &mut Transaction<'_, MySql>,
+    logs: &mut GameLogCollector,
     master: &MasterData,
     player_id: &str,
     nickname: &str,
@@ -32,8 +34,7 @@ pub async fn create(
     )
     .bind(player_id)
     .fetch_optional(&mut **tx)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
     if let Some((player_id, nickname, created_at)) = existing {
         return Ok(Player {
             player_id,
@@ -46,13 +47,13 @@ pub async fn create(
         .bind(player_id)
         .bind(nickname)
         .execute(&mut **tx)
-        .await
-        .map_err(|_| AppError::InternalError)?;
+        .await?;
 
     grant_starter_party(tx, master, player_id).await?;
 
     player_item_service::grant_initial(
         tx,
+        logs,
         player_id,
         player_item_service::GEM_ITEM_ID,
         STARTER_GEMS,
@@ -78,7 +79,7 @@ async fn grant_starter_party(
             .pachimon
             .iter()
             .find(|p| p.pachimon_id == slot.pachimon_id)
-            .ok_or(AppError::InternalError)?;
+            .ok_or_else(|| AppError::internal("starter party refers to an unknown pachimon"))?;
 
         let moves: Vec<i32> = master
             .move_group_moves
@@ -100,8 +101,7 @@ async fn grant_starter_party(
         .bind(slot.slot_no)
         .bind(&player_pachimon.player_pachimon_id)
         .execute(&mut **tx)
-        .await
-        .map_err(|_| AppError::InternalError)?;
+        .await?;
     }
 
     Ok(())
@@ -119,8 +119,7 @@ pub async fn find_by_id(
         sqlx::query_as("SELECT player_id, nickname, created_at FROM players WHERE player_id = ?")
             .bind(player_id)
             .fetch_optional(executor)
-            .await
-            .map_err(|_| AppError::InternalError)?;
+            .await?;
 
     Ok(row.map(|(player_id, nickname, created_at)| Player {
         player_id,

@@ -96,7 +96,12 @@ Atlas側でサブモジュールの参照先コミットを更新してコミッ
 | `BATTLE_SERVER_URL` | Server | マッチ成立時にクライアントへ返すBattleServerのURL | 省略時`http://127.0.0.1:5000` |
 | `ENABLE_DEBUG_API` | Server(任意) | 開発用のAPI(`DebugService`: ジェムの付与・ランダム編成)を登録するか | `true`・`1`で登録、それ以外の値で登録しない。省略時はデバッグビルド(`cargo run`)だけ登録する。ボットはランダム編成を使う |
 | `API_SERVER_URL` | BattleServer | 対戦結果の送信先(Server) | 省略時`http://127.0.0.1:3000` |
-| `RUST_LOG` | Server(任意) | ログ出力レベル | 下記「Server」参照 |
+| `LOG_FORMAT` | Server(任意) | ログの形式 | `json`(省略時。1行1件)か`text`(開発中にターミナルで読むとき) |
+| `RUST_LOG` | Server(任意) | ログのレベルのフィルター | 省略時`info`。下記「Server」参照 |
+| `LOG_FIELD_NAMES` | Server(任意) | JSONの項目名 | `standard`(省略時)か`gcp`(Google Cloud Loggingの`severity`など) |
+| `OTEL_SERVICE_NAME` | Server(任意) | ログのどの行にも付けるサービス名 | 省略時`atlas-api` |
+| `APP_ENV` | Server(任意) | ログのどの行にも付ける環境名 | 省略時`local` |
+| `GAME_LOG_SINK` | Server(任意) | ゲームログ(所持データの変化の履歴)の出力先 | `database`(省略時。`game_logs`テーブル)か`stdout`(標準出力のJSON)。知らない値なら起動しない |
 
 ### シークレットの生成
 
@@ -106,7 +111,7 @@ openssl rand -hex 32   # 64文字。BATTLE_TOKEN_SECRET / INTERNAL_API_SECRET �
 
 ### Server: `Server/.env`
 
-Git管理外。各自作成する(`Server/`直下、`Cargo.toml`と同じ階層)。
+Git管理外。各自作成する(`Server/`直下、`Cargo.toml`と同じ階層)。見本の`Server/.env.example`をコピーして作ってよい。
 
 ```env
 DATABASE_URL=mysql://root@127.0.0.1:3306/atlas_dev
@@ -221,8 +226,9 @@ cargo test                           # テスト(MySQLコンテナの起動が�
 
 - ビルドにMySQLは要らない(SQLは実行時に組み立てる`sqlx::query`で、コンパイル時に検査するマクロは使っていない)。
   `cargo run`・`cargo test`は実行時にMySQLへつなぐため、先に`make up`する
-- ログレベル: `RUST_LOG="info,Server=debug"`でリクエスト/レスポンスのボディ、
-  `RUST_LOG="info,Server=debug,sqlx::query=debug"`でSQLも出る
+- ログは標準出力に1行1件のJSONで出る。ターミナルで読むときは`LOG_FORMAT=text`にする。
+  `RUST_LOG="info,sqlx::query=debug"`で実行したSQLも出る。RPCごとのアクセスログには`request_id`・`player_id`が付くので、
+  クライアントの`x-request-id`やプレイヤーで探せる
 - `cargo run`中は`target/debug/Server.exe`がロックされ、`cargo test`等のビルドが
   「アクセスが拒否されました」で失敗する。サーバーを止めるか、`CARGO_TARGET_DIR`で別の出力先を指定する
 

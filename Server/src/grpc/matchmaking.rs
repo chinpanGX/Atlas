@@ -1,10 +1,10 @@
 use std::sync::{Arc, Mutex};
 
 use tonic::{Request, Response, Status};
-use voltech_grpc_error::failed_precondition;
+use voltech_grpc_error::{ResultExt, failed_precondition};
 use voltech_grpc_transaction::Transactions;
 
-use crate::grpc::context::{internal_error, player_id, to_ulid};
+use crate::grpc::context::{player_id, to_ulid};
 use crate::proto::atlas::v1::matchmaking_service_server::{
     MatchmakingService, MatchmakingServiceServer,
 };
@@ -56,17 +56,17 @@ impl MatchmakingService for MatchmakingServiceImpl {
 
         let response = self
             .transactions
-            .run(&request, Some(player_ulid), move |tx| {
+            .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
-                    let party = player_pachimon_service::list_party(&mut **tx, &player_id)
+                    let party = player_pachimon_service::list_party(&mut **ctx.tx(), &player_id)
                         .await
-                        .map_err(internal_error)?;
+                        .or_internal()?;
                     if party.is_empty() {
                         return Err(failed_precondition(errors::PARTY_EMPTY, "party is empty"));
                     }
-                    matchmaking_service::join(tx, &queue, &config, &player_id)
+                    matchmaking_service::join(ctx.tx(), &queue, &config, &player_id)
                         .await
-                        .map_err(internal_error)?;
+                        .or_internal()?;
                     Ok(JoinQueueResponse {})
                 })
             })
@@ -85,7 +85,7 @@ impl MatchmakingService for MatchmakingServiceImpl {
             .transactions
             .run(&request, None, move |_| {
                 Box::pin(async move {
-                    matchmaking_service::leave(&queue, &player_id).map_err(internal_error)?;
+                    matchmaking_service::leave(&queue, &player_id).or_internal()?;
                     Ok(LeaveQueueResponse {})
                 })
             })
@@ -104,8 +104,7 @@ impl MatchmakingService for MatchmakingServiceImpl {
             .transactions
             .run(&request, None, move |_| {
                 Box::pin(async move {
-                    let info = matchmaking_service::find_match(&queue, &player_id)
-                        .map_err(internal_error)?;
+                    let info = matchmaking_service::find_match(&queue, &player_id).or_internal()?;
                     Ok(match info {
                         Some(info) => GetQueueStatusResponse {
                             status: QueueStatus::Matched.into(),

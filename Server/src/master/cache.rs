@@ -1,6 +1,9 @@
 use sqlx::MySqlPool;
 
-use super::{Items, MoveGroupMoves, Pachimon, PachimonType, Rarity, StarterPartySlots};
+use super::{
+    Items, MoveGroupMoves, Pachimon, PachimonType, Rarity, ScoutBanner, ScoutBannerRate,
+    StarterPartySlots,
+};
 
 /// 起動時にDBから読み込むマスタデータのメモリキャッシュ。
 ///
@@ -15,6 +18,8 @@ pub struct MasterData {
     pub move_group_moves: Vec<MoveGroupMoves>,
     pub starter_party_slots: Vec<StarterPartySlots>,
     pub items: Vec<Items>,
+    /// スカウトのバナーと排出率。開催期間外のものも含む(開催中かはリクエストのたびに今の時刻と比べる)
+    pub scout_banners: Vec<ScoutBanner>,
 }
 
 impl MasterData {
@@ -27,12 +32,14 @@ impl MasterData {
         let move_group_moves = load_move_group_moves(pool).await?;
         let starter_party_slots = load_starter_party_slots(pool).await?;
         let items = load_items(pool).await?;
+        let scout_banners = load_scout_banners(pool).await?;
 
         Ok(MasterData {
             pachimon,
             move_group_moves,
             starter_party_slots,
             items,
+            scout_banners,
         })
     }
 }
@@ -161,6 +168,56 @@ async fn load_items(pool: &MySqlPool) -> Result<Vec<Items>, sqlx::Error> {
         .map(|row| Items {
             item_id: row.item_id,
             name: row.name,
+        })
+        .collect())
+}
+
+#[derive(sqlx::FromRow)]
+struct ScoutBannersRow {
+    banner_id: String,
+    name: String,
+    cost_per_roll: i32,
+    start_at: chrono::NaiveDateTime,
+    end_at: chrono::NaiveDateTime,
+}
+
+#[derive(sqlx::FromRow)]
+struct ScoutBannerRatesRow {
+    banner_id: String,
+    rarity: u8,
+    weight: i32,
+}
+
+/// `scout_banners`と`scout_banner_rates`を読み、バナーごとに排出率をまとめる。日時はUTCで入っている。
+async fn load_scout_banners(pool: &MySqlPool) -> Result<Vec<ScoutBanner>, sqlx::Error> {
+    let banners: Vec<ScoutBannersRow> = sqlx::query_as(
+        "SELECT banner_id, name, cost_per_roll, start_at, end_at FROM scout_banners \
+         ORDER BY start_at, banner_id",
+    )
+    .fetch_all(pool)
+    .await?;
+    let rates: Vec<ScoutBannerRatesRow> = sqlx::query_as(
+        "SELECT banner_id, rarity, weight FROM scout_banner_rates ORDER BY scout_banner_rate_id",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(banners
+        .into_iter()
+        .map(|banner| ScoutBanner {
+            rates: rates
+                .iter()
+                .filter(|rate| rate.banner_id == banner.banner_id)
+                .map(|rate| ScoutBannerRate {
+                    rarity: rarity_from_u8(rate.rarity),
+                    weight: rate.weight,
+                })
+                .collect(),
+            banner_id: banner.banner_id,
+            name: banner.name,
+            cost_per_roll: banner.cost_per_roll,
+            start_at: banner.start_at,
+            end_at: banner.end_at,
         })
         .collect())
 }

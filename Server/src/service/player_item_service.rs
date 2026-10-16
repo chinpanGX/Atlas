@@ -2,19 +2,21 @@ use sqlx::{MySql, MySqlExecutor, Transaction};
 
 use crate::error::AppError;
 use crate::model::player_item::PlayerItem;
+use crate::service::game_log::{GameLogCollector, ItemReason};
 
 /// ジェム(スカウトの紹介コストに使う課金通貨相当)の`item_id`。
 /// `Shared/master-data/csv/items_master.csv`で`item_id=1`として定義されている。
 pub const GEM_ITEM_ID: i32 = 1;
 
 /// 新規行としてアイテムを付与する(`player_service::create`のsignup時初期付与のみで使う想定)。
-/// 呼び出し元のトランザクション内で実行する。
+/// 付与をゲームログ(理由はサインアップ)に記録する。呼び出し元のトランザクション内で実行する。
 ///
 /// # Errors
 /// DBアクセスに失敗した場合(既に行が存在する場合の一意制約違反を含む)に
 /// `AppError::InternalError`を返す。
 pub async fn grant_initial(
     tx: &mut Transaction<'_, MySql>,
+    logs: &mut GameLogCollector,
     player_id: &str,
     item_id: i32,
     quantity: i32,
@@ -24,23 +26,30 @@ pub async fn grant_initial(
         .bind(item_id)
         .bind(quantity)
         .execute(&mut **tx)
-        .await
-        .map_err(|_| AppError::InternalError)?;
+        .await?;
 
+    let item = PlayerItem {
+        player_id: player_id.to_string(),
+        item_id,
+        quantity,
+    };
+    logs.record_item(&item, quantity, ItemReason::SignUp);
     Ok(())
 }
 
-/// 指定アイテムを`amount`分加算する(`battle_service::record_result`の勝利報酬付与から利用)。
-/// 行が無ければ`amount`個で作成する(UPSERT)。呼び出し元のトランザクション内で実行する。
+/// 指定アイテムを`amount`分加算し、更新後の所持数を返す。行が無ければ`amount`個で作成する(UPSERT)。
+/// 増えた分をゲームログに`reason`で記録する。呼び出し元のトランザクション内で実行する。
 ///
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
 pub async fn add(
     tx: &mut Transaction<'_, MySql>,
+    logs: &mut GameLogCollector,
     player_id: &str,
     item_id: i32,
     amount: i32,
-) -> Result<(), AppError> {
+    reason: ItemReason,
+) -> Result<PlayerItem, AppError> {
     sqlx::query(
         "INSERT INTO player_items (player_id, item_id, quantity) VALUES (?, ?, ?) AS new \
          ON DUPLICATE KEY UPDATE quantity = player_items.quantity + new.quantity",
@@ -49,41 +58,11 @@ pub async fn add(
     .bind(item_id)
     .bind(amount)
     .execute(&mut **tx)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
-    Ok(())
-}
-
-/// `add`と同様に`amount`分加算した上で、更新後の所持数を返す(`debug::grant_gems_handler`の
-/// ジェム付与から利用。`playerDiff`のレスポンスに反映するため更新後の値が必要)。
-/// 呼び出し元のトランザクション内で実行する。
-///
-/// # Errors
-/// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
-pub async fn add_and_get(
-    tx: &mut Transaction<'_, MySql>,
-    player_id: &str,
-    item_id: i32,
-    amount: i32,
-) -> Result<PlayerItem, AppError> {
-    add(tx, player_id, item_id, amount).await?;
-
-    let row: (String, i32, i32) = sqlx::query_as(
-        "SELECT player_id, item_id, quantity FROM player_items \
-         WHERE player_id = ? AND item_id = ?",
-    )
-    .bind(player_id)
-    .bind(item_id)
-    .fetch_one(&mut **tx)
-    .await
-    .map_err(|_| AppError::InternalError)?;
-
-    Ok(PlayerItem {
-        player_id: row.0,
-        item_id: row.1,
-        quantity: row.2,
-    })
+    let item = find(&mut **tx, player_id, item_id).await?;
+    logs.record_item(&item, amount, reason);
+    Ok(item)
 }
 
 /// 認証済みプレイヤーの所持アイテム一覧を取得する。所持数0のアイテムは行自体が存在しないため
@@ -101,8 +80,7 @@ pub async fn list(
     )
     .bind(player_id)
     .fetch_all(executor)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     Ok(rows
         .into_iter()
@@ -118,14 +96,17 @@ pub async fn list(
 /// `WHERE quantity >= amount`を満たす行のみUPDATEすることで、所持数不足を1クエリで
 /// 原子的に検出する(呼び出し元のトランザクション内で実行する)。
 /// 所持数が不足している場合(対象行が無い場合を含む)は何も変えずに`None`を返す。
+/// 消費した分を負の増減としてゲームログに`reason`で記録する。
 ///
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
 pub async fn deduct(
     tx: &mut Transaction<'_, MySql>,
+    logs: &mut GameLogCollector,
     player_id: &str,
     item_id: i32,
     amount: i32,
+    reason: ItemReason,
 ) -> Result<Option<PlayerItem>, AppError> {
     let update_result = sqlx::query(
         "UPDATE player_items SET quantity = quantity - ? \
@@ -136,26 +117,34 @@ pub async fn deduct(
     .bind(item_id)
     .bind(amount)
     .execute(&mut **tx)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     if update_result.rows_affected() == 0 {
         return Ok(None);
     }
 
-    let row: (String, i32, i32) = sqlx::query_as(
+    let item = find(&mut **tx, player_id, item_id).await?;
+    logs.record_item(&item, -amount, reason);
+    Ok(Some(item))
+}
+
+async fn find(
+    executor: impl MySqlExecutor<'_>,
+    player_id: &str,
+    item_id: i32,
+) -> Result<PlayerItem, AppError> {
+    let (player_id, item_id, quantity): (String, i32, i32) = sqlx::query_as(
         "SELECT player_id, item_id, quantity FROM player_items \
          WHERE player_id = ? AND item_id = ?",
     )
     .bind(player_id)
     .bind(item_id)
-    .fetch_one(&mut **tx)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .fetch_one(executor)
+    .await?;
 
-    Ok(Some(PlayerItem {
-        player_id: row.0,
-        item_id: row.1,
-        quantity: row.2,
-    }))
+    Ok(PlayerItem {
+        player_id,
+        item_id,
+        quantity,
+    })
 }

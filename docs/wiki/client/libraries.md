@@ -27,7 +27,7 @@ updated: 2026-10-11
 | マスターデータ | MasterMemory + MessagePack | NuGetForUnity |
 | シリアライズ(マスターデータ・対戦の通信・セーブデータ) | MessagePack(本体と Source Generator `MessagePackAnalyzer`) | NuGetForUnity |
 | 対戦の通信 | MagicOnion.Client + YetAnotherHttpHandler + Grpc.Net.Client | OpenUPM + NuGetForUnity + UnityNuGet |
-| APIサーバーとの通信 | VolTech gRPC(自作の基盤。`ApiCore`・認証・エラーダイアログの仕組み・gRPC Monitor)+ `.proto` から生成したラッパー | Git(タグ `v0.2.0`)+ 生成コード |
+| APIサーバーとの通信 | VolTech gRPC(自作の基盤。`ApiCore`・認証・エラーダイアログの仕組み・gRPC Monitor)+ `.proto` から生成したラッパー | Git(タグ `v0.3.0`)+ 生成コード |
 | テスト | Unity Test Framework | Unity |
 | NuGet パッケージの導入 | NuGetForUnity | Git |
 | 開発支援(AI エージェントから Editor を操作する) | Unity CLI Loop(`uloop`) | Git |

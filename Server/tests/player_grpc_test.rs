@@ -2,7 +2,7 @@
 mod common;
 
 use Server::proto::atlas::v1::SignInRequest;
-use common::{TestServer, error_reason, prepare_db};
+use common::{ItemGameLog, TestServer, error_reason, item_game_logs, prepare_db};
 use sqlx::MySqlPool;
 use tonic::Code;
 
@@ -61,6 +61,18 @@ async fn sign_up_twice_returns_existing_player_without_changes(pool: MySqlPool) 
     let snapshot = server.sign_in(&token).await.unwrap().snapshot.unwrap();
     assert_eq!(snapshot.pachimon.len(), 1);
     assert_eq!(snapshot.items[0].quantity, 300);
+
+    // 初期の付与のゲームログも、作ったときの1件だけ
+    assert_eq!(
+        item_game_logs(&server.state.pool, &player_id).await,
+        vec![ItemGameLog {
+            method: "atlas.v1.PlayerService/SignUp".to_owned(),
+            item_id: "1".to_owned(),
+            delta: 300,
+            after: 300,
+            reason: "sign_up".to_owned(),
+        }]
+    );
 }
 
 #[sqlx::test(migrations = false)]

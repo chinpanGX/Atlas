@@ -96,7 +96,8 @@ flowchart LR
 
 | ページ | 状態 | 内容 |
 |---|---|---|
-| [構成](server/structure.md) | `current` | ポート、Layer、ディレクトリ、トランザクション、API 一覧 |
+| [構成](server/structure.md) | `current` | ポート、Layer、ログ、ディレクトリ、トランザクション、API 一覧 |
+| [ゲームログ](server/game-log.md) | `current` | 所持データの変化の履歴(何を残し、何がまだ残せないか) |
 | [認証](server/auth.md) | `current` | デバイス認証、`battle_token`、内部 API のシークレット |
 | [プレイヤー](server/player.md) | `current` | サインアップ・サインイン |
 | [パーティ編成・技の付け替え](server/party.md) | `current` | `SetParty`・`SetPachimonMove` |
@@ -112,7 +113,7 @@ flowchart LR
 |---|---|---|
 | [DB(方針と一覧)](db/index.md) | `current` | 方針とテーブル一覧 |
 | [プレイヤーと所持データのテーブル](db/player-tables.md) | `current` | `players`・`player_*` |
-| [スカウトのテーブル](db/scout-tables.md) | `current` | `scout_banners`・`scout_rolls` |
+| [スカウトのテーブル](db/scout-tables.md) | `current` | `scout_banners`・`scout_banner_rates`・`scout_rolls` |
 | [対戦のテーブル](db/battle-tables.md) | `current` | `battle_matches`・`battle_turns` |
 
 ### [マスターデータ](master-data/index.md)

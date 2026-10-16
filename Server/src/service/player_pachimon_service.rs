@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::{MySql, MySqlExecutor, MySqlPool, Transaction};
 use ulid::Ulid;
 
+use voltech_grpc_error::Internal;
+
 use crate::error::AppError;
 use crate::master::MasterData;
 use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove};
@@ -64,8 +66,7 @@ pub async fn grant(
     .bind(pachimon_id)
     .bind(sqlx::types::Json(&effort_values))
     .execute(&mut **tx)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     let mut granted_moves = Vec::with_capacity(moves.len());
     for (slot, move_id) in moves.iter().enumerate() {
@@ -81,8 +82,7 @@ pub async fn grant(
         .bind(slot)
         .bind(*move_id)
         .execute(&mut **tx)
-        .await
-        .map_err(|_| AppError::InternalError)?;
+        .await?;
 
         granted_moves.push(PlayerPachimonMove {
             player_pachimon_move_id,
@@ -96,8 +96,7 @@ pub async fn grant(
         sqlx::query_as("SELECT obtained_at FROM player_pachimon WHERE player_pachimon_id = ?")
             .bind(&player_pachimon_id)
             .fetch_one(&mut **tx)
-            .await
-            .map_err(|_| AppError::InternalError)?;
+            .await?;
 
     Ok((
         PlayerPachimon {
@@ -126,8 +125,7 @@ pub async fn list_owned_pachimon(
     )
     .bind(player_id)
     .fetch_all(executor)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     Ok(rows
         .into_iter()
@@ -159,8 +157,7 @@ pub async fn list_owned_moves(
     )
     .bind(player_id)
     .fetch_all(executor)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     Ok(rows
         .into_iter()
@@ -192,8 +189,7 @@ pub async fn find_battle_loadouts(
     )
     .bind(player_id)
     .fetch_all(pool)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     // list_owned_movesはslot順に並んでいるため、個体ごとに振り分けてもslot順が保たれる。
     let owned_moves = list_owned_moves(pool, player_id).await?;
@@ -239,8 +235,7 @@ pub async fn list_battle_party(
     )
     .bind(player_id)
     .fetch_all(pool)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     Ok(rows
         .into_iter()
@@ -266,8 +261,7 @@ pub async fn list_party(
     )
     .bind(player_id)
     .fetch_all(executor)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     Ok(rows
         .into_iter()
@@ -294,7 +288,17 @@ pub enum PartyError {
     /// 技が個体の技グループの候補技でない。
     MoveNotLearnable,
     /// DBアクセスやマスタの不整合。
-    Internal,
+    Internal(Internal),
+}
+
+impl<E> From<E> for PartyError
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(err: E) -> Self {
+        Self::Internal(Internal::from(err))
+    }
 }
 
 /// バトル用パーティ(1-6体)を編成する。既存の割当(`player_party_slots`)を一旦全削除してから、
@@ -339,8 +343,7 @@ pub async fn set_party(
         .bind(&s.player_pachimon_id)
         .bind(player_id)
         .fetch_optional(&mut **tx)
-        .await
-        .map_err(|_| PartyError::Internal)?;
+        .await?;
 
         if owned.is_none() {
             return Err(PartyError::PachimonNotOwned);
@@ -351,8 +354,7 @@ pub async fn set_party(
         sqlx::query_as("SELECT party_slot_id FROM player_party_slots WHERE player_id = ?")
             .bind(player_id)
             .fetch_all(&mut **tx)
-            .await
-            .map_err(|_| PartyError::Internal)?;
+            .await?;
     for (party_slot_id,) in removed {
         diff.record_removed_party_slot(party_slot_id);
     }
@@ -360,8 +362,7 @@ pub async fn set_party(
     sqlx::query("DELETE FROM player_party_slots WHERE player_id = ?")
         .bind(player_id)
         .execute(&mut **tx)
-        .await
-        .map_err(|_| PartyError::Internal)?;
+        .await?;
 
     for s in slots {
         let party_slot_id = Ulid::generate().to_string();
@@ -375,8 +376,7 @@ pub async fn set_party(
         .bind(s.slot)
         .bind(&s.player_pachimon_id)
         .execute(&mut **tx)
-        .await
-        .map_err(|_| PartyError::Internal)?;
+        .await?;
 
         diff.record_party_slot(PlayerPartySlot {
             party_slot_id,
@@ -434,8 +434,7 @@ pub async fn randomize_party(
         sqlx::query_as("SELECT party_slot_id FROM player_party_slots WHERE player_id = ?")
             .bind(player_id)
             .fetch_all(&mut **tx)
-            .await
-            .map_err(|_| AppError::InternalError)?;
+            .await?;
     for (party_slot_id,) in removed {
         diff.record_removed_party_slot(party_slot_id);
     }
@@ -443,8 +442,7 @@ pub async fn randomize_party(
     sqlx::query("DELETE FROM player_party_slots WHERE player_id = ?")
         .bind(player_id)
         .execute(&mut **tx)
-        .await
-        .map_err(|_| AppError::InternalError)?;
+        .await?;
 
     for (index, (pachimon_id, moves)) in picks.iter().enumerate() {
         let (player_pachimon, granted_moves) = grant(tx, player_id, *pachimon_id, moves).await?;
@@ -460,8 +458,7 @@ pub async fn randomize_party(
         .bind(slot)
         .bind(&player_pachimon.player_pachimon_id)
         .execute(&mut **tx)
-        .await
-        .map_err(|_| AppError::InternalError)?;
+        .await?;
 
         diff.record_party_slot(PlayerPartySlot {
             party_slot_id,
@@ -504,8 +501,7 @@ pub async fn update_move(
     .bind(player_pachimon_id)
     .bind(player_id)
     .fetch_optional(&mut **tx)
-    .await
-    .map_err(|_| PartyError::Internal)?;
+    .await?;
 
     let pachimon_id = row.ok_or(PartyError::PachimonNotOwned)?.0;
 
@@ -513,7 +509,11 @@ pub async fn update_move(
         .pachimon
         .iter()
         .find(|p| p.pachimon_id == pachimon_id)
-        .ok_or(PartyError::Internal)?;
+        .ok_or_else(|| {
+            PartyError::Internal(Internal::msg(
+                "player_pachimon refers to an unknown pachimon",
+            ))
+        })?;
 
     let is_candidate_move = master
         .move_group_moves
@@ -538,8 +538,7 @@ pub async fn update_move(
     .bind(slot)
     .bind(move_id)
     .execute(&mut **tx)
-    .await
-    .map_err(|_| PartyError::Internal)?;
+    .await?;
 
     let player_pachimon_move_id: (String,) = sqlx::query_as(
         "SELECT player_pachimon_move_id FROM player_pachimon_moves \
@@ -548,8 +547,7 @@ pub async fn update_move(
     .bind(player_pachimon_id)
     .bind(slot)
     .fetch_one(&mut **tx)
-    .await
-    .map_err(|_| PartyError::Internal)?;
+    .await?;
 
     diff.record_pachimon_move(PlayerPachimonMove {
         player_pachimon_move_id: player_pachimon_move_id.0,

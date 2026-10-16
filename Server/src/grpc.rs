@@ -16,10 +16,10 @@ use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
 use tower::Layer;
-use tower_http::trace::TraceLayer;
 use voltech_grpc_auth::{AuthLayer, DeviceServiceImpl};
+use voltech_grpc_log::RpcLogLayer;
 use voltech_grpc_status::{DateChangeLayer, ServerStatus, ServerStatusLayer};
-use voltech_grpc_transaction::{IdempotencyLevels, RpcMethodLayer, Transactions};
+use voltech_grpc_transaction::{GameLogSink, IdempotencyLevels, RpcMethodLayer, Transactions};
 
 pub use debug::DebugServiceImpl;
 pub use internal_battle::{BattleInternalServiceImpl, INTERNAL_SECRET_HEADER};
@@ -48,6 +48,8 @@ pub async fn serve(
     listener: TcpListener,
     state: AppState,
     status: ServerStatus,
+    rpc_log: RpcLogLayer,
+    game_log_sink: GameLogSink,
     dev: DevFeatures,
     shutdown: impl Future<Output = ()>,
 ) -> Result<(), BoxError> {
@@ -66,6 +68,7 @@ pub async fn serve(
     let transactions = Transactions::new(
         state.pool.clone(),
         IdempotencyLevels::from_file_descriptor_set(proto::FILE_DESCRIPTOR_SET)?,
+        game_log_sink,
     );
     let auth = AuthLayer::new(state.pool.clone(), PlayerLookup::new(state.pool.clone()));
     let date_change = DateChangeLayer::new(status.clone());
@@ -77,7 +80,8 @@ pub async fn serve(
         });
 
     Server::builder()
-        .layer(TraceLayer::new_for_grpc())
+        // メンテナンスや認証で返したエラーもアクセスログに出すように、一番外側に付ける
+        .layer(rpc_log)
         // 強制アップデートとメンテナンスは、認証より先に全サービスで判定する
         .layer(ServerStatusLayer::new(status))
         // Transactions::run が RPC の名前を読めるように、全サービスの外側に付ける
@@ -114,18 +118,19 @@ pub async fn serve(
 
 /// `listener` で、バトルサーバー向けの内部API(`BattleInternalService`)を動かす。`shutdown` が完了すると止まる。
 ///
-/// クライアント向けとはポートを分け、基盤の Layer(認証・冪等性・メンテナンス・日付変更)を付けない。
+/// クライアント向けとはポートを分け、基盤の Layer のうちログ(`RpcLogLayer`)だけを付ける(認証・冪等性・メンテナンス・日付変更は付けない)。
 /// メンテナンス中でもバトルサーバーからの結果の報告を受けるため。認証は共有シークレットで行う。
 pub async fn serve_internal(
     listener: TcpListener,
     state: AppState,
+    rpc_log: RpcLogLayer,
     shutdown: impl Future<Output = ()>,
 ) -> Result<(), BoxError> {
     let service = BattleInternalServiceImpl::new(state.pool.clone(), state.matchmaking.clone())
         .into_server(state.battle.internal_api_secret.clone());
 
     Server::builder()
-        .layer(TraceLayer::new_for_grpc())
+        .layer(rpc_log)
         .add_service(service)
         .serve_with_incoming_shutdown(TcpListenerStream::new(listener), shutdown)
         .await?;

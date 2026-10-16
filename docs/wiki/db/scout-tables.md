@@ -3,8 +3,8 @@ title: "スカウトのテーブル"
 status: current
 area: db
 related: [db/index, server/scout, game/scout]
-code: [Server/migrations, Server/src/model/scout_banner.rs, Server/src/model/scout_roll.rs]
-updated: 2026-10-11
+code: [Server/migrations, Server/src/master/scout_banner.rs, Server/src/model/scout_roll.rs]
+updated: 2026-10-16
 ---
 
 # スカウトのテーブル
@@ -15,11 +15,22 @@ updated: 2026-10-11
 |---|---|---|---|
 | `banner_id` | CHAR(26) | PK | |
 | `name` | VARCHAR(100) | NOT NULL | |
-| `rate_table` | JSON | NOT NULL | レア度ごとの確率(合計1.0)。例: `{"S":0.03,"A":0.12,"B":0.35,"C":0.50}` |
 | `cost_per_roll` | INT | NOT NULL | 紹介1回のジェム |
-| `start_at` / `end_at` | DATETIME(3) | NOT NULL | 開催期間 |
+| `start_at` / `end_at` | DATETIME(3) | NOT NULL | 開催期間(UTC) |
 
-マスターデータではなく、`seed_scout_banners` で投入する([スカウト(API)](../server/scout.md) の「設計上の判断」)。
+マスターデータ(`seed_master_data` で投入する)。マスタの CSV では日時を UTC の文字列で持ち、投入するときに変換する
+([マスターデータのテーブル](../master-data/tables.md))。
+
+## scout_banner_rates
+
+| 列 | 型 | 制約 | 説明 |
+|---|---|---|---|
+| `scout_banner_rate_id` | INT | PK | 代理キー(パイプラインが複合主キーを持てないため) |
+| `banner_id` | CHAR(26) | NOT NULL, FK → `scout_banners` | |
+| `rarity` | TINYINT UNSIGNED | NOT NULL | `Rarity` の値 |
+| `weight` | INT | NOT NULL | 1万分率の重み(3% = 300)。バナーごとの合計は10000 |
+
+マスターデータ。`seed_master_data` は、マスタから消した行が残って合計が崩れないように、全件を消してから入れ直す。
 
 ## scout_rolls
 

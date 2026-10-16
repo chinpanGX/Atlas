@@ -56,10 +56,10 @@ impl PartyService for PartyServiceImpl {
 
         let response = self
             .transactions
-            .run(&request, Some(player_ulid), move |tx| {
+            .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
                     let mut diff = PlayerDiffCollector::default();
-                    player_pachimon_service::set_party(tx, &mut diff, &player_id, slots)
+                    player_pachimon_service::set_party(ctx.tx(), &mut diff, &player_id, slots)
                         .await
                         .map_err(to_status)?;
                     Ok(SetPartyResponse {
@@ -86,11 +86,11 @@ impl PartyService for PartyServiceImpl {
 
         let response = self
             .transactions
-            .run(&request, Some(player_ulid), move |tx| {
+            .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
                     let mut diff = PlayerDiffCollector::default();
                     player_pachimon_service::update_move(
-                        tx,
+                        ctx.tx(),
                         &mut diff,
                         &master,
                         &player_id,
@@ -123,6 +123,6 @@ fn to_status(err: PartyError) -> Status {
             errors::MOVE_NOT_LEARNABLE,
             "move is not a candidate move for this pachimon",
         ),
-        PartyError::Internal => internal("party service failed"),
+        PartyError::Internal(err) => internal(err),
     }
 }

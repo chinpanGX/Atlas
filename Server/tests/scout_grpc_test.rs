@@ -6,7 +6,8 @@ use Server::proto::atlas::v1::{
     ListBannersRequest, RollRequest, RollResponse, SelectRequest, SelectResponse,
 };
 use common::{
-    TestServer, authorized, authorized_with_request_id, error_reason, prepare_db, with_request_id,
+    ItemGameLog, TestServer, authorized, authorized_with_request_id, error_reason, item_game_logs,
+    prepare_db, with_request_id,
 };
 use sqlx::MySqlPool;
 use tonic::Code;
@@ -25,6 +26,7 @@ const COST_PER_ROLL: i32 = 100;
 const STARTER_GEMS: i32 = 300;
 
 /// バナーを足す。排出はレアリティ C だけにし、`prepare_db` のパチモン(pachimon_id=1、C)だけが出るようにする。
+/// バナーはマスタとして `TestServer::start` で読み込むので、その前に呼ぶ。
 async fn add_banners(pool: &MySqlPool) {
     let banners = [
         (OPEN_BANNER, "開催中", COST_PER_ROLL, -1, 1),
@@ -32,10 +34,10 @@ async fn add_banners(pool: &MySqlPool) {
         (CLOSED_BANNER, "終了", COST_PER_ROLL, -2, -1),
         (UPCOMING_BANNER, "開催前", COST_PER_ROLL, 1, 2),
     ];
-    for (banner_id, name, cost, start_days, end_days) in banners {
+    for (rate_id, (banner_id, name, cost, start_days, end_days)) in (1..).zip(banners) {
         sqlx::query(
-            "INSERT INTO scout_banners (banner_id, name, rate_table, cost_per_roll, start_at, end_at) \
-             VALUES (?, ?, '{\"C\": 1.0}', ?, \
+            "INSERT INTO scout_banners (banner_id, name, cost_per_roll, start_at, end_at) \
+             VALUES (?, ?, ?, \
                      UTC_TIMESTAMP(3) + INTERVAL ? DAY, UTC_TIMESTAMP(3) + INTERVAL ? DAY)",
         )
         .bind(banner_id)
@@ -43,6 +45,15 @@ async fn add_banners(pool: &MySqlPool) {
         .bind(cost)
         .bind(start_days)
         .bind(end_days)
+        .execute(pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO scout_banner_rates (scout_banner_rate_id, banner_id, rarity, weight) \
+             VALUES (?, ?, 4, 10000)",
+        )
+        .bind(rate_id)
+        .bind(banner_id)
         .execute(pool)
         .await
         .unwrap();
@@ -183,7 +194,7 @@ async fn roll_consumes_gems_and_returns_candidates(pool: MySqlPool) {
 #[sqlx::test(migrations = false)]
 async fn roll_resent_with_same_request_id_runs_once(pool: MySqlPool) {
     let server = start(pool).await;
-    let (_, token) = server.create_player("プレイヤー").await;
+    let (player_id, token) = server.create_player("プレイヤー").await;
     let request_id = ulid::Ulid::generate().to_string();
 
     let mut roll_ids = Vec::new();
@@ -204,6 +215,20 @@ async fn roll_resent_with_same_request_id_runs_once(pool: MySqlPool) {
 
     assert_eq!(roll_ids[0], roll_ids[1]);
     assert_eq!(gems(&server, &token).await, STARTER_GEMS - COST_PER_ROLL);
+
+    // ジェムの消費のゲームログも1回分だけ(サインアップの付与の後に1件)
+    let logs = item_game_logs(&server.state.pool, &player_id).await;
+    assert_eq!(logs.len(), 2);
+    assert_eq!(
+        logs[1],
+        ItemGameLog {
+            method: "atlas.v1.ScoutService/Roll".to_owned(),
+            item_id: "1".to_owned(),
+            delta: -i64::from(COST_PER_ROLL),
+            after: i64::from(STARTER_GEMS - COST_PER_ROLL),
+            reason: "scout_roll".to_owned(),
+        }
+    );
 }
 
 /// バナーが無い・開催期間外・ジェムが足りないときは、それぞれの業務エラーで、ジェムを消費しない。

@@ -22,7 +22,7 @@ APIサーバー・C#/MagicOnionのバトルサーバーで構成する。この�
 構成の説明と理由は[概要](docs/wiki/overview.md)。ここには、作業するときに外してはいけない決まりだけを書く。
 
 - **ClientとAPIサーバーの通信は自作のgRPC基盤[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)に乗せる**
-  (タグ`v0.2.0`で参照。Cargoはgit+tag、Unityは`manifest.json`のgit URL、C#の生成はルートの`Makefile`)。
+  (タグ`v0.3.0`で参照。Cargoはgit+tag、Unityは`manifest.json`のgit URL、C#の生成はルートの`Makefile`)。
   **Atlasの中で基盤のコードを直さない**。足りないものは基盤のほうを直してタグを打つ
 - **DBへの書き込みはAPIサーバーに一本化する**。バトルサーバーはDBを持たず、内部API(gRPCの`atlas.internal.v1.BattleInternalService`、
   別ポート、`x-internal-secret`で認証)で取得・報告する

@@ -1,0 +1,26 @@
+[
+  {
+    "banner_id": "SCOUT000000000000000000001",
+    "rarity": 1,
+    "scout_banner_rate_id": 1,
+    "weight": 300
+  },
+  {
+    "banner_id": "SCOUT000000000000000000001",
+    "rarity": 2,
+    "scout_banner_rate_id": 2,
+    "weight": 1200
+  },
+  {
+    "banner_id": "SCOUT000000000000000000001",
+    "rarity": 3,
+    "scout_banner_rate_id": 3,
+    "weight": 3500
+  },
+  {
+    "banner_id": "SCOUT000000000000000000001",
+    "rarity": 4,
+    "scout_banner_rate_id": 4,
+    "weight": 5000
+  }
+]

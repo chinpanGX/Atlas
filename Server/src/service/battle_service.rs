@@ -4,7 +4,10 @@ use serde_json::Value;
 use sqlx::{MySql, MySqlExecutor, MySqlPool, QueryBuilder};
 use ulid::Ulid;
 
+use voltech_grpc_error::Internal;
+
 use crate::error::AppError;
+use crate::service::game_log::{GameLogCollector, ItemReason};
 use crate::service::player_item_service::{self, GEM_ITEM_ID};
 
 /// 対戦勝利報酬のgems(固定。運用中に調整する想定が無いためマスタにせず定数で持つ)。
@@ -73,8 +76,7 @@ pub async fn create_match(
     .bind(player2_id)
     .bind(STATUS_IN_PROGRESS)
     .execute(executor)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     Ok(())
 }
@@ -98,7 +100,7 @@ pub async fn create_match(
 /// - 既に結果報告済みの場合に`AppError::Conflict`(何も変更しない)
 /// - DBアクセスに失敗した場合に`AppError::InternalError`
 pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Result<(), AppError> {
-    let mut tx = pool.begin().await.map_err(|_| AppError::InternalError)?;
+    let mut tx = pool.begin().await?;
 
     let row: Option<(String, String, bool)> = sqlx::query_as(
         "SELECT player1_id, player2_id, player1_selected_pachimon IS NOT NULL \
@@ -106,8 +108,7 @@ pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Resul
     )
     .bind(&input.match_id)
     .fetch_optional(&mut *tx)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
     let (player1_id, player2_id, already_reported) = row.ok_or(AppError::NotFound)?;
 
     if already_reported {
@@ -168,8 +169,7 @@ pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Resul
     .bind(sqlx::types::Json(selected_of(&player2_id)))
     .bind(&input.match_id)
     .execute(&mut *tx)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     if !input.turns.is_empty() {
         let mut builder: QueryBuilder<MySql> = QueryBuilder::new(
@@ -184,24 +184,24 @@ pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Resul
                 .push_bind(sqlx::types::Json(&turn.action_data))
                 .push_bind(sqlx::types::Json(&turn.result_data));
         });
-        builder
-            .build()
-            .execute(&mut *tx)
-            .await
-            .map_err(|_| AppError::InternalError)?;
+        builder.build().execute(&mut *tx).await?;
     }
 
     if has_winner {
+        // 内部APIは基盤の`Transactions::run`を通らず、ゲームログを書く口(`TxContext`)が無いので、記録した分は捨てる
+        let mut logs = GameLogCollector::default();
         player_item_service::add(
             &mut tx,
+            &mut logs,
             &input.winner_id,
             GEM_ITEM_ID,
             BATTLE_WIN_REWARD_GEMS,
+            ItemReason::BattleReward,
         )
         .await?;
     }
 
-    tx.commit().await.map_err(|_| AppError::InternalError)?;
+    tx.commit().await?;
 
     Ok(())
 }
@@ -222,8 +222,7 @@ pub async fn abort_stale_matches(pool: &MySqlPool, older_than: Duration) -> Resu
     .bind(STATUS_IN_PROGRESS)
     .bind(older_than.as_secs())
     .execute(pool)
-    .await
-    .map_err(|_| AppError::InternalError)?;
+    .await?;
 
     Ok(result.rows_affected())
 }
@@ -238,7 +237,10 @@ pub fn spawn_stale_match_cleanup(pool: MySqlPool) {
             match abort_stale_matches(&pool, STALE_MATCH_TIMEOUT).await {
                 Ok(0) => {}
                 Ok(count) => tracing::info!(count, "aborted stale battle matches"),
-                Err(_) => tracing::error!("failed to abort stale battle matches"),
+                Err(err) => tracing::error!(
+                    "exception.message" = %Internal::from(err),
+                    "failed to abort stale battle matches"
+                ),
             }
         }
     });

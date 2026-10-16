@@ -4,7 +4,7 @@ status: current
 area: master-data
 related: [master-data/tables, server/structure, client/scenes-and-scopes, battle-server/structure]
 code: [Shared/master-data, master-data-pipeline, Server/src/master, Server/src/bin/seed_master_data.rs, Client/AtlasUnityProject/Assets/Scripts/MasterData, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/MasterData, BattleServer/MasterData, BattleServer/Battle/MasterDatabaseFactory.cs]
-updated: 2026-10-11
+updated: 2026-10-16
 ---
 
 # マスターデータの生成・配布・運用
@@ -35,19 +35,21 @@ updated: 2026-10-11
 | `move_groups` | サーバーだけ | Client は `pachimon.move_group_id` から `move_group_moves` を直接引くので、グループ自体は要らない |
 | `starter_party_slots` | サーバーだけ | 新規プレイヤーの作成はサーバーだけで行う |
 | `shop_products` | サーバーだけ | 購入の可否と支払う数はサーバーが判定する。購入できる商品は通信で返す(追加予定) |
+| `scout_banners`・`scout_banner_rates` | サーバーだけ | 開催中のバナーは通信で返し、排出率(抽選の生の値)はクライアントに配らない |
 | `type_chart` | Client・バトルサーバー(DB には入れない) | ダメージを計算するのは BattleCore だけで、APIサーバーには不要 |
 | ほか | すべて | |
 
 ## パイプラインの制約
 
-型は `int`/`long`/`string`/`bool`/`enum` だけで、小数・nullable・複合主キーを持てない。スキーマはこれに合わせる。
+型は `int`/`long`/`string`/`bool`/`enum` だけで、小数・nullable・複合主キー・日時を持てない。スキーマはこれに合わせる。
+パイプラインの `validate` は一意と参照(`check_relation`)だけを確かめるので、それ以外の決まり(日時の形・合計値など)は `seed_master_data` が投入の前に確かめ、合わなければ何も投入しない。
 
 | 制約 | 合わせ方 |
 |---|---|
 | 小数が無い | タイプ相性は倍率ではなく区分(`type_effectiveness`)で持ち、倍率への変換は BattleCore で行う |
 | nullable が無い | 2つ目のタイプが無いときは `NONE`、変化技の威力は0 |
 | 複合主キーが無い | 代理キーを置く(`move_group_moves.unique_id`・`type_chart.type_chart_id`) |
-| 日時が無い | 販売期間・開催期間を持つものはマスタにしない(スカウトのバナー) |
+| 日時が無い | `string` で持ち、形式を UTC の `YYYY-MM-DD HH:MM:SS` に固定する。日時として読めることと前後関係は `seed_master_data` が確かめる(スカウトのバナーの開催期間) |
 
 ## 運用
 
@@ -57,7 +59,6 @@ updated: 2026-10-11
 | Client・バトルサーバー | パイプラインで生成して配置し、再起動する(Client はビルドし直す) |
 
 - 生成と配置の手順は `master-data-pipeline` スキル、テーブル・Enum の追加は `master-data-schema-add` スキル
-- `seed_master_data` は外部キーを満たす順(`move_groups` → `moves` → `move_group_moves` → `pachimon` → `starter_party_slots` → `items`)に投入する
+- `seed_master_data` は外部キーを満たす順(`move_groups` → `moves` → `move_group_moves` → `pachimon` → `starter_party_slots` → `items` → `scout_banners`・`scout_banner_rates`)に投入する
 - 無停止での反映は、1台構成の規模では過剰なため入れない
 - Client への配布を CDN 経由にする案は保留([未確定・保留](../open-questions.md))
-- スカウトのバナーはマスターデータではない([スカウト(API)](../server/scout.md))

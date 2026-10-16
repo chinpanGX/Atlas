@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
+use chrono::Utc;
 use tonic::{Request, Response, Status};
 use voltech_grpc_error::{failed_precondition, internal};
 use voltech_grpc_transaction::Transactions;
 
-use crate::grpc::context::{internal_error, player_id, to_ulid};
+use crate::grpc::context::{player_id, to_ulid};
 use crate::grpc::player_data::diff_to_proto;
-use crate::master::MasterData;
-use crate::model::scout_banner;
+use crate::master::{self, MasterData};
 use crate::proto::atlas::v1::scout_service_server::{ScoutService, ScoutServiceServer};
 use crate::proto::atlas::v1::{
     ListBannersRequest, ListBannersResponse, RollRequest, RollResponse, ScoutBanner,
     ScoutCandidate, SelectRequest, SelectResponse,
 };
 use crate::proto::errors;
+use crate::service::game_log::GameLogCollector;
 use crate::service::player_diff::PlayerDiffCollector;
 use crate::service::scout_service::{self, ScoutError};
 
@@ -45,14 +46,14 @@ impl ScoutService for ScoutServiceImpl {
         request: Request<ListBannersRequest>,
     ) -> Result<Response<ListBannersResponse>, Status> {
         player_id(&request)?;
+        let master = self.master.clone();
 
         let response = self
             .transactions
-            .run(&request, None, move |tx| {
+            .run(&request, None, move |_| {
                 Box::pin(async move {
-                    let banners = scout_service::list_active_banners(&mut **tx)
-                        .await
-                        .map_err(internal_error)?;
+                    let banners =
+                        scout_service::list_active_banners(&master, Utc::now().naive_utc());
                     Ok(ListBannersResponse {
                         banners: banners.into_iter().map(banner_to_proto).collect(),
                     })
@@ -70,13 +71,21 @@ impl ScoutService for ScoutServiceImpl {
 
         let response = self
             .transactions
-            .run(&request, Some(player_ulid), move |tx| {
+            .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
                     let mut diff = PlayerDiffCollector::default();
-                    let roll =
-                        scout_service::create_roll(tx, &mut diff, &master, &player_id, &banner_id)
-                            .await
-                            .map_err(to_status)?;
+                    let mut logs = GameLogCollector::default();
+                    let roll = scout_service::create_roll(
+                        ctx.tx(),
+                        &mut diff,
+                        &mut logs,
+                        &master,
+                        &player_id,
+                        &banner_id,
+                    )
+                    .await
+                    .map_err(to_status)?;
+                    logs.write_to(ctx)?;
                     let candidates = roll
                         .candidates
                         .into_iter()
@@ -108,12 +117,18 @@ impl ScoutService for ScoutServiceImpl {
 
         let response = self
             .transactions
-            .run(&request, Some(player_ulid), move |tx| {
+            .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
                     let mut diff = PlayerDiffCollector::default();
-                    scout_service::select_candidate(tx, &mut diff, &player_id, &roll_id, index)
-                        .await
-                        .map_err(to_status)?;
+                    scout_service::select_candidate(
+                        ctx.tx(),
+                        &mut diff,
+                        &player_id,
+                        &roll_id,
+                        index,
+                    )
+                    .await
+                    .map_err(to_status)?;
                     Ok(SelectResponse {
                         player_diff: diff_to_proto(&diff),
                     })
@@ -124,18 +139,18 @@ impl ScoutService for ScoutServiceImpl {
     }
 }
 
-/// 排出率(`rate_table`)は抽選の生の値なので、クライアントに渡さない。
-fn banner_to_proto(banner: scout_banner::ScoutBanner) -> ScoutBanner {
+/// 排出率は抽選の生の値なので、クライアントに渡さない。
+fn banner_to_proto(banner: &master::ScoutBanner) -> ScoutBanner {
     ScoutBanner {
-        banner_id: banner.banner_id,
-        name: banner.name,
+        banner_id: banner.banner_id.clone(),
+        name: banner.name.clone(),
         cost_per_roll: banner.cost_per_roll,
         start_at: Some(to_timestamp(banner.start_at)),
         end_at: Some(to_timestamp(banner.end_at)),
     }
 }
 
-/// `scout_banners` の日時は UTC で入っている。
+/// バナーの日時は UTC。
 fn to_timestamp(at: chrono::NaiveDateTime) -> prost_types::Timestamp {
     let at = at.and_utc();
     prost_types::Timestamp {
@@ -166,6 +181,6 @@ fn to_status(err: ScoutError) -> Status {
             errors::SCOUT_ROLL_ALREADY_SELECTED,
             "scout roll is already selected",
         ),
-        ScoutError::Internal => internal("scout service failed"),
+        ScoutError::Internal(err) => internal(err),
     }
 }

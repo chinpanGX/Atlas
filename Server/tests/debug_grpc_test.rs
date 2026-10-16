@@ -3,7 +3,7 @@ mod common;
 
 use Server::proto::atlas::v1::debug_service_client::DebugServiceClient;
 use Server::proto::atlas::v1::{GrantGemsRequest, RandomizePartyRequest};
-use common::{TestServer, authorized_with_request_id, prepare_db, with_request_id};
+use common::{TestServer, authorized_with_request_id, item_game_logs, prepare_db, with_request_id};
 use sqlx::MySqlPool;
 use tonic::transport::Channel;
 
@@ -23,7 +23,7 @@ fn client(server: &TestServer) -> DebugServiceClient<Channel> {
 #[sqlx::test(migrations = false)]
 async fn grant_gems_adds_gems_once_per_request(pool: MySqlPool) {
     let server = start(pool).await;
-    let (_, token) = server.create_player("プレイヤー").await;
+    let (player_id, token) = server.create_player("プレイヤー").await;
     let request_id = ulid::Ulid::generate().to_string();
 
     for _ in 0..2 {
@@ -43,6 +43,12 @@ async fn grant_gems_adds_gems_once_per_request(pool: MySqlPool) {
 
     let snapshot = server.sign_in(&token).await.unwrap().snapshot.unwrap();
     assert_eq!(snapshot.items[0].quantity, STARTER_GEMS + GRANT_GEMS_AMOUNT);
+
+    let logs = item_game_logs(&server.state.pool, &player_id).await;
+    assert_eq!(logs.len(), 2);
+    assert_eq!(logs[1].delta, i64::from(GRANT_GEMS_AMOUNT));
+    assert_eq!(logs[1].after, i64::from(STARTER_GEMS + GRANT_GEMS_AMOUNT));
+    assert_eq!(logs[1].reason, "debug");
 }
 
 /// ランダム編成で、新しく付与した個体と技、以前の編成の解除と新しい編成が player_diff に入り、全件と一致する。

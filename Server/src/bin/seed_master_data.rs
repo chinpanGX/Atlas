@@ -4,14 +4,21 @@
 // 起動時にDBからマスタを読み込みメモリキャッシュを参照する設計のため、マスタ更新時は
 // このコマンドを実行してDBへ反映したのち、サーバーを再起動して反映する(無停止での反映はしない)。
 //
-// move_groups → moves → move_group_moves → pachimon → starter_party_slots → itemsの順で投入する
-// (move_group_moves/pachimon/starter_party_slotsの外部キー制約を満たすため。itemsは他テーブルに
-// 依存しないため末尾でよい)。
+// move_groups → moves → move_group_moves → pachimon → starter_party_slots → items → scout_bannersの順で
+// 投入する(move_group_moves/pachimon/starter_party_slotsの外部キー制約を満たすため。itemsとscout_bannersは
+// 他のマスタに依存しないため末尾でよい)。
+//
+// スカウトのバナーは、パイプラインのvalidateで確かめられない決まり(日時として読めること、start_at < end_at、
+// バナーごとの重みの合計が10000)を、何かを投入する前に確かめ、合わなければ何も投入せずに止める。
 //
 // 実行方法: cargo run --bin seed_master_data
 use sqlx::MySqlPool;
 
-use Server::master::{self, Items, MoveGroupMoves, MoveGroups, Moves, Pachimon, StarterPartySlots};
+use Server::master::scout_banner::build_scout_banners;
+use Server::master::{
+    self, Items, MoveGroupMoves, MoveGroups, Moves, Pachimon, ScoutBanner, ScoutBannerRates,
+    StarterPartySlots,
+};
 
 #[tokio::main]
 async fn main() {
@@ -21,6 +28,11 @@ async fn main() {
     let pool = MySqlPool::connect(&database_url)
         .await
         .expect("Failed to connect to database");
+
+    let scout_banner_rates = master::seed_scout_banner_rates_data();
+    let scout_banners =
+        build_scout_banners(&master::seed_scout_banners_data(), &scout_banner_rates)
+            .unwrap_or_else(|err| panic!("スカウトのバナーのマスタが正しくありません: {err}"));
 
     let move_groups = master::seed_move_groups_data();
     seed_move_groups(&pool, &move_groups).await;
@@ -40,14 +52,18 @@ async fn main() {
     let items = master::seed_items_data();
     seed_items(&pool, &items).await;
 
+    seed_scout_banners(&pool, &scout_banners, &scout_banner_rates).await;
+
     println!(
-        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件, starter_party_slots: {}件, items: {}件)",
+        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件, starter_party_slots: {}件, items: {}件, scout_banners: {}件, scout_banner_rates: {}件)",
         move_groups.len(),
         moves.len(),
         move_group_moves.len(),
         pachimon.len(),
         starter_party_slots.len(),
-        items.len()
+        items.len(),
+        scout_banners.len(),
+        scout_banner_rates.len()
     );
 }
 
@@ -186,4 +202,60 @@ async fn seed_items(pool: &MySqlPool, items: &[Items]) {
         .await
         .unwrap_or_else(|err| panic!("item_id={}のシード投入に失敗しました: {err}", i.item_id));
     }
+}
+
+/// バナーはUPSERTする(`scout_rolls`が参照しているので消さない)。排出率はマスタから消した行が残って重みの合計が
+/// 崩れないように、全件を消してから入れ直す。途中で失敗して排出率の無いバナーが残らないよう、1つのトランザクションで行う。
+async fn seed_scout_banners(pool: &MySqlPool, banners: &[ScoutBanner], rates: &[ScoutBannerRates]) {
+    let mut tx = pool
+        .begin()
+        .await
+        .unwrap_or_else(|err| panic!("トランザクションの開始に失敗しました: {err}"));
+
+    for b in banners {
+        sqlx::query(
+            "INSERT INTO scout_banners (banner_id, name, cost_per_roll, start_at, end_at) \
+             VALUES (?, ?, ?, ?, ?) AS new \
+             ON DUPLICATE KEY UPDATE \
+                name = new.name, \
+                cost_per_roll = new.cost_per_roll, \
+                start_at = new.start_at, \
+                end_at = new.end_at",
+        )
+        .bind(&b.banner_id)
+        .bind(&b.name)
+        .bind(b.cost_per_roll)
+        .bind(b.start_at)
+        .bind(b.end_at)
+        .execute(&mut *tx)
+        .await
+        .unwrap_or_else(|err| panic!("banner_id={}のシード投入に失敗しました: {err}", b.banner_id));
+    }
+
+    sqlx::query("DELETE FROM scout_banner_rates")
+        .execute(&mut *tx)
+        .await
+        .unwrap_or_else(|err| panic!("scout_banner_ratesの削除に失敗しました: {err}"));
+    for r in rates {
+        sqlx::query(
+            "INSERT INTO scout_banner_rates (scout_banner_rate_id, banner_id, rarity, weight) \
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(r.scout_banner_rate_id)
+        .bind(&r.banner_id)
+        .bind(r.rarity as u8)
+        .bind(r.weight)
+        .execute(&mut *tx)
+        .await
+        .unwrap_or_else(|err| {
+            panic!(
+                "scout_banner_rate_id={}のシード投入に失敗しました: {err}",
+                r.scout_banner_rate_id
+            )
+        });
+    }
+
+    tx.commit()
+        .await
+        .unwrap_or_else(|err| panic!("スカウトのバナーのコミットに失敗しました: {err}"));
 }

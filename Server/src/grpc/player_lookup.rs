@@ -1,5 +1,6 @@
 use sqlx::MySqlPool;
 use voltech_grpc_auth::{BoxError, PlayerId, PlayerResolver, PlayerStatus};
+use voltech_grpc_error::Internal;
 
 use crate::service::player_service;
 
@@ -21,7 +22,7 @@ impl PlayerResolver for PlayerLookup {
         // Atlas にはアカウント停止が無いので Suspended は返さない
         let status = match player_service::find_by_id(&self.pool, &player_id.to_string())
             .await
-            .map_err(|err| format!("failed to find player: {}", err.kind()))?
+            .map_err(|err| format!("failed to find player: {}", Internal::from(err)))?
         {
             Some(_) => PlayerStatus::Active,
             None => PlayerStatus::NotCreated,
