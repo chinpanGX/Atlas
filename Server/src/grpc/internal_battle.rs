@@ -5,8 +5,9 @@ use sqlx::MySqlPool;
 use subtle::ConstantTimeEq;
 use tonic::{Request, Response, Status};
 use tracing::Span;
-use voltech_grpc_error::internal;
-use voltech_grpc_log::field;
+use voltech_grpc_error::{ResultExt, internal};
+use voltech_grpc_log::{REQUEST_ID_HEADER, field};
+use voltech_grpc_transaction::GameLogSink;
 
 use crate::error::AppError;
 use crate::proto::atlas::internal::v1::battle_internal_service_server::{
@@ -17,22 +18,35 @@ use crate::proto::atlas::internal::v1::{
     Loadout, PartyPachimon, ReportResultRequest, ReportResultResponse,
 };
 use crate::service::battle_service::{self, BattleResultInput, BattleTurnInput};
+use crate::service::game_log::GameLogCollector;
 use crate::service::matchmaking_service::{self, MatchmakingQueue};
 use crate::service::player_pachimon_service;
 
 /// 共有シークレットを入れるメタデータのキー(BattleServer の `BattleInternalApi.SecretHeaderName` と同じ値)。
 pub const INTERNAL_SECRET_HEADER: &str = "x-internal-secret";
 
+/// 結果の報告で書くゲームログの`method`。内部APIには`RpcMethodLayer`を付けないので、RPCの名前を自分で持つ。
+const REPORT_RESULT_METHOD: &str = "atlas.internal.v1.BattleInternalService/ReportResult";
+
 /// `BattleInternalService`(バトルサーバー向けの内部API)の実装。
 #[derive(Clone)]
 pub struct BattleInternalServiceImpl {
     pool: MySqlPool,
     queue: Arc<Mutex<MatchmakingQueue>>,
+    game_log_sink: GameLogSink,
 }
 
 impl BattleInternalServiceImpl {
-    pub fn new(pool: MySqlPool, queue: Arc<Mutex<MatchmakingQueue>>) -> Self {
-        Self { pool, queue }
+    pub fn new(
+        pool: MySqlPool,
+        queue: Arc<Mutex<MatchmakingQueue>>,
+        game_log_sink: GameLogSink,
+    ) -> Self {
+        Self {
+            pool,
+            queue,
+            game_log_sink,
+        }
     }
 
     /// `x-internal-secret` を `secret` と定数時間で比べる interceptor を付けて、tonic のルーターに登録できる形にする。
@@ -126,6 +140,12 @@ impl BattleInternalService for BattleInternalServiceImpl {
         &self,
         request: Request<ReportResultRequest>,
     ) -> Result<Response<ReportResultResponse>, Status> {
+        let request_id = request
+            .metadata()
+            .get(REQUEST_ID_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_owned();
         let request = request.into_inner();
         let turns = request
             .turns
@@ -149,9 +169,14 @@ impl BattleInternalService for BattleInternalServiceImpl {
             turns,
         };
 
-        battle_service::record_result(&self.pool, &input)
+        let mut tx = self.pool.begin().await.or_internal()?;
+        let mut logs = GameLogCollector::default();
+        battle_service::record_result(&mut tx, &mut logs, &input)
             .await
             .map_err(to_status)?;
+        logs.commit(self.game_log_sink, tx, REPORT_RESULT_METHOD, &request_id)
+            .await
+            .map_err(internal)?;
         // 対戦が終わったので、マッチングの状況の確認で返していた接続情報はもう要らない
         matchmaking_service::clear_match(&self.queue, &input.match_id).map_err(to_status)?;
         tracing::info!(

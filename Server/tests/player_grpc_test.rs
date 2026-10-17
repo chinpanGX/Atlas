@@ -2,7 +2,8 @@
 mod common;
 
 use Server::proto::atlas::v1::SignInRequest;
-use common::{ItemGameLog, TestServer, error_reason, item_game_logs, prepare_db};
+use common::{ItemGameLog, TestServer, error_reason, game_logs, item_game_logs, prepare_db};
+use serde_json::json;
 use sqlx::MySqlPool;
 use tonic::Code;
 
@@ -72,6 +73,22 @@ async fn sign_up_twice_returns_existing_player_without_changes(pool: MySqlPool) 
             after: 300,
             reason: "sign_up".to_owned(),
         }]
+    );
+
+    // 初期パーティの入手と編成のゲームログも、作ったときの1件ずつ
+    let starter_id = &snapshot.pachimon[0].player_pachimon_id;
+    let pachimon_logs = game_logs(&server.state.pool, &player_id, "pachimon").await;
+    assert_eq!(pachimon_logs.len(), 1);
+    assert_eq!(pachimon_logs[0].method, "atlas.v1.PlayerService/SignUp");
+    assert_eq!(
+        pachimon_logs[0].body,
+        json!({"target_id": starter_id, "pachimon_id": 1, "move_ids": [1], "reason": "sign_up"})
+    );
+    let party_logs = game_logs(&server.state.pool, &player_id, "party").await;
+    assert_eq!(party_logs.len(), 1);
+    assert_eq!(
+        party_logs[0].body,
+        json!({"slots": [{"slot": 1, "player_pachimon_id": starter_id}], "reason": "sign_up"})
     );
 }
 

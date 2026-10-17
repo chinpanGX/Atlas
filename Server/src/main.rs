@@ -50,6 +50,7 @@ async fn main() -> Result<(), grpc::BoxError> {
         internal_listener,
         state.clone(),
         RpcLogLayer::new(&log),
+        game_log_sink,
         shutdown_signal(),
     );
     let dev = grpc::DevFeatures {

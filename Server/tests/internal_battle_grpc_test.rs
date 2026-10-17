@@ -20,7 +20,7 @@ use Server::service::battle_service::{
 };
 use Server::service::game_log::GameLogCollector;
 use Server::service::{matchmaking_service, player_service};
-use common::{TestServer, prepare_db};
+use common::{TestServer, game_logs, item_game_logs, prepare_db};
 
 async fn start(pool: MySqlPool) -> TestServer {
     prepare_db(&pool).await;
@@ -305,6 +305,67 @@ async fn report_result_records_battle(pool: MySqlPool) {
     assert_eq!(gems_of(&pool, &m.player_b).await, gems_b_before);
 }
 
+/// 結果の報告で、両方の参加者の結果と、勝者の報酬がゲームログに残る。`x-request-id`があれば付く。
+#[sqlx::test(migrations = false)]
+async fn report_result_writes_game_logs(pool: MySqlPool) {
+    let server = start(pool.clone()).await;
+    let m = create_match(&server).await;
+    let request_id = Ulid::generate().to_string();
+
+    let mut request = authorized(result_request(
+        &m.match_id,
+        &m.player_b,
+        (&m.player_a, &["a1"]),
+        (&m.player_b, &["b1"]),
+        vec![],
+    ));
+    request
+        .metadata_mut()
+        .insert("x-request-id", request_id.parse().unwrap());
+    report(&server, request).await.unwrap();
+
+    for (player_id, opponent_id, result) in [
+        (&m.player_a, &m.player_b, "lose"),
+        (&m.player_b, &m.player_a, "win"),
+    ] {
+        let logs = game_logs(&pool, player_id, "battle").await;
+        assert_eq!(logs.len(), 1);
+        assert_eq!(
+            logs[0].method,
+            "atlas.internal.v1.BattleInternalService/ReportResult"
+        );
+        assert_eq!(logs[0].request_id.as_deref(), Some(request_id.as_str()));
+        assert_eq!(
+            logs[0].body,
+            json!({
+                "target_id": m.match_id,
+                "opponent_id": opponent_id,
+                "result": result,
+                "reason": "battle_result",
+            })
+        );
+    }
+
+    // このテストのプレイヤーはサービスの関数で作っていて初期の付与は残っていないので、報酬の1件だけ
+    let rewards = item_game_logs(&pool, &m.player_b).await;
+    assert_eq!(rewards.len(), 1);
+    assert_eq!(rewards[0].delta, i64::from(BATTLE_WIN_REWARD_GEMS));
+    assert_eq!(rewards[0].reason, "battle_reward");
+    assert!(item_game_logs(&pool, &m.player_a).await.is_empty());
+
+    // 報告済みで断った2回目の報告は、何も残さない
+    let again = result_request(
+        &m.match_id,
+        &m.player_b,
+        (&m.player_a, &["a1"]),
+        (&m.player_b, &["b1"]),
+        vec![],
+    );
+    report(&server, authorized(again)).await.unwrap_err();
+    assert_eq!(game_logs(&pool, &m.player_b, "battle").await.len(), 1);
+    assert_eq!(item_game_logs(&pool, &m.player_b).await.len(), 1);
+}
+
 /// バトルサーバー側のplayer1/player2がマッチ成立時と逆でも、選出がIDで突き合わされて正しい列に保存される。
 #[sqlx::test(migrations = false)]
 async fn report_result_matches_players_by_id(pool: MySqlPool) {
@@ -476,6 +537,10 @@ async fn report_result_without_winner_aborts(pool: MySqlPool) {
     assert_eq!(turn_count(&pool, &m.match_id).await, 2);
     assert_eq!(gems_of(&pool, &m.player_a).await, gems_a_before);
     assert_eq!(gems_of(&pool, &m.player_b).await, gems_b_before);
+    for player_id in [&m.player_a, &m.player_b] {
+        let logs = game_logs(&pool, player_id, "battle").await;
+        assert_eq!(logs[0].body["result"], "no_winner");
+    }
 }
 
 /// 勝者なしで報告済みの対戦には、勝者ありでも勝者なしでも再報告できない。

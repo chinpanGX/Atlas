@@ -3,7 +3,9 @@ mod common;
 
 use Server::proto::atlas::v1::debug_service_client::DebugServiceClient;
 use Server::proto::atlas::v1::{GrantGemsRequest, RandomizePartyRequest};
-use common::{TestServer, authorized_with_request_id, item_game_logs, prepare_db, with_request_id};
+use common::{
+    TestServer, authorized_with_request_id, game_logs, item_game_logs, prepare_db, with_request_id,
+};
 use sqlx::MySqlPool;
 use tonic::transport::Channel;
 
@@ -55,7 +57,7 @@ async fn grant_gems_adds_gems_once_per_request(pool: MySqlPool) {
 #[sqlx::test(migrations = false)]
 async fn randomize_party_replaces_party_with_new_pachimon(pool: MySqlPool) {
     let server = start(pool).await;
-    let (_, token) = server.create_player("プレイヤー").await;
+    let (player_id, token) = server.create_player("プレイヤー").await;
     let before = server.sign_in(&token).await.unwrap().snapshot.unwrap();
 
     let diff = client(&server)
@@ -93,4 +95,20 @@ async fn randomize_party_replaces_party_with_new_pachimon(pool: MySqlPool) {
     let after = server.sign_in(&token).await.unwrap().snapshot.unwrap();
     assert_eq!(after.pachimon.len(), before.pachimon.len() + 1);
     assert_eq!(after.party_slots, slots.upserted);
+
+    // サインアップの初期パーティの次に、付与した個体と変更後の編成が残る
+    let pachimon_logs = game_logs(&server.state.pool, &player_id, "pachimon").await;
+    assert_eq!(pachimon_logs.len(), 2);
+    assert_eq!(
+        pachimon_logs[1].body["target_id"],
+        pachimon.upserted[0].player_pachimon_id
+    );
+    assert_eq!(pachimon_logs[1].body["reason"], "debug");
+    let party_logs = game_logs(&server.state.pool, &player_id, "party").await;
+    assert_eq!(party_logs.len(), 2);
+    assert_eq!(
+        party_logs[1].body["slots"],
+        serde_json::json!([{"slot": 1, "player_pachimon_id": pachimon.upserted[0].player_pachimon_id}])
+    );
+    assert_eq!(party_logs[1].body["reason"], "debug");
 }

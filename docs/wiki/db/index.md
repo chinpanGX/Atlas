@@ -4,7 +4,7 @@ status: current
 area: db
 related: [conventions/naming-and-ids, conventions/nullable, master-data/tables]
 code: [Server/migrations, Server/src/db.rs]
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 
 # DB
@@ -28,7 +28,7 @@ MySQL。唯一のデータストアで、書き込むのは APIサーバーだ�
 | `devices` | 登録されたデバイス(基盤) | `DeviceService/Register` | [プレイヤーと所持データ](player-tables.md) |
 | `access_tokens` | デバイスごとのアクセストークン(基盤。1デバイス1行) | `DeviceService/IssueToken` | 同上 |
 | `last_responses` | 冪等性の対象の RPC の直前のレスポンス(基盤。1プレイヤー1行) | 冪等性の対象の RPC・サインアップ | 同上 |
-| `game_logs` | ゲームログ(所持データの変化の履歴。基盤。[ゲームログ](../server/game-log.md)) | 所持アイテムを変える RPC | 同上 |
+| `game_logs` | ゲームログ(所持データの変化の履歴。基盤。[ゲームログ](../server/game-log.md)) | 所持データを変える RPC・内部 API の `ReportResult` | 同上 |
 | `players` | プレイヤー | `SignUp` | 同上 |
 | `player_items` | 所持アイテム(ジェム等)の数 | サインアップ・スカウト・対戦の結果・開発用 | 同上 |
 | `player_pachimon` | 所持しているパチモンの個体 | サインアップ・スカウト・開発用 | 同上 |

@@ -5,7 +5,7 @@ area: server
 related: [server/auth, server/stale-match-cleanup, battle-server/api-integration, db/battle-tables]
 proto: [Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/grpc/internal_battle.rs, Server/src/service/battle_service.rs, Server/src/service/player_pachimon_service.rs, Server/src/grpc.rs]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # 内部API(バトルサーバー向け)
@@ -43,6 +43,7 @@ updated: 2026-10-11
 2. `battle_matches` を終了状態に更新する(勝者ありなら `finished`、`winner_id` が空文字なら `aborted`)
 3. `battle_turns` に行動を一括で追加する
 4. 勝者にジェム50を付与する(勝者なしなら付与しない)
+5. 両方の参加者の対戦の結果と、勝者の報酬を[ゲームログ](game-log.md)に書く
 
 記録できたら、マッチングに残っている両者の接続情報を消す([マッチング](matchmaking.md))。
 

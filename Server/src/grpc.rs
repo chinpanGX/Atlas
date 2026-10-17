@@ -124,10 +124,15 @@ pub async fn serve_internal(
     listener: TcpListener,
     state: AppState,
     rpc_log: RpcLogLayer,
+    game_log_sink: GameLogSink,
     shutdown: impl Future<Output = ()>,
 ) -> Result<(), BoxError> {
-    let service = BattleInternalServiceImpl::new(state.pool.clone(), state.matchmaking.clone())
-        .into_server(state.battle.internal_api_secret.clone());
+    let service = BattleInternalServiceImpl::new(
+        state.pool.clone(),
+        state.matchmaking.clone(),
+        game_log_sink,
+    )
+    .into_server(state.battle.internal_api_secret.clone());
 
     Server::builder()
         .layer(rpc_log)

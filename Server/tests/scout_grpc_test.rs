@@ -6,8 +6,8 @@ use Server::proto::atlas::v1::{
     ListBannersRequest, RollRequest, RollResponse, SelectRequest, SelectResponse,
 };
 use common::{
-    ItemGameLog, TestServer, authorized, authorized_with_request_id, error_reason, item_game_logs,
-    prepare_db, with_request_id,
+    ItemGameLog, TestServer, authorized, authorized_with_request_id, error_reason, game_logs,
+    item_game_logs, prepare_db, with_request_id,
 };
 use sqlx::MySqlPool;
 use tonic::Code;
@@ -259,7 +259,7 @@ async fn roll_rejects_unavailable_banners(pool: MySqlPool) {
 #[sqlx::test(migrations = false)]
 async fn select_grants_candidate(pool: MySqlPool) {
     let server = start(pool).await;
-    let (_, token) = server.create_player("プレイヤー").await;
+    let (player_id, token) = server.create_player("プレイヤー").await;
     let rolled = roll(&server, &token, OPEN_BANNER).await.unwrap();
 
     let diff = select(&server, &token, &rolled.roll_id, 3)
@@ -292,6 +292,20 @@ async fn select_grants_candidate(pool: MySqlPool) {
             .pachimon
             .iter()
             .any(|p| p.player_pachimon_id == pachimon.upserted[0].player_pachimon_id)
+    );
+
+    // サインアップの初期パーティの次に、選んだ候補の入手が残る
+    let logs = game_logs(&server.state.pool, &player_id, "pachimon").await;
+    assert_eq!(logs.len(), 2);
+    assert_eq!(logs[1].method, "atlas.v1.ScoutService/Select");
+    assert_eq!(
+        logs[1].body,
+        serde_json::json!({
+            "target_id": pachimon.upserted[0].player_pachimon_id,
+            "pachimon_id": rolled.candidates[3].pachimon_id,
+            "move_ids": rolled.candidates[3].move_ids,
+            "reason": "scout_select",
+        })
     );
 }
 

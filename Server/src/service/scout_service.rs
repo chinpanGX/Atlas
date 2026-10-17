@@ -10,7 +10,7 @@ use voltech_grpc_error::Internal;
 use crate::error::AppError;
 use crate::master::{MasterData, Pachimon, Rarity, ScoutBanner};
 use crate::model::scout_roll::{ScoutCandidate, ScoutRoll};
-use crate::service::game_log::{GameLogCollector, ItemReason};
+use crate::service::game_log::{GameLogCollector, ItemReason, PachimonReason};
 use crate::service::player_diff::PlayerDiffCollector;
 use crate::service::{player_item_service, player_pachimon_service};
 
@@ -174,7 +174,7 @@ fn roll_candidates(
 }
 
 /// 保存済みの候補から1体を選んで`player_pachimon`/`player_pachimon_moves`へコピーする。
-/// 入手した個体と技を`diff`に記録する。呼び出し元のトランザクション内で実行する。
+/// 入手した個体と技を`diff`に、入手をゲームログに記録する。呼び出し元のトランザクション内で実行する。
 ///
 /// # Errors
 /// rollが存在しない・呼び出し元のものでない場合に`ScoutError::RollNotFound`、
@@ -183,6 +183,7 @@ fn roll_candidates(
 pub async fn select_candidate(
     tx: &mut Transaction<'_, MySql>,
     diff: &mut PlayerDiffCollector,
+    logs: &mut GameLogCollector,
     player_id: &str,
     roll_id: &str,
     index: i32,
@@ -220,6 +221,7 @@ pub async fn select_candidate(
         player_pachimon_service::grant(tx, player_id, candidate.pachimon_id, &candidate.moves)
             .await?;
 
+    logs.record_pachimon(&player_pachimon, &moves, PachimonReason::ScoutSelect);
     diff.record_pachimon(player_pachimon);
     for pachimon_move in moves {
         diff.record_pachimon_move(pachimon_move);

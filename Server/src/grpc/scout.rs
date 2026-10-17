@@ -120,15 +120,18 @@ impl ScoutService for ScoutServiceImpl {
             .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
                     let mut diff = PlayerDiffCollector::default();
+                    let mut logs = GameLogCollector::default();
                     scout_service::select_candidate(
                         ctx.tx(),
                         &mut diff,
+                        &mut logs,
                         &player_id,
                         &roll_id,
                         index,
                     )
                     .await
                     .map_err(to_status)?;
+                    logs.write_to(ctx)?;
                     Ok(SelectResponse {
                         player_diff: diff_to_proto(&diff),
                     })

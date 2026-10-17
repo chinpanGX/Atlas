@@ -31,11 +31,11 @@ Rust製のAPIサーバー。クライアント向けのAPIも、BattleServer向�
   何回実行しても同じ結果になるなら`IDEMPOTENT`
 - クライアント向けのハンドラは業務処理を`Transactions::run`の中で動かす。冪等性の対象のRPCは`player_id`(`Ulid`)を渡す。
   サービス層の関数は、渡されたトランザクション(`&mut Transaction<'_, MySql>`)か`impl MySqlExecutor`で読み書きし、
-  自分でトランザクションを始めない(内部APIの`ReportResult`は基盤を通らないので、`battle_service::record_result`が自分で張る)
+  自分でトランザクションを始めない(内部APIの`ReportResult`は基盤を通らないので、ハンドラが張り、`GameLogCollector::commit`でゲームログを書いてコミットする)
 - ハンドラはプレイヤーIDを`grpc::context::player_id`で取り出す(リクエストから受け取らない)
 - 所持データを変えるRPCは、`PlayerDiffCollector`に記録し、レスポンスに`PlayerDiff player_diff`を持たせる(変わらない種別は`None`)
-- 所持アイテムを増減する関数は、`GameLogCollector`に増減と理由(`ItemReason`)を記録する。ハンドラーは処理の最後に`logs.write_to(ctx)?`で
-  基盤のゲームログに書く(コミットしたときだけ残る)。アイテムの増減は`player_item_service`の関数を通し、直接`player_items`を書き換えない
+- 所持データ(アイテム・パチモン・パーティ・技)を変える関数は、`GameLogCollector`に変化と理由(`ItemReason`など)を記録する。ハンドラーは処理の最後に
+  `logs.write_to(ctx)?`で基盤のゲームログに書く(コミットしたときだけ残る)。アイテムの増減は`player_item_service`の関数を通し、直接`player_items`を書き換えない
 - 業務エラーは`Shared/errors.toml`に足し、`voltech_grpc_error::failed_precondition(proto::errors::XXX, "...")`で返す。
   内部エラーは`voltech_grpc_error::internal(err)`か`.or_internal()`で、原因ごと渡す(原因はログにだけ出る)。消したreasonは使い回さない
 - 内部APIは業務エラーを使わず、`AppError`をgRPCの標準のステータスに変える(`BadRequest`→`INVALID_ARGUMENT`、

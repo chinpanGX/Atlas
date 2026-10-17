@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use serde_json::Value;
-use sqlx::{MySql, MySqlExecutor, MySqlPool, QueryBuilder};
+use sqlx::{MySql, MySqlExecutor, MySqlPool, QueryBuilder, Transaction};
 use ulid::Ulid;
 
 use voltech_grpc_error::Internal;
 
 use crate::error::AppError;
-use crate::service::game_log::{GameLogCollector, ItemReason};
+use crate::service::game_log::{BattleOutcome, GameLogCollector, ItemReason};
 use crate::service::player_item_service::{self, GEM_ITEM_ID};
 
 /// 対戦勝利報酬のgems(固定。運用中に調整する想定が無いためマスタにせず定数で持つ)。
@@ -82,8 +82,8 @@ pub async fn create_match(
 }
 
 /// 対戦結果を記録する。`battle_matches`の終了状態への更新・`battle_turns`の一括INSERT・
-/// 勝者へのgems付与を1トランザクションで行う。勝者なし(`winner_id`が空文字)の場合は
-/// `aborted`にしてgemsは付与しない。
+/// 勝者へのgems付与を、呼び出し元のトランザクション内で行う。勝者なし(`winner_id`が空文字)の場合は
+/// `aborted`にしてgemsは付与しない。両方の参加者の結果と勝者の報酬をゲームログに記録する。
 ///
 /// 報告の`player1_id`/`player2_id`は`battle_matches`側の参加者とIDで突き合わせ、
 /// 選出を正しい列へ保存する。対象行は`FOR UPDATE`でロックするため、同時に二重報告が
@@ -99,15 +99,17 @@ pub async fn create_match(
 ///   参加者でない場合に`AppError::BadRequest`
 /// - 既に結果報告済みの場合に`AppError::Conflict`(何も変更しない)
 /// - DBアクセスに失敗した場合に`AppError::InternalError`
-pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Result<(), AppError> {
-    let mut tx = pool.begin().await?;
-
+pub async fn record_result(
+    tx: &mut Transaction<'_, MySql>,
+    logs: &mut GameLogCollector,
+    input: &BattleResultInput,
+) -> Result<(), AppError> {
     let row: Option<(String, String, bool)> = sqlx::query_as(
         "SELECT player1_id, player2_id, player1_selected_pachimon IS NOT NULL \
          FROM battle_matches WHERE match_id = ? FOR UPDATE",
     )
     .bind(&input.match_id)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut **tx)
     .await?;
     let (player1_id, player2_id, already_reported) = row.ok_or(AppError::NotFound)?;
 
@@ -168,7 +170,7 @@ pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Resul
     .bind(sqlx::types::Json(selected_of(&player1_id)))
     .bind(sqlx::types::Json(selected_of(&player2_id)))
     .bind(&input.match_id)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?;
 
     if !input.turns.is_empty() {
@@ -184,15 +186,24 @@ pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Resul
                 .push_bind(sqlx::types::Json(&turn.action_data))
                 .push_bind(sqlx::types::Json(&turn.result_data));
         });
-        builder.build().execute(&mut *tx).await?;
+        builder.build().execute(&mut **tx).await?;
+    }
+
+    for (player_id, opponent_id) in [(&player1_id, &player2_id), (&player2_id, &player1_id)] {
+        let outcome = if !has_winner {
+            BattleOutcome::NoWinner
+        } else if input.winner_id == *player_id {
+            BattleOutcome::Win
+        } else {
+            BattleOutcome::Lose
+        };
+        logs.record_battle(player_id, &input.match_id, opponent_id, outcome);
     }
 
     if has_winner {
-        // 内部APIは基盤の`Transactions::run`を通らず、ゲームログを書く口(`TxContext`)が無いので、記録した分は捨てる
-        let mut logs = GameLogCollector::default();
         player_item_service::add(
-            &mut tx,
-            &mut logs,
+            tx,
+            logs,
             &input.winner_id,
             GEM_ITEM_ID,
             BATTLE_WIN_REWARD_GEMS,
@@ -200,8 +211,6 @@ pub async fn record_result(pool: &MySqlPool, input: &BattleResultInput) -> Resul
         )
         .await?;
     }
-
-    tx.commit().await?;
 
     Ok(())
 }

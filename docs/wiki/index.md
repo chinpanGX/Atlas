@@ -2,7 +2,7 @@
 title: "Atlas wiki"
 status: index
 area: root
-updated: 2026-10-13
+updated: 2026-10-17
 ---
 
 # Atlas wiki
@@ -97,7 +97,7 @@ flowchart LR
 | ページ | 状態 | 内容 |
 |---|---|---|
 | [構成](server/structure.md) | `current` | ポート、Layer、ログ、ディレクトリ、トランザクション、API 一覧 |
-| [ゲームログ](server/game-log.md) | `current` | 所持データの変化の履歴(何を残し、何がまだ残せないか) |
+| [ゲームログ](server/game-log.md) | `current` | 所持データの変化の履歴(何を、どの形で残すか) |
 | [認証](server/auth.md) | `current` | デバイス認証、`battle_token`、内部 API のシークレット |
 | [プレイヤー](server/player.md) | `current` | サインアップ・サインイン |
 | [パーティ編成・技の付け替え](server/party.md) | `current` | `SetParty`・`SetPachimonMove` |

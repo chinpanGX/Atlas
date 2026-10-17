@@ -6,7 +6,10 @@ use Server::proto::atlas::v1::{
     PartySlotInput, SetPachimonMoveRequest, SetPachimonMoveResponse, SetPartyRequest,
     SetPartyResponse,
 };
-use common::{TestServer, authorized_with_request_id, error_reason, prepare_db, with_request_id};
+use common::{
+    TestServer, authorized_with_request_id, error_reason, game_logs, prepare_db, with_request_id,
+};
+use serde_json::json;
 use sqlx::MySqlPool;
 use tonic::Code;
 use tonic::transport::Channel;
@@ -120,6 +123,15 @@ async fn set_party_replaces_slots(pool: MySqlPool) {
         party_slot_ids(&pool, &player_id).await,
         vec![slots.upserted[0].party_slot_id.clone()]
     );
+
+    // サインアップの初期パーティの次に、変更後の編成が残る
+    let logs = game_logs(&pool, &player_id, "party").await;
+    assert_eq!(logs.len(), 2);
+    assert_eq!(logs[1].method, "atlas.v1.PartyService/SetParty");
+    assert_eq!(
+        logs[1].body,
+        json!({"slots": [{"slot": 3, "player_pachimon_id": pachimon_id}], "reason": "set_party"})
+    );
 }
 
 /// 同じ RequestID で送り直すと、編成し直さずに保存済みのレスポンスが返る。
@@ -200,7 +212,7 @@ async fn set_party_rejects_pachimon_not_owned(pool: MySqlPool) {
 #[sqlx::test(migrations = false)]
 async fn set_pachimon_move_keeps_assignment_id(pool: MySqlPool) {
     let server = start(pool).await;
-    let (_, token) = server.create_player("プレイヤー").await;
+    let (player_id, token) = server.create_player("プレイヤー").await;
     let snapshot = server.sign_in(&token).await.unwrap().snapshot.unwrap();
     let pachimon_id = snapshot.pachimon[0].player_pachimon_id.clone();
     let before = snapshot.pachimon_moves[0].clone();
@@ -222,6 +234,37 @@ async fn set_pachimon_move_keeps_assignment_id(pool: MySqlPool) {
 
     let after = server.sign_in(&token).await.unwrap().snapshot.unwrap();
     assert_eq!(after.pachimon_moves[0].move_id, 2);
+
+    let logs = game_logs(&server.state.pool, &player_id, "pachimon_move").await;
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].method, "atlas.v1.PartyService/SetPachimonMove");
+    assert_eq!(
+        logs[0].body,
+        json!({
+            "target_id": pachimon_id,
+            "slot": before.slot,
+            "before_move_id": before.move_id,
+            "after_move_id": 2,
+            "reason": "set_pachimon_move",
+        })
+    );
+}
+
+/// 空いている枠に技を覚えると、ゲームログの前の技は null になる。
+#[sqlx::test(migrations = false)]
+async fn set_pachimon_move_to_empty_slot_logs_no_previous_move(pool: MySqlPool) {
+    let server = start(pool).await;
+    let (player_id, token) = server.create_player("プレイヤー").await;
+    let pachimon_id = starter_pachimon_id(&server, &token).await;
+
+    // スターターは初期技を1つだけ覚えているので、枠2は空いている
+    set_move(&server, &token, &pachimon_id, 2, 2).await.unwrap();
+
+    let logs = game_logs(&server.state.pool, &player_id, "pachimon_move").await;
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].body["slot"], 2);
+    assert_eq!(logs[0].body["before_move_id"], serde_json::Value::Null);
+    assert_eq!(logs[0].body["after_move_id"], 2);
 }
 
 /// 枠が範囲外・候補技でない・所持個体でないときは、それぞれの業務エラーで、何も変えない。

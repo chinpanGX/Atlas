@@ -5,7 +5,7 @@ area: server
 related: [server/auth, server/internal-api, conventions/errors, conventions/player-diff, db/index]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/main.rs, Server/src/grpc.rs, Server/src/config.rs, Server/src/state.rs, Server/src/error.rs, Server/src/db.rs, Server/build.rs, Server/config/server_status.toml]
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 
 # APIサーバーの構成
@@ -104,7 +104,7 @@ RpcLogLayer                   RPC ごとの span とアクセスログ(メンテ
   プレイヤーごとに直前のレスポンスを1件だけ保存する(基盤のテーブル `last_responses`)
 - 読むだけの RPC は `NO_SIDE_EFFECTS`、何回実行しても同じ結果になる RPC は `IDEMPOTENT` にする。対象かどうかは起動時に
   `.proto` の `idempotency_level` から決める(`IdempotencyLevels`)
-- 内部 API は基盤のトランザクションを通らない。`ReportResult` は自分でトランザクションを張る
+- 内部 API は基盤のトランザクションを通らない。`ReportResult` は自分でトランザクションを張り、ゲームログを書いてコミットする([ゲームログ](game-log.md))
 
 ## エラー
 

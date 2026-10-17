@@ -11,6 +11,7 @@ use crate::error::AppError;
 use crate::master::MasterData;
 use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove};
 use crate::model::player_party_slot::PlayerPartySlot;
+use crate::service::game_log::{GameLogCollector, PachimonReason, PartyReason};
 use crate::service::player_diff::PlayerDiffCollector;
 
 /// `player_pachimon.effort_values`(JSON)の中身。キーは`grant`が書き込む形と同じ。
@@ -31,6 +32,13 @@ pub struct BattleLoadout {
     pub pachimon_id: i32,
     pub effort_values: EffortValues,
     pub moves: Vec<PlayerPachimonMove>,
+}
+
+/// 技の付け替えの入力。`player_pachimon_id`の個体の`slot`(1-4)に`move_id`を入れる。
+pub struct MoveSlotInput {
+    pub player_pachimon_id: String,
+    pub slot: i32,
+    pub move_id: i32,
 }
 
 /// パーティ編成の1slot分の入力。
@@ -303,7 +311,7 @@ where
 
 /// バトル用パーティ(1-6体)を編成する。既存の割当(`player_party_slots`)を一旦全削除してから、
 /// 指定された`player_pachimon_id`をそれぞれのslotへ新しいULIDで再割当する(全置き換え)。
-/// 解除した割当と新しい割当を`diff`に記録する。呼び出し元のトランザクション内で実行する。
+/// 解除した割当と新しい割当を`diff`に、変更後の編成をゲームログに記録する。呼び出し元のトランザクション内で実行する。
 ///
 /// # Errors
 /// 人数が1-6体でない、slotが1-6でない、slot/`player_pachimon_id`が重複している場合に`PartyError::InvalidParty`、
@@ -312,6 +320,7 @@ where
 pub async fn set_party(
     tx: &mut Transaction<'_, MySql>,
     diff: &mut PlayerDiffCollector,
+    logs: &mut GameLogCollector,
     player_id: &str,
     slots: Vec<PartySlotInput>,
 ) -> Result<(), PartyError> {
@@ -364,6 +373,7 @@ pub async fn set_party(
         .execute(&mut **tx)
         .await?;
 
+    let mut party = Vec::with_capacity(slots.len());
     for s in slots {
         let party_slot_id = Ulid::generate().to_string();
 
@@ -378,7 +388,7 @@ pub async fn set_party(
         .execute(&mut **tx)
         .await?;
 
-        diff.record_party_slot(PlayerPartySlot {
+        party.push(PlayerPartySlot {
             party_slot_id,
             player_id: player_id.to_string(),
             slot: s.slot,
@@ -386,6 +396,10 @@ pub async fn set_party(
         });
     }
 
+    logs.record_party(player_id, &party, PartyReason::SetParty);
+    for slot in party {
+        diff.record_party_slot(slot);
+    }
     Ok(())
 }
 
@@ -398,7 +412,8 @@ const MAX_MOVES: usize = 4;
 /// 開発用(対戦相手ボット向け)。pachimonマスタから重複なしで6体をランダムに選んで新たに付与し、
 /// 各個体の技は技グループの候補技(`move_group_moves`)からランダムに最大4つ選ぶ。
 /// 既存のパーティ編成は全て解除し、付与した6体でslot 1-6を編成し直す
-/// (以前の所持個体は所持したまま残る)。付与した個体・技と、解除・追加した枠を`diff`に記録する。
+/// (以前の所持個体は所持したまま残る)。付与した個体・技と、解除・追加した枠を`diff`に、
+/// 付与した個体と変更後の編成をゲームログに記録する。
 /// 呼び出し元のトランザクション内で実行する。
 ///
 /// # Errors
@@ -406,6 +421,7 @@ const MAX_MOVES: usize = 4;
 pub async fn randomize_party(
     tx: &mut Transaction<'_, MySql>,
     diff: &mut PlayerDiffCollector,
+    logs: &mut GameLogCollector,
     master: &MasterData,
     player_id: &str,
 ) -> Result<(), AppError> {
@@ -444,6 +460,7 @@ pub async fn randomize_party(
         .execute(&mut **tx)
         .await?;
 
+    let mut party = Vec::with_capacity(picks.len());
     for (index, (pachimon_id, moves)) in picks.iter().enumerate() {
         let (player_pachimon, granted_moves) = grant(tx, player_id, *pachimon_id, moves).await?;
 
@@ -460,23 +477,28 @@ pub async fn randomize_party(
         .execute(&mut **tx)
         .await?;
 
-        diff.record_party_slot(PlayerPartySlot {
+        party.push(PlayerPartySlot {
             party_slot_id,
             player_id: player_id.to_string(),
             slot,
             player_pachimon_id: player_pachimon.player_pachimon_id.clone(),
         });
+        logs.record_pachimon(&player_pachimon, &granted_moves, PachimonReason::Debug);
         diff.record_pachimon(player_pachimon);
         for granted_move in granted_moves {
             diff.record_pachimon_move(granted_move);
         }
     }
 
+    logs.record_party(player_id, &party, PartyReason::Debug);
+    for slot in party {
+        diff.record_party_slot(slot);
+    }
     Ok(())
 }
 
 /// 所持パチモンの技を付け替える。グループ内の候補技(`move_group_moves`)以外は指定できない。
-/// 付け替えた割当を`diff`に記録する。呼び出し元のトランザクション内で実行する。
+/// 付け替えた割当を`diff`に、前後の技をゲームログに記録する。呼び出し元のトランザクション内で実行する。
 ///
 /// # Errors
 /// `slot`が1-4の範囲外の場合に`PartyError::InvalidMoveSlot`、`move_id`が対象パチモンの技グループの
@@ -485,12 +507,16 @@ pub async fn randomize_party(
 pub async fn update_move(
     tx: &mut Transaction<'_, MySql>,
     diff: &mut PlayerDiffCollector,
+    logs: &mut GameLogCollector,
     master: &MasterData,
     player_id: &str,
-    player_pachimon_id: &str,
-    slot: i32,
-    move_id: i32,
+    input: MoveSlotInput,
 ) -> Result<(), PartyError> {
+    let MoveSlotInput {
+        player_pachimon_id,
+        slot,
+        move_id,
+    } = input;
     if !(1..=4).contains(&slot) {
         return Err(PartyError::InvalidMoveSlot);
     }
@@ -498,7 +524,7 @@ pub async fn update_move(
     let row: Option<(i32,)> = sqlx::query_as(
         "SELECT pachimon_id FROM player_pachimon WHERE player_pachimon_id = ? AND player_id = ?",
     )
-    .bind(player_pachimon_id)
+    .bind(&player_pachimon_id)
     .bind(player_id)
     .fetch_optional(&mut **tx)
     .await?;
@@ -523,6 +549,14 @@ pub async fn update_move(
         return Err(PartyError::MoveNotLearnable);
     }
 
+    let before: Option<(i32,)> = sqlx::query_as(
+        "SELECT move_id FROM player_pachimon_moves WHERE player_pachimon_id = ? AND slot = ?",
+    )
+    .bind(&player_pachimon_id)
+    .bind(slot)
+    .fetch_optional(&mut **tx)
+    .await?;
+
     // 新規slotの場合のみ使われるULID。既存slotの更新時はON DUPLICATE KEY UPDATEの対象に
     // player_pachimon_move_idを含めないため、既存の値がそのまま維持される。
     let new_player_pachimon_move_id = Ulid::generate().to_string();
@@ -534,7 +568,7 @@ pub async fn update_move(
          ON DUPLICATE KEY UPDATE move_id = new.move_id",
     )
     .bind(&new_player_pachimon_move_id)
-    .bind(player_pachimon_id)
+    .bind(&player_pachimon_id)
     .bind(slot)
     .bind(move_id)
     .execute(&mut **tx)
@@ -544,16 +578,18 @@ pub async fn update_move(
         "SELECT player_pachimon_move_id FROM player_pachimon_moves \
          WHERE player_pachimon_id = ? AND slot = ?",
     )
-    .bind(player_pachimon_id)
+    .bind(&player_pachimon_id)
     .bind(slot)
     .fetch_one(&mut **tx)
     .await?;
 
-    diff.record_pachimon_move(PlayerPachimonMove {
+    let after = PlayerPachimonMove {
         player_pachimon_move_id: player_pachimon_move_id.0,
-        player_pachimon_id: player_pachimon_id.to_string(),
+        player_pachimon_id,
         slot,
         move_id,
-    });
+    };
+    logs.record_pachimon_move(player_id, &after, before.map(|(move_id,)| move_id));
+    diff.record_pachimon_move(after);
     Ok(())
 }

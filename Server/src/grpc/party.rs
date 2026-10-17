@@ -12,8 +12,9 @@ use crate::proto::atlas::v1::{
     SetPachimonMoveRequest, SetPachimonMoveResponse, SetPartyRequest, SetPartyResponse,
 };
 use crate::proto::errors;
+use crate::service::game_log::GameLogCollector;
 use crate::service::player_diff::PlayerDiffCollector;
-use crate::service::player_pachimon_service::{self, PartyError, PartySlotInput};
+use crate::service::player_pachimon_service::{self, MoveSlotInput, PartyError, PartySlotInput};
 
 /// `PartyService`(パーティの編成・技の付け替え)の実装。
 #[derive(Clone)]
@@ -59,9 +60,17 @@ impl PartyService for PartyServiceImpl {
             .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
                     let mut diff = PlayerDiffCollector::default();
-                    player_pachimon_service::set_party(ctx.tx(), &mut diff, &player_id, slots)
-                        .await
-                        .map_err(to_status)?;
+                    let mut logs = GameLogCollector::default();
+                    player_pachimon_service::set_party(
+                        ctx.tx(),
+                        &mut diff,
+                        &mut logs,
+                        &player_id,
+                        slots,
+                    )
+                    .await
+                    .map_err(to_status)?;
+                    logs.write_to(ctx)?;
                     Ok(SetPartyResponse {
                         player_diff: diff_to_proto(&diff),
                     })
@@ -89,17 +98,22 @@ impl PartyService for PartyServiceImpl {
             .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
                     let mut diff = PlayerDiffCollector::default();
+                    let mut logs = GameLogCollector::default();
                     player_pachimon_service::update_move(
                         ctx.tx(),
                         &mut diff,
+                        &mut logs,
                         &master,
                         &player_id,
-                        &player_pachimon_id,
-                        slot,
-                        move_id,
+                        MoveSlotInput {
+                            player_pachimon_id,
+                            slot,
+                            move_id,
+                        },
                     )
                     .await
                     .map_err(to_status)?;
+                    logs.write_to(ctx)?;
                     Ok(SetPachimonMoveResponse {
                         player_diff: diff_to_proto(&diff),
                     })

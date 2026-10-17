@@ -88,14 +88,17 @@ impl DebugService for DebugServiceImpl {
             .run(&request, Some(player_ulid), move |ctx| {
                 Box::pin(async move {
                     let mut diff = PlayerDiffCollector::default();
+                    let mut logs = GameLogCollector::default();
                     player_pachimon_service::randomize_party(
                         ctx.tx(),
                         &mut diff,
+                        &mut logs,
                         &master,
                         &player_id,
                     )
                     .await
                     .or_internal()?;
+                    logs.write_to(ctx)?;
                     Ok(RandomizePartyResponse {
                         player_diff: diff_to_proto(&diff),
                     })

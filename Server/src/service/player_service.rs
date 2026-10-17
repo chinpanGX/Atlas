@@ -5,7 +5,8 @@ use ulid::Ulid;
 use crate::error::AppError;
 use crate::master::MasterData;
 use crate::model::player::Player;
-use crate::service::game_log::GameLogCollector;
+use crate::model::player_party_slot::PlayerPartySlot;
+use crate::service::game_log::{GameLogCollector, PachimonReason, PartyReason};
 use crate::service::{player_item_service, player_pachimon_service};
 
 /// signup時にitem_id=1(ジェム)として初期付与する数量
@@ -49,7 +50,7 @@ pub async fn create(
         .execute(&mut **tx)
         .await?;
 
-    grant_starter_party(tx, master, player_id).await?;
+    grant_starter_party(tx, logs, master, player_id).await?;
 
     player_item_service::grant_initial(
         tx,
@@ -68,12 +69,14 @@ pub async fn create(
 }
 
 /// `starter_party_slots`マスタの各行を`player_pachimon`(+初期技)として生成し、
-/// 対応する`slot_no`で`player_party_slots`へ割り当てる。
+/// 対応する`slot_no`で`player_party_slots`へ割り当てる。付与した個体と編成をゲームログに記録する。
 async fn grant_starter_party(
     tx: &mut Transaction<'_, MySql>,
+    logs: &mut GameLogCollector,
     master: &MasterData,
     player_id: &str,
 ) -> Result<(), AppError> {
+    let mut party = Vec::with_capacity(master.starter_party_slots.len());
     for slot in &master.starter_party_slots {
         let pachimon = master
             .pachimon
@@ -88,8 +91,9 @@ async fn grant_starter_party(
             .map(|row| row.move_id)
             .collect();
 
-        let (player_pachimon, _moves) =
+        let (player_pachimon, moves) =
             player_pachimon_service::grant(tx, player_id, slot.pachimon_id, &moves).await?;
+        logs.record_pachimon(&player_pachimon, &moves, PachimonReason::SignUp);
 
         let party_slot_id = Ulid::generate().to_string();
         sqlx::query(
@@ -102,8 +106,16 @@ async fn grant_starter_party(
         .bind(&player_pachimon.player_pachimon_id)
         .execute(&mut **tx)
         .await?;
+
+        party.push(PlayerPartySlot {
+            party_slot_id,
+            player_id: player_id.to_string(),
+            slot: slot.slot_no,
+            player_pachimon_id: player_pachimon.player_pachimon_id,
+        });
     }
 
+    logs.record_party(player_id, &party, PartyReason::SignUp);
     Ok(())
 }
 

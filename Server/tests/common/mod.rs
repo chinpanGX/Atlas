@@ -99,6 +99,7 @@ impl TestServer {
             internal_listener,
             state.clone(),
             RpcLogLayer::default(),
+            GameLogSink::Database,
             std::future::pending(),
         ));
 
@@ -239,6 +240,36 @@ pub async fn item_game_logs(pool: &MySqlPool, player_id: &str) -> Vec<ItemGameLo
             delta: body["delta"].as_i64().unwrap(),
             after: body["after"].as_i64().unwrap(),
             reason: body["reason"].as_str().unwrap().to_owned(),
+        })
+        .collect()
+}
+
+/// ゲームログの1件(`game_logs` の行のうち、テストで確かめる列)。
+#[derive(Debug)]
+pub struct GameLogRow {
+    pub method: String,
+    pub request_id: Option<String>,
+    pub body: serde_json::Value,
+}
+
+/// プレイヤーの `kind` のゲームログを、書いた順に返す。
+pub async fn game_logs(pool: &MySqlPool, player_id: &str, kind: &str) -> Vec<GameLogRow> {
+    let player_id = Ulid::from_string(player_id).unwrap();
+    let rows: Vec<(String, Option<String>, sqlx::types::Json<serde_json::Value>)> =
+        sqlx::query_as(
+            "SELECT method, request_id, body FROM game_logs \
+             WHERE player_id = ? AND kind = ? ORDER BY log_id",
+        )
+        .bind(player_id.to_bytes().as_slice())
+        .bind(kind)
+        .fetch_all(pool)
+        .await
+        .unwrap();
+    rows.into_iter()
+        .map(|(method, request_id, body)| GameLogRow {
+            method,
+            request_id,
+            body: body.0,
         })
         .collect()
 }
