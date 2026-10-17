@@ -6,10 +6,10 @@ using Grpc.Net.Client;
 //   dotnet run --project BattleBot                      ボット1体。1回対戦したら終了
 //   dotnet run --project BattleBot -- --loop            対戦が終わるたびに再びマッチングに並ぶ(Unityの対戦相手を常駐させる)
 //   dotnet run --project BattleBot -- --count 2         ボット2体を同時に動かす(ボット同士で対戦し、サーバー全体を通しで確認する)
-//   dotnet run --project BattleBot -- --api http://127.0.0.1:50051   APIサーバー(gRPC)の接続先
+//   dotnet run --project BattleBot -- --api http://127.0.0.1:50052   APIサーバー(gRPC)の接続先
 // 事前にAPIサーバー(Server/)とBattleServerを起動しておく。
 
-var apiUrl = "http://127.0.0.1:50051";
+var apiUrl = "http://127.0.0.1:50052";
 var count = 1;
 var loop = false;
 for (var i = 0; i < args.Length; i++)

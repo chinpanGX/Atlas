@@ -41,7 +41,7 @@ dev: db
 db:
 	@$(MAKE) --no-print-directory -C Server setup
 
-# APIサーバー(gRPC http://127.0.0.1:50051 / 内部API http://127.0.0.1:3000)
+# APIサーバー(gRPC http://127.0.0.1:50052 / 内部API http://127.0.0.1:3000)
 server:
 	cd Server && cargo run
 

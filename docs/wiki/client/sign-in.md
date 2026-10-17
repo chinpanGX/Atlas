@@ -4,7 +4,7 @@ status: current
 area: client
 related: [server/player, server/auth, client/services-and-player-data, client/error-dialog]
 code: [Client/AtlasUnityProject/Assets/Scripts/Infrastructure/SignInService.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/PlayerSignInService.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/PlayerSession.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/FileAccountStore.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Title]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # サインイン
@@ -47,5 +47,5 @@ HMAC で改ざん・破損を検知する)でファイルに保存する。基�
 
 ## 接続先
 
-APIサーバーのアドレス(`http://127.0.0.1:50051`)とアプリのバージョン(サーバーが強制アップデートの判定に使う整数)は、
+APIサーバーのアドレス(`http://127.0.0.1:50052`)とアプリのバージョン(サーバーが強制アップデートの判定に使う整数)は、
 `RootLifetimeScope` の定数で持つ。環境(本番・ステージング等)を切り替える仕組みは未導入。

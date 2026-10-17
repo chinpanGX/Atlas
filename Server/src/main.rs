@@ -7,7 +7,7 @@ use voltech_grpc_log::RpcLogLayer;
 use voltech_grpc_status::{FileStatusSource, ServerStatus};
 
 /// クライアント向けの gRPC サーバーの待ち受け先(環境変数 `GRPC_ADDR` で上書きできる)。
-const DEFAULT_GRPC_ADDR: &str = "127.0.0.1:50051";
+const DEFAULT_GRPC_ADDR: &str = "127.0.0.1:50052";
 /// BattleServer 向けの内部API(gRPC)の待ち受け先(環境変数 `SERVER_ADDR` で上書きできる)。
 const DEFAULT_SERVER_ADDR: &str = "127.0.0.1:3000";
 /// サーバーの状態の設定ファイル(環境変数 `SERVER_STATUS_PATH` で上書きできる。`Server/` からのパス)。

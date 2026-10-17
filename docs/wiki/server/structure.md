@@ -5,7 +5,7 @@ area: server
 related: [server/auth, server/internal-api, conventions/errors, conventions/player-diff, db/index]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/main.rs, Server/src/grpc.rs, Server/src/config.rs, Server/src/state.rs, Server/src/error.rs, Server/src/db.rs, Server/build.rs, Server/config/server_status.toml]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # APIサーバーの構成
@@ -16,7 +16,7 @@ updated: 2026-10-17
 
 | 待ち受け | 環境変数 | 既定 | 中身 |
 |---|---|---|---|
-| クライアント向け | `GRPC_ADDR` | `127.0.0.1:50051` | 基盤の `DeviceService` と、Atlas の `PlayerService`・`PartyService`・`ScoutService`・`ShopService`・`MatchmakingService`・`DebugService` |
+| クライアント向け | `GRPC_ADDR` | `127.0.0.1:50052` | 基盤の `DeviceService` と、Atlas の `PlayerService`・`PartyService`・`ScoutService`・`ShopService`・`MatchmakingService`・`DebugService` |
 | 内部 API | `SERVER_ADDR` | `127.0.0.1:3000` | `atlas.internal.v1.BattleInternalService`([内部API](internal-api.md)) |
 
 - 同じプロセスにするのは、マッチングの待機列(メモリ)をクライアント向けと内部 API で共有するため

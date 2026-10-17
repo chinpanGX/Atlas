@@ -4,7 +4,7 @@ status: current
 area: root
 related: [overview, index]
 code: [Makefile, Server/Makefile, Server/docker-compose.yml]
-updated: 2026-10-13
+updated: 2026-10-18
 ---
 
 # 開発環境ガイド
@@ -15,7 +15,7 @@ Atlasの開発者(Client / Server / BattleServer)が共通で行う設定と、�
 ## 全体像
 
 ```
-Unity Client ──gRPC──▶ Server(Rust)           gRPC http://127.0.0.1:50051 / 内部API http://127.0.0.1:3000
+Unity Client ──gRPC──▶ Server(Rust)           gRPC http://127.0.0.1:50052 / 内部API http://127.0.0.1:3000
      │                    │  ▲
      │                    ▼  │ POST /internal/battle/*(パーティ・選出個体の取得、対戦結果)
      │                 MySQL(Docker)            127.0.0.1:3306 / DB: atlas_dev
@@ -26,7 +26,7 @@ Unity Client ──gRPC──▶ Server(Rust)           gRPC http://127.0.0.1:50
 | コンポーネント | ディレクトリ | 役割 | ポート |
 |---|---|---|---|
 | Client | `Client/AtlasUnityProject/` | Unityクライアント | — |
-| Server | `Server/` | クライアント向けのgRPC(認証・プレイヤー。乗せ換え中)と、BattleServer向けの内部API(REST) | 50051(gRPC)/ 3000(内部API) |
+| Server | `Server/` | クライアント向けのgRPC(認証・プレイヤー。乗せ換え中)と、BattleServer向けの内部API(REST) | 50052(gRPC)/ 3000(内部API) |
 | BattleServer | `BattleServer/` | リアルタイム対戦(MagicOnion) | 5000 |
 | MySQL | `Server/docker-compose.yml` | 唯一のデータストア(書き込みはServer経由) | 3306 |
 
@@ -90,7 +90,7 @@ Atlas側でサブモジュールの参照先コミットを更新してコミッ
 | `BATTLE_TOKEN_SECRET` | Server・BattleServer(**同じ値**) | `battleToken`(JWT, HS256)の署名・検証 | **32バイト以上**(BattleServerは未満だと起動時にエラー)。食い違うと`JoinAsync`が全て`InvalidToken`になる |
 | `INTERNAL_API_SECRET` | Server・BattleServer(**同じ値**) | BattleServer→Serverの内部API(`X-Internal-Secret`ヘッダー) | 食い違うと結果記録が`401`になる。BattleServer側が未設定だと結果を送らず警告ログのみ |
 | `DATABASE_URL` | Server | MySQL接続先 | 例: `mysql://root@127.0.0.1:3306/atlas_dev` |
-| `GRPC_ADDR` | Server | クライアント向けのgRPCの待受アドレス | 省略時`127.0.0.1:50051`。変えたらClientの`RootLifetimeScope.GrpcAddress`も合わせる |
+| `GRPC_ADDR` | Server | クライアント向けのgRPCの待受アドレス | 省略時`127.0.0.1:50052`。変えたらClientの`RootLifetimeScope.GrpcAddress`も合わせる |
 | `SERVER_ADDR` | Server | BattleServer向けの内部APIの待受アドレス | 省略時`127.0.0.1:3000`。変えたらBattleServerの`API_SERVER_URL`も合わせる |
 | `SERVER_STATUS_PATH` | Server(任意) | メンテナンス・最低バージョン・ゲーム内の日付が変わる時刻の設定ファイル | 省略時`config/server_status.toml`(`Server/`から)。5秒ごとに読み直すので、書き換えれば再起動しなくても効く |
 | `BATTLE_SERVER_URL` | Server | マッチ成立時にクライアントへ返すBattleServerのURL | 省略時`http://127.0.0.1:5000` |
@@ -170,7 +170,7 @@ make setup                          # 2回目以降は make up だけでよい
 cargo run --bin seed_master_data    # マスタデータをDBへ投入(マスタを更新したとき)
 
 # 2) Server(起動時に基盤とAtlasのマイグレーションを流す)
-cargo run                           # gRPC http://127.0.0.1:50051 / 内部API http://127.0.0.1:3000
+cargo run                           # gRPC http://127.0.0.1:50052 / 内部API http://127.0.0.1:3000
 
 # 3) BattleServer(別ターミナル)
 cd BattleServer
@@ -197,7 +197,7 @@ Server、対戦はBattleServerへ接続)。サーバー無しのオフライン�
 - `make bot`は`make dev`と同じく.NET 10 SDKを明示して`dotnet run --project BattleBot -- --loop`を実行する
   (素の`dotnet`はGit BashのPATHでUnity付属の.NET 8 SDKが先に見つかり、`NETSDK1045`で失敗することがある)
 - ボットの引数: `--loop`(対戦が終わるたびに再びマッチングに並ぶ)、`--count N`(N体同時に動かす。`--count 2`でボット同士が
-  対戦し、Unity無しでマッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(APIサーバーのgRPC。既定`http://127.0.0.1:50051`)。
+  対戦し、Unity無しでマッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(APIサーバーのgRPC。既定`http://127.0.0.1:50052`)。
   ボットは起動のたびに新しいプレイヤーを作る(DBにボットのプレイヤーが増える)。パーティは開発用API`DebugService/RandomizeParty`で
   pachimonマスタから重複なしの6体・技も候補技からランダムに組み直す。選出は、BattleServerから届くパーティ
   (`OnSelectionStart`)からランダムに3体を選ぶ
@@ -254,7 +254,7 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 ### Client(Unity) — `Client/AtlasUnityProject/`
 
 - Unity 6000.6.2f1で開く。コーディング規約は[Client/AtlasUnityProject/CLAUDE.md](../../Client/AtlasUnityProject/CLAUDE.md)
-- ServerのURLは`Assets/Scripts/DI/RootLifetimeScope.cs`の`GrpcAddress`(`http://127.0.0.1:50051`固定)。
+- ServerのURLは`Assets/Scripts/DI/RootLifetimeScope.cs`の`GrpcAddress`(`http://127.0.0.1:50052`固定)。
   BattleServerのURLはマッチング成立時にServerから受け取るため、Client側の設定は不要
 - 通信ログはUnity Consoleの`[Api] → ...` / `[Api] ← ...`(Editor・開発ビルドのみ)。`Window > VolTech gRPC > gRPC Monitor`で
   リクエスト・レスポンスのヘッダーとBody(JSON)を1件ずつ見られる

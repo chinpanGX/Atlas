@@ -32,7 +32,7 @@ namespace Atlas.DI
     {
         // APIサーバーのgRPCの待ち受け先(Server/.envのGRPC_ADDRの既定値)。環境切り替え(本番/ステージング等)の
         // 仕組みは未導入のためハードコードしている。
-        private const string GrpcAddress = "http://127.0.0.1:50051";
+        private const string GrpcAddress = "http://127.0.0.1:50052";
 
         // リリースのたびに増やす整数のバージョン。サーバーはこれで強制アップデートを判定する
         // (エディタからの通信は判定しない)。
