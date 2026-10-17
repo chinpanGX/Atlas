@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Atlas.Application;
+using Atlas.Presentation.Shop;
 using Cysharp.Threading.Tasks;
 using R3;
 using Supplement.Core;
-using UnityEngine;
 using UnityScreenNavigator;
 using VContainer.Unity;
 
@@ -46,8 +46,9 @@ namespace Atlas.Presentation.GlobalHeader
             view.OnBackButtonClicked
                 .SubscribeAwait(async (_, _) => await BackAsync(), AwaitOperation.Drop)
                 .AddTo(disposables);
-            // ショップの画面は未実装のため、現時点ではログのみ。
-            view.OnShopButtonClicked.Subscribe(_ => Debug.Log("[GlobalHeader] Shop button clicked (not implemented yet)"))
+            // 今の画面の上に開き、戻ると元の画面に戻る。Push完了までの連打で重ねて積まないよう、実行中の押下は捨てる。
+            view.OnShopButtonClicked
+                .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<ShopPresenter>(), AwaitOperation.Drop)
                 .AddTo(disposables);
         }
 

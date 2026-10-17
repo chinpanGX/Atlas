@@ -26,6 +26,7 @@ public static class _DIExtensions
 
         builder.Register<IPlayerSignInService, PlayerSignInService>(Lifetime.Singleton);
         builder.Register<IScoutService, ScoutService>(Lifetime.Singleton);
+        builder.Register<IShopService, ShopService>(Lifetime.Singleton);
         builder.Register<IDebugConnectService, DebugConnectService>(Lifetime.Singleton);
 
         builder.Register<IPlayerAccountService, PlayerAccountService>(Lifetime.Singleton);

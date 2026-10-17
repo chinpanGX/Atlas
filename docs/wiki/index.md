@@ -77,7 +77,7 @@ flowchart LR
 | [パチモン](game/pachimon.md) | `current` | 種族・タイプ・能力・個体・技 |
 | [パーティ編成・育成](game/party-training.md) | `current` | 編成、技の付け替え、ステータスポイント(どちらも画面は未実装) |
 | [スカウト](game/scout.md) | `current` | 候補10体から1体を選ぶ抽選 |
-| [ショップ(画面は未実装)](game/shop.md) | `current` | ジェムで育成チケットを買う |
+| [ショップ](game/shop.md) | `current` | ジェムで育成チケットを買う |
 | [対戦のルール](game/battle-rules.md) | `current` | マッチング・選出・ターン・ダメージ・勝敗 |
 | [ジェム](game/gems.md) | `current` | 増減のきっかけと量 |
 | [対象外にしたもの](game/out-of-scope.md) | `current` | 小さなルールにするために入れていないもの |

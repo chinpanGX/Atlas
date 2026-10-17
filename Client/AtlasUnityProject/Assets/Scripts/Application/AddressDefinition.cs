@@ -28,11 +28,14 @@ namespace Atlas.Application.Address
         public const string OpponentCanvas = "OpponentCanvas";
         public const string OpponentSwitchingModal = "OpponentSwitchingModal";
         public const string PachimonInfoPanel = "PachimonInfoPanel";
+        public const string PartsGlobalHeaderprefab = "Parts/GlobalHeader.prefab";
         public const string PartyPage = "PartyPage";
         public const string ScoutConfirmModal = "ScoutConfirmModal";
         public const string ScoutPage = "ScoutPage";
         public const string SelectionModal = "SelectionModal";
         public const string SelfCanvas = "SelfCanvas";
+        public const string ShopConfirmModal = "ShopConfirmModal";
+        public const string ShopPage = "ShopPage";
         public const string StatRow1 = "StatRow1";
         public const string SwitchSelectModal = "SwitchSelectModal";
         public const string Texturecircle_white_256png = "Texture/circle_white_256.png";

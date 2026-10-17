@@ -45,6 +45,7 @@ public static class DIExtensions
             builder.Register(resolver => new PlayerApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
             builder.Register(resolver => new PartyApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
             builder.Register(resolver => new ScoutApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
+            builder.Register(resolver => new ShopApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
             builder.Register(resolver => new DebugApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
             builder.Register(resolver => new MatchmakingApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
 

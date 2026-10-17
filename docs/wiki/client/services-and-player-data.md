@@ -13,7 +13,7 @@ updated: 2026-10-17
 
 | 抽象 | 置き場所 | 内容 |
 |---|---|---|
-| `IXxxService` | `Atlas.Application`(実装は `Atlas.Infrastructure`) | Presenter が使う処理。通信するものは、`.proto` から生成したラッパー(`PlayerApi`・`PartyApi`・`ScoutApi`・`MatchmakingApi`・`DebugApi`)を呼び、生成の型とアプリの型を詰め替える |
+| `IXxxService` | `Atlas.Application`(実装は `Atlas.Infrastructure`) | Presenter が使う処理。通信するものは、`.proto` から生成したラッパー(`PlayerApi`・`PartyApi`・`ScoutApi`・`ShopApi`・`MatchmakingApi`・`DebugApi`)を呼び、生成の型とアプリの型を詰め替える |
 | `IXxxRepository` | `Atlas.Domain` | 手元の所持データの読み書き。`player_diff` の種別ごとに1つ。ほかに `IPlayerProfileRepository` |
 | `IPlayerSession` | `Atlas.Application` | サインインしているか。タイトルに戻るときに手元の所持データを捨てる |
 | `IBattleMatchMaker` / `IBattleConnectionFactory` | `Atlas.Application` | 対戦相手を探す / 対戦ごとの接続を作る(Mock と実サーバーの切り替え単位) |
@@ -25,13 +25,14 @@ updated: 2026-10-17
 | `ISignInService` | (下の Service 経由) | 未作成なら作ってからサインインし直す | タイトル |
 | `IPlayerSignInService` | `PlayerApi` | サインアップ・サインイン。サインインの全件を各 Repository に入れる | (`ISignInService` から) |
 | `IPlayerAccountService` | なし | プレイヤー ID・ニックネーム | ホーム |
-| `IItemService` | なし | アイテムの所持数 | ホーム・スカウト |
+| `IItemService` | なし | アイテムの所持数 | グローバルヘッダー・スカウト・ショップ |
 | `IPachimonService` | なし | 所持個体 | パーティ編成・スカウト |
 | `IPachimonMoveMappingService` | なし | 個体が覚えている技 | パーティ編成・バトル |
 | `IPartyService` | `PartyApi` | 編成の取得と保存(全置き換え) | パーティ編成 |
 | `IPachimonMoveEditService` | `PartyApi` | 技の付け替え | (画面は未実装) |
 | `IScoutService` | `ScoutApi` | バナー一覧・紹介・選択 | スカウト |
-| `IDebugConnectService` | `DebugApi` | 開発用のジェム付与 | ホーム |
+| `IShopService` | `ShopApi` | 商品一覧・購入 | ショップ |
+| `IDebugConnectService` | `DebugApi` | 開発用のジェム付与 | ショップ |
 | `IBattleMatchMaker` | `MatchmakingApi` | 待機列に入り、成立するまで待つ | ホーム |
 
 - 通信の共通処理は gRPC 基盤の `ApiCore` が受け持つ(トークンの付与・期限前の発行し直し・`UNAUTHENTICATED` のときの1回だけの再送、

@@ -30,7 +30,8 @@ namespace Atlas.Presentation.GlobalHeader
             ticketAmountText.text = dto.Tickets.ToString();
             backButton.gameObject.SetActive(dto.ShowsBack);
             backButton.interactable = dto.IsInteractable;
-            shopButton.interactable = dto.IsInteractable && dto.CanOpenShop;
+            shopButton.gameObject.SetActive(dto.CanOpenShop);
+            shopButton.interactable = dto.IsInteractable;
         }
     }
 }
