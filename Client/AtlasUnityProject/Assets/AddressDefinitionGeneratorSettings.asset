@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27bd281d664f54fe29f9f5e35227ec81, type: 3}
   m_Name: AddressDefinitionGeneratorSettings
   m_EditorClassIdentifier: AddressDefinitionGenerator.Editor::AddressDefinitionGenerator.Editor.Core.AddressDefinitionGeneratorSettings
-  _saveFolder: C:/Unity/Atlas/Client/AtlasUnityProject/Assets/Scripts/Application
+  _saveFolder: C:/Work/Atlas/Client/AtlasUnityProject/Assets/Scripts/Application
   _namespaceName: Atlas.Application.Address
   _className: AddressDefinition
   _groupProvider:

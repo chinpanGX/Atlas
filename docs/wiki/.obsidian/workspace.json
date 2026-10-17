@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "game/flow.md",
+                "file": "game/party-training.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "flow"
+              "title": "party-training"
             }
           }
         ]
@@ -190,18 +190,20 @@
   },
   "active": "57b320a867cc58e1",
   "lastOpenFiles": [
-    "game/index.md",
-    "game/gems.md",
+    "game/shop.md",
+    "server/sedMcPV6d",
+    "game/sedk9mpOn",
+    "game/party-training.md",
     "game/out-of-scope.md",
     "game/pachimon.md",
-    "game/party-training.md",
+    "game/gems.md",
+    "game/flow.md",
+    "game/index.md",
     "game/images/global-header.svg",
-    "game/shop.md",
     "game/scout.md",
     "game/images/shop-purchased.svg",
     "game/images/shop-page.svg",
     "game/images/shop-confirm.svg",
-    "game/flow.md",
     "game/images/training-stats.svg",
     "client/testing.md.tmp.22344.7a2fe1e1f171",
     "master-data/sedHFarq9",
@@ -211,8 +213,6 @@
     "db/sednLYmIU",
     "battle-server/sed6ceDFK",
     "master-data/sedblNCHu",
-    "conventions/sedgCZYz3",
-    "server/game-log.md.tmp.11260.e15ceaae0442",
     "server/shop.md",
     "game/images/training-moves.svg",
     "game/images/training-move-select.svg",
