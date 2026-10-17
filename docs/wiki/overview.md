@@ -37,7 +37,7 @@ APIサーバー(Rust/tonic)        バトルサーバー(C#/MagicOnion)
 | 対戦の判定はバトルサーバーが権威を持つ。クライアントは結果を受け取って表示するだけ | 不正(ダメージの改ざんなど)を防ぐ。HP は%でしか送らない等、判定に使う生の値もクライアントに渡さない |
 | バトルサーバーへの参加資格は、APIサーバーがマッチ成立時に発行する短命の JWT(`battle_token`)で確かめる | バトルサーバーがユーザーの DB を持たずに済む |
 | ダメージ計算・ターン処理(`Atlas.BattleCore`)と対戦の通信契約(`Atlas.BattleContracts`)は、`Shared/` の同じソースを Client と BattleServer がコンパイルする | 計算と契約が両者で食い違わない。Client はオフラインの Mock 対戦にも同じ計算を使う |
-| Client と APIサーバーの通信は、自作の gRPC 基盤 [VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)(タグ `v0.4.0`)に乗せる | デバイス認証・トークン・エラーのダイアログ・再送しても一度だけ処理する仕組み・1リクエスト1トランザクション・メンテナンスの判定を基盤が受け持ち、Atlas は `.proto` と業務処理だけを書く |
+| Client と APIサーバーの通信は、自作の gRPC 基盤 [VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)(タグ `v0.5.0`)に乗せる | デバイス認証・トークン・エラーのダイアログ・再送しても一度だけ処理する仕組み・1リクエスト1トランザクション・メンテナンスの判定を基盤が受け持ち、Atlas は `.proto` と業務処理だけを書く |
 
 ### 通信の一覧
 

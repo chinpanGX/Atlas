@@ -43,14 +43,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.ListProductsResponse>> ListProductsAsync(
             global::Atlas.Api.V1.ListProductsRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 listProductsSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.ListProductsAsync(r, options));
+                static (c, r, options) => c.ListProductsAsync(r, options),
+                notifyActivity);
         }
 
         /// <summary>
@@ -60,14 +62,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.PurchaseResponse>> PurchaseAsync(
             global::Atlas.Api.V1.PurchaseRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 purchaseSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.PurchaseAsync(r, options));
+                static (c, r, options) => c.PurchaseAsync(r, options),
+                notifyActivity);
         }
     }
 

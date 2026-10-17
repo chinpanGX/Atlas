@@ -43,14 +43,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.GrantGemsResponse>> GrantGemsAsync(
             global::Atlas.Api.V1.GrantGemsRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 grantGemsSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.GrantGemsAsync(r, options));
+                static (c, r, options) => c.GrantGemsAsync(r, options),
+                notifyActivity);
         }
 
         /// <summary>
@@ -59,14 +61,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.RandomizePartyResponse>> RandomizePartyAsync(
             global::Atlas.Api.V1.RandomizePartyRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 randomizePartySettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.RandomizePartyAsync(r, options));
+                static (c, r, options) => c.RandomizePartyAsync(r, options),
+                notifyActivity);
         }
     }
 

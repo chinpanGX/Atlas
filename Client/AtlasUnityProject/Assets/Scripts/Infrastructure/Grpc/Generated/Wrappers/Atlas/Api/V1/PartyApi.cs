@@ -49,14 +49,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.SetPartyResponse>> SetPartyAsync(
             global::Atlas.Api.V1.SetPartyRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 setPartySettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.SetPartyAsync(r, options));
+                static (c, r, options) => c.SetPartyAsync(r, options),
+                notifyActivity);
         }
 
         /// <summary>
@@ -69,14 +71,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.SetPachimonMoveResponse>> SetPachimonMoveAsync(
             global::Atlas.Api.V1.SetPachimonMoveRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 setPachimonMoveSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.SetPachimonMoveAsync(r, options));
+                static (c, r, options) => c.SetPachimonMoveAsync(r, options),
+                notifyActivity);
         }
 
         /// <summary>
@@ -89,14 +93,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.SetPachimonStatPointsResponse>> SetPachimonStatPointsAsync(
             global::Atlas.Api.V1.SetPachimonStatPointsRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 setPachimonStatPointsSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.SetPachimonStatPointsAsync(r, options));
+                static (c, r, options) => c.SetPachimonStatPointsAsync(r, options),
+                notifyActivity);
         }
     }
 

@@ -504,7 +504,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1732,7 +1732,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2182,7 +2182,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2652,8 +2652,8 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "voltech-grpc-auth"
-version = "0.4.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.4.0#e543a61f359ac8a6138eaaff592fd57077565b2f"
+version = "0.5.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.5.0#19df6cf145bdb5c0c33f302023bb32db522cb3e4"
 dependencies = [
  "argon2",
  "http",
@@ -2675,8 +2675,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-error"
-version = "0.4.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.4.0#e543a61f359ac8a6138eaaff592fd57077565b2f"
+version = "0.5.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.5.0#19df6cf145bdb5c0c33f302023bb32db522cb3e4"
 dependencies = [
  "tonic",
  "tonic-types",
@@ -2686,8 +2686,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-error-build"
-version = "0.4.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.4.0#e543a61f359ac8a6138eaaff592fd57077565b2f"
+version = "0.5.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.5.0#19df6cf145bdb5c0c33f302023bb32db522cb3e4"
 dependencies = [
  "serde",
  "toml",
@@ -2695,8 +2695,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-log"
-version = "0.4.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.4.0#e543a61f359ac8a6138eaaff592fd57077565b2f"
+version = "0.5.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.5.0#19df6cf145bdb5c0c33f302023bb32db522cb3e4"
 dependencies = [
  "futures-util",
  "http",
@@ -2714,8 +2714,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-status"
-version = "0.4.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.4.0#e543a61f359ac8a6138eaaff592fd57077565b2f"
+version = "0.5.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.5.0#19df6cf145bdb5c0c33f302023bb32db522cb3e4"
 dependencies = [
  "http",
  "jiff",
@@ -2730,8 +2730,8 @@ dependencies = [
 
 [[package]]
 name = "voltech-grpc-transaction"
-version = "0.4.0"
-source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.4.0#e543a61f359ac8a6138eaaff592fd57077565b2f"
+version = "0.5.0"
+source = "git+https://github.com/chinpanGX/VolTech-gRPC?tag=v0.5.0#19df6cf145bdb5c0c33f302023bb32db522cb3e4"
 dependencies = [
  "http",
  "prost",

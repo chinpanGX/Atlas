@@ -46,7 +46,7 @@
       "hash": "e69448be2bbc4f936127c0abb1273c0e9e02cf31"
     },
     "com.chinpangx.voltech.grpc": {
-      "version": "https://github.com/chinpanGX/VolTech-gRPC.git?path=/Unity/com.chinpangx.voltech.grpc#v0.4.0",
+      "version": "https://github.com/chinpanGX/VolTech-gRPC.git?path=/Unity/com.chinpangx.voltech.grpc#v0.5.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
@@ -57,7 +57,7 @@
         "org.nuget.grpc.net.client": "2.84.0",
         "org.nuget.system.io.pipelines": "10.0.12"
       },
-      "hash": "e543a61f359ac8a6138eaaff592fd57077565b2f"
+      "hash": "19df6cf145bdb5c0c33f302023bb32db522cb3e4"
     },
     "com.cysharp.magiconion.client.unity": {
       "version": "7.11.0",

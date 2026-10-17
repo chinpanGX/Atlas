@@ -47,14 +47,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.JoinQueueResponse>> JoinQueueAsync(
             global::Atlas.Api.V1.JoinQueueRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 joinQueueSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.JoinQueueAsync(r, options));
+                static (c, r, options) => c.JoinQueueAsync(r, options),
+                notifyActivity);
         }
 
         /// <summary>
@@ -62,14 +64,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.LeaveQueueResponse>> LeaveQueueAsync(
             global::Atlas.Api.V1.LeaveQueueRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 leaveQueueSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.LeaveQueueAsync(r, options));
+                static (c, r, options) => c.LeaveQueueAsync(r, options),
+                notifyActivity);
         }
 
         /// <summary>
@@ -78,14 +82,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.GetQueueStatusResponse>> GetQueueStatusAsync(
             global::Atlas.Api.V1.GetQueueStatusRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 getQueueStatusSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.GetQueueStatusAsync(r, options));
+                static (c, r, options) => c.GetQueueStatusAsync(r, options),
+                notifyActivity);
         }
     }
 }

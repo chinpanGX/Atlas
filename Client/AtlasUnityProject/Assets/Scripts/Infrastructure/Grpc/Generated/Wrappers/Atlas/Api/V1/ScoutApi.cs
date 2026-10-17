@@ -45,14 +45,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.ListBannersResponse>> ListBannersAsync(
             global::Atlas.Api.V1.ListBannersRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 listBannersSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.ListBannersAsync(r, options));
+                static (c, r, options) => c.ListBannersAsync(r, options),
+                notifyActivity);
         }
 
         /// <summary>
@@ -62,14 +64,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.RollResponse>> RollAsync(
             global::Atlas.Api.V1.RollRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 rollSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.RollAsync(r, options));
+                static (c, r, options) => c.RollAsync(r, options),
+                notifyActivity);
         }
 
         /// <summary>
@@ -79,14 +83,16 @@ namespace Atlas.Api.V1
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.SelectResponse>> SelectAsync(
             global::Atlas.Api.V1.SelectRequest request,
-            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
+            bool notifyActivity = true)
         {
             return core.InvokeAsync(
                 selectSettings,
                 client,
                 request,
                 handledCodes,
-                static (c, r, options) => c.SelectAsync(r, options));
+                static (c, r, options) => c.SelectAsync(r, options),
+                notifyActivity);
         }
     }
 
