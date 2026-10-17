@@ -306,7 +306,18 @@ make errors-gen   # errors.toml → Unity向けのC#のエラーコード(AtlasE
   別の場所なら`local.mk`(コミットしない)に`DOTNET := <パス>`を書く
 - gRPC基盤のタグを上げるときは、`Makefile`の`VOLTECH_TAG`・`Server/Cargo.toml`・Clientの`manifest.json`の3か所をそろえる
 
-## 7. トラブルシューティング
+## 7. CI(GitHub Actions)
+
+`develop`へのpushとPRで、変更したパスに関係するものだけが走る。生成物を作ってコミットすることはしない
+(生成物は、それを使うコードと同じコミットに手元で入れる)。
+
+| workflow | 内容 |
+|---|---|
+| `server.yml` | `make fmt-check`・`cargo clippy --all-targets`・`cargo test`。MySQLはActionsの`services`で起動し、シークレットはダミーの値を渡す |
+| `battle-server.yml` | `dotnet test BattleServer.slnx` |
+| `proto.yml` | `buf lint`。PRではマージ先と比べる`buf breaking`も行う |
+
+## 8. トラブルシューティング
 
 | 症状 | 原因・対処 |
 |---|---|

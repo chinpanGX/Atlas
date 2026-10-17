@@ -1,0 +1,59 @@
+name: Server
+
+on:
+  push:
+    branches: [develop]
+    paths: &paths
+      - Server/**
+      - Shared/proto/**
+      - Shared/errors.toml
+      - .github/workflows/server.yml
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Server
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: atlas_dev
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      # #[sqlx::test]はこのDBを起点にテストごとのDBを作る
+      DATABASE_URL: mysql://root@127.0.0.1:3306/atlas_dev
+      # 未設定だとマッチングのサービスの組み立てでpanicする。CIでは外へ出ないのでダミーの値でよい
+      BATTLE_TOKEN_SECRET: ci-battle-token-secret-0123456789abcdef
+      INTERNAL_API_SECRET: ci-internal-api-secret
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: Server
+      - name: rustfmt
+        run: make fmt-check
+      # unwrap/expectはwarnにしているので警告では落とさない。denyにしたlint(dbg!/todo!等)だけで落ちる
+      - name: clippy
+        run: cargo clippy --all-targets
+      - name: test
+        run: cargo test

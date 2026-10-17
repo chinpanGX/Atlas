@@ -1,0 +1,31 @@
+name: Proto
+
+on:
+  push:
+    branches: [develop]
+    paths: &paths
+      - Shared/proto/**
+      - buf.yaml
+      - .github/workflows/proto.yml
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # lintは毎回、breakingはPRのときにマージ先と比べる(ClientとServerの片方だけが古いと壊れる変更を止める)
+      - uses: bufbuild/buf-action@v1
+        with:
+          format: false
+          push: false
