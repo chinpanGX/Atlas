@@ -67,6 +67,3 @@ crashlytics-build.properties
 .idea/
 .vs/
 .vscode/
-
-# Local tool cache
-.uloop/

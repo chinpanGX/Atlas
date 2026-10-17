@@ -7,7 +7,7 @@ description: パチモンの仮のサムネイル(主タイプの色の円にpac
 
 正式な画像が用意されるまでの仮のサムネイルを作る。生成はUnityエディタ上のEditorスクリプト
 (`Client/AtlasUnityProject/Assets/Scripts/Editor/Thumbnail/PachimonThumbnailGenerator.cs`)が行う。
-文字をプロジェクトのTMPフォントで描くため、Unityエディタが起動している必要がある(uloopで呼ぶ)。
+文字をプロジェクトのTMPフォントで描くため、Unityエディタが起動している必要がある(Unity CLIの`unity command eval`で呼ぶ。Editor側は`com.unity.pipeline`パッケージが受ける)。
 
 ## 生成物
 
@@ -27,15 +27,15 @@ description: パチモンの仮のサムネイル(主タイプの色の円にpac
 
 作業ディレクトリは`Client/AtlasUnityProject`。
 
-1. Unityエディタが起動していることを確かめる(起動していなければ`uloop launch`)。
-   C#を変えた直後なら`uloop compile`でエラーが無いことを確かめる
+1. `unity status`でUnityエディタが起動して`ready`であることを確かめる(起動していなければ`unity open .`の後に
+   `unity status --until-ready`)。C#を変えた直後なら`unity recompile`でエラーが無いことを確かめる
 2. 足りないサムネイルを生成して、Addressablesに登録する
 
    ```bash
-   uloop execute-dynamic-code --code 'return Atlas.Editor.Thumbnail.PachimonThumbnailGenerator.GenerateMissing();'
+   unity command eval --result-only --code 'return Atlas.Editor.Thumbnail.PachimonThumbnailGenerator.GenerateMissing();'
    ```
 
-   `Result`に生成したIDの一覧と、Addressablesのエントリ数が返る。
+   結果に生成したIDの一覧と、Addressablesのエントリ数が返る。
    例: `Generated 2 thumbnails: 1037, 1038 (skipped 36 existing, 38 addressable entries)`。
    足りないものが無いときは`No thumbnails to generate (...)`になる(登録だけ当て直す)
 3. 生成した画像を1枚`Read`で開いて見た目を確かめる
@@ -52,7 +52,7 @@ Unityのメニュー`Tools > Generate Pachimon Thumbnails`でも同じ処理を�
 差し替え済みのものがある場合は使わない。
 
 ```bash
-uloop execute-dynamic-code --code 'return Atlas.Editor.Thumbnail.PachimonThumbnailGenerator.RegenerateAll();'
+unity command eval --result-only --code 'return Atlas.Editor.Thumbnail.PachimonThumbnailGenerator.RegenerateAll();'
 ```
 
 ## 注意

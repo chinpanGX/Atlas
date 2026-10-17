@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/assemblies, client/navigation, client/services-and-player-data]
 code: [Client/AtlasUnityProject/Packages/manifest.json, Client/AtlasUnityProject/Assets/packages.config]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # 採用ライブラリ
@@ -30,7 +30,7 @@ updated: 2026-10-11
 | APIサーバーとの通信 | VolTech gRPC(自作の基盤。`ApiCore`・認証・エラーダイアログの仕組み・gRPC Monitor)+ `.proto` から生成したラッパー | Git(タグ `v0.4.0`)+ 生成コード |
 | テスト | Unity Test Framework | Unity |
 | NuGet パッケージの導入 | NuGetForUnity | Git |
-| 開発支援(AI エージェントから Editor を操作する) | Unity CLI Loop(`uloop`) | Git |
+| 開発支援(AI エージェントから Editor を操作する) | Unity CLI(`unity`)+ Unity Pipeline(`com.unity.pipeline`) | Unity |
 
 - MagicOnion・MasterMemory・MessagePack は、UPM 版が薄いラッパーで Source Generator を含まないため、NuGet 版(本体 + Source Generator)を
   NuGetForUnity で入れている。IL2CPP では動的なコード生成が使えず、`[MessagePackObject]` の型のフォーマッターを Source Generator で作る必要があるため

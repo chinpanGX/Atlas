@@ -44,7 +44,7 @@ namespace Atlas.Editor.Thumbnail
             Debug.Log(GenerateMissing());
         }
 
-        // uloop execute-dynamic-codeから呼ぶ入口。作ったIDと飛ばした数を返す。
+        // Unity CLIの`unity command eval`から呼ぶ入口。作ったIDと飛ばした数を返す。
         public static string GenerateMissing()
         {
             return Generate(overwrite: false);

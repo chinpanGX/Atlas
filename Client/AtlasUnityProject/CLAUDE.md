@@ -139,7 +139,7 @@ Unity 6(IL2CPP前提)のクライアント。プロジェクト全体の共通�
 
 ### アセット(prefab・シーン)
 
-- **prefab・シーン・アセットのYAMLを直接書き換えない**。Unityのエディタ上で`uloop execute-dynamic-code`から
+- **prefab・シーン・アセットのYAMLを直接書き換えない**。Unityのエディタ上で`unity command eval`(Unity CLI)から
   `PrefabUtility`・`SerializedObject`等のAPIで編集する
 - **Prefabモードで開いているprefabを、別に`PrefabUtility.LoadPrefabContents`で読み込んで保存しない**。
   開いているPrefabモード側の内容で上書きされる。開いている場合は、未保存の変更が無いことを確かめてから
@@ -150,8 +150,10 @@ Unity 6(IL2CPP前提)のクライアント。プロジェクト全体の共通�
 
 ### 確認
 
-- C#を変えたら`uloop compile`でエラー・警告が0であることを確かめる。EditMode/PlayModeのテスト(`uloop run-tests`)は
-  頼まれたときだけ回す
+- Editorの操作はUnity CLI(`unity`)で行う。Editor側は`com.unity.pipeline`パッケージが受ける。
+  使えるコマンドは`unity command`で一覧できる
+- C#を変えたら`unity recompile --strict`でエラー・警告が0であることを確かめる。EditMode/PlayModeのテスト
+  (`unity command run_tests`)は頼まれたときだけ回す
 - `Shared/BattleCore`・`Shared/BattleContracts`の中で`dotnet build`しない(`bin/`・`obj/`ができ、UnityがそのDLLを
   取り込んでCS1704になる)
 

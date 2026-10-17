@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/services-and-player-data, battle-server/testing-and-bot, battle-server/battle-core]
 code: [Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Mock, Client/AtlasUnityProject/Assets/Scripts/Tests, Client/AtlasUnityProject/Assets/Scripts/DI/RootLifetimeScope.cs]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # テストとサーバー無しでの動作
@@ -35,5 +35,5 @@ updated: 2026-10-11
 | `Tests/Presentation/Party/` | EditMode | `PartyEditor`(編成の編集ロジック) |
 | `Tests/Presentation/Battle/` | PlayMode | Bootstrap → Home → Battle の起動経路を、APIサーバー無しで通す |
 
-- C# を変えたら `uloop compile` でエラー・警告が0であることを確かめる。テスト(`uloop run-tests`)は頼まれたときだけ回す
+- C# を変えたら `unity recompile --strict` でエラー・警告が0であることを確かめる。テスト(`unity command run_tests`)は頼まれたときだけ回す
 - Client を実際に操作する結合テスト(パーティ編成 → マッチング → 対戦 → 結果)に [Anjin](https://github.com/DeNA/Anjin) を使う案がある(未着手)
