@@ -35,6 +35,7 @@ namespace Atlas.Presentation.Common
             [new ErrorCode(AtlasDomain, "SCOUT_BANNER_NOT_FOUND")] = new("スカウトできません", "このスカウトは見つかりませんでした。"),
             [new ErrorCode(AtlasDomain, "SCOUT_BANNER_CLOSED")] = new("スカウトできません", "このスカウトは開催期間外です。"),
             [new ErrorCode(AtlasDomain, "INSUFFICIENT_GEMS")] = new("ジェムが足りません", "必要なジェムが足りません。"),
+            [new ErrorCode(AtlasDomain, "SHOP_PRODUCT_NOT_FOUND")] = new("購入できません", "この商品は見つかりませんでした。"),
             [new ErrorCode(AtlasDomain, "SCOUT_ROLL_NOT_FOUND")] = new("エラー", "スカウトの結果が見つかりませんでした。"),
             [new ErrorCode(AtlasDomain, "SCOUT_CANDIDATE_OUT_OF_RANGE")] = new("エラー", "選んだパチモンの指定が正しくありません。"),
             [new ErrorCode(AtlasDomain, "SCOUT_ROLL_ALREADY_SELECTED")] = new("選択済みです", "このスカウトではもうパチモンを選んでいます。"),
