@@ -1,5 +1,6 @@
 using System.Threading;
 using Atlas.Application;
+using Atlas.Presentation.GlobalHeader;
 using Atlas.Presentation.Home;
 using Atlas.Presentation.Title;
 using Cysharp.Threading.Tasks;
@@ -17,6 +18,7 @@ namespace Atlas.DI
         [SerializeField] private PageContainer pageContainer;
         [SerializeField] private ModalContainer modalContainer;
         [SerializeField] private OverlayContainer overlayContainer;
+        [SerializeField] private GlobalHeaderView globalHeaderView;
 
         // BootstrapEntryPoint.StartAsync内でLifetimeScope.EnqueueParent(rootScope)を使うと、それが
         // 解除されるタイミング(ChangeScene()のawait完了)が自分自身のAwake()完了より後になるとは限らず、
@@ -31,6 +33,9 @@ namespace Atlas.DI
             builder.RegisterComponent(overlayContainer);
             // シーンのスコープに置き、シーンのUnloadと一緒に積んでいた画面のPresenterも破棄させる。
             builder.Register<IScreenNavigator, ScreenNavigator>(Lifetime.Singleton);
+            // 画面ごとの子スコープから、シーンに1つのヘッダーへ登録できるようにする。
+            builder.RegisterComponent(globalHeaderView);
+            builder.RegisterEntryPoint<GlobalHeaderPresenter>().AsSelf();
             builder.RegisterEntryPoint<HomeEntryPoint>();
         }
     }

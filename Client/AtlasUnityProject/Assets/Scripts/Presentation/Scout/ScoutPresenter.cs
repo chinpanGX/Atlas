@@ -1,6 +1,7 @@
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
+using Atlas.Presentation.GlobalHeader;
 using Atlas.Presentation.Party;
 using MasterMemory;
 using Cysharp.Threading.Tasks;
@@ -13,7 +14,7 @@ namespace Atlas.Presentation.Scout
 {
     // 候補は1回目のタップで選択(詳細表示)、選択中の候補をもう一度タップすると確認Modalを出し、
     // 「はい」で候補の選択を送って入手を確定する。
-    // ジェムはロールした時点で消費済みのため、候補を選ぶまでは戻るボタンを押せなくする
+    // ジェムはロールした時点で消費済みのため、候補を選ぶまではヘッダー(戻る・ショップ)を押せなくする
     // (ロール中の候補を取り直すAPIが無く、離れると消費したジェムが無駄になるため)。
     [AssetAddress(AddressDefinition.ScoutPage)]
     public sealed class ScoutPresenter : IPresenter
@@ -27,6 +28,7 @@ namespace Atlas.Presentation.Scout
         private readonly IPachimonService pachimonService;
         private readonly MemoryDatabase database;
         private readonly IScreenNavigator screenNavigator;
+        private readonly GlobalHeaderPresenter globalHeader;
         private readonly CompositeDisposable disposables = new();
         private readonly CancellationTokenSource lifetimeCancellation = new();
 
@@ -35,6 +37,7 @@ namespace Atlas.Presentation.Scout
         // 候補を選んでいないロール。選択が確定するとnullに戻る。
         private ScoutRoll roll;
         private int? selectedIndex;
+        private GlobalHeaderHandle header;
 
         public ScoutPresenter(
             ScoutPage view,
@@ -42,7 +45,8 @@ namespace Atlas.Presentation.Scout
             IItemService itemService,
             IPachimonService pachimonService,
             MemoryDatabase database,
-            IScreenNavigator screenNavigator)
+            IScreenNavigator screenNavigator,
+            GlobalHeaderPresenter globalHeader)
         {
             this.view = view;
             this.scoutService = scoutService;
@@ -50,10 +54,12 @@ namespace Atlas.Presentation.Scout
             this.pachimonService = pachimonService;
             this.database = database;
             this.screenNavigator = screenNavigator;
+            this.globalHeader = globalHeader;
         }
 
         public UniTask InitializeAsync()
         {
+            header = globalHeader.Attach(this, new GlobalHeaderOptions { Title = "スカウト" }).AddTo(disposables);
             view.ClearCandidates();
             RefreshState();
 
@@ -63,9 +69,6 @@ namespace Atlas.Presentation.Scout
                 .AddTo(disposables);
             view.OnCandidateClicked
                 .SubscribeAwait(async (index, ct) => await OnCandidateClickedAsync(index, ct), AwaitOperation.Drop)
-                .AddTo(disposables);
-            view.OnBackButtonClicked
-                .SubscribeAwait(async (_, _) => await screenNavigator.PopPageAsync(this), AwaitOperation.Drop)
                 .AddTo(disposables);
 
             // バナーの取得を待たずに画面を開き、取得できた時点でスカウトボタンを押せるようにする。
@@ -102,7 +105,7 @@ namespace Atlas.Presentation.Scout
             }
 
             view.SetScoutButtonInteractable(false);
-            view.SetBackButtonInteractable(false);
+            header.SetLocked(true);
             roll = await scoutService.RollAsync(banner.BannerId);
             if (roll is null)
             {
@@ -167,9 +170,8 @@ namespace Atlas.Presentation.Scout
         private void RefreshState()
         {
             var gems = itemService.GetAmount(GemItemId);
-            view.SetGems(gems);
             view.SetScoutButtonInteractable(banner is not null && roll is null && gems >= banner.CostPerRoll);
-            view.SetBackButtonInteractable(roll is null);
+            header.SetLocked(roll is not null);
         }
 
         private PachimonDto CreatePachimonDto(ScoutCandidate candidate, bool isNew)

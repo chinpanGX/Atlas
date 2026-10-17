@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/screens, client/scenes-and-scopes, client/libraries]
 code: [Client/AtlasUnityProject/Assets/Scripts/Navigation, UnityScreenNavigator]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # 画面遷移
@@ -21,7 +21,7 @@ updated: 2026-10-11
   待機は終わり、その時点の値を返す
 - **二重に Pop しない**のはアプリ側の責務。ボタンは `Take(1)` で1回だけ受け付ける。Push 元からも閉じる画面(交代選択・選出)は、
   最初の結果を優先して2回目以降は進行中の Pop を待つだけの `CloseAsync` を持たせる
-- 結果を返さない画面から戻ったことを知りたいだけなら、Push 元の `WillPopEnterAsync` を使う(ホームがスカウトから戻ったときにジェムを取り直す)
+- 結果を返さない画面から戻ったことを知りたいだけなら、Push 元の `WillPopEnterAsync` を使う
 - 表示だけ・操作を Push 元に渡すだけの Modal にも、Push の型として薄い Presenter を用意する
 - Overlay(Modal より手前のレイヤー)はコンテナだけ用意してあり、使う画面はまだ無い。通信エラーのダイアログは Overlay ではなく Bootstrap シーンに置く
   ([通信エラーのダイアログ](error-dialog.md))

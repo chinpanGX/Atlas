@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
 using Atlas.Domain;
 using Atlas.MasterData.Models;
+using Atlas.Presentation.GlobalHeader;
 using MasterMemory;
 using Cysharp.Threading.Tasks;
 using R3;
@@ -14,8 +14,8 @@ using ZLinq;
 
 namespace Atlas.Presentation.Party
 {
-    // 編成の入れ替えはPartyEditorが手元で持つ状態だけを書き換え、戻るボタンで変更があった時だけ
-    // 編成を全置き換えで保存してから前の画面へ戻る。
+    // 編成の入れ替えはPartyEditorが手元で持つ状態だけを書き換え、ヘッダーの戻るで画面を離れるときに、
+    // 変更があった時だけ編成を全置き換えで保存する。
     [AssetAddress(AddressDefinition.PartyPage)]
     public sealed class PartyPresenter : IPresenter
     {
@@ -24,7 +24,7 @@ namespace Atlas.Presentation.Party
         private readonly IPachimonService pachimonService;
         private readonly IPachimonMoveMappingService pachimonMoveMappingService;
         private readonly MemoryDatabase database;
-        private readonly IScreenNavigator screenNavigator;
+        private readonly GlobalHeaderPresenter globalHeader;
         private readonly CompositeDisposable disposables = new();
 
         private PartyEditor editor;
@@ -37,14 +37,14 @@ namespace Atlas.Presentation.Party
             IPachimonService pachimonService,
             IPachimonMoveMappingService pachimonMoveMappingService,
             MemoryDatabase database,
-            IScreenNavigator screenNavigator)
+            GlobalHeaderPresenter globalHeader)
         {
             this.view = view;
             this.partyService = partyService;
             this.pachimonService = pachimonService;
             this.pachimonMoveMappingService = pachimonMoveMappingService;
             this.database = database;
-            this.screenNavigator = screenNavigator;
+            this.globalHeader = globalHeader;
         }
 
         public UniTask InitializeAsync()
@@ -75,9 +75,7 @@ namespace Atlas.Presentation.Party
 
             view.OnSlotClicked.Subscribe(OnSlotClicked).AddTo(disposables);
             view.OnPachimonClicked.Subscribe(OnPachimonClicked).AddTo(disposables);
-            // 保存中の連打で二重送信や、下のHomePageまでのPopが起きないよう、実行中の押下は捨てる。
-            view.OnBackButtonClicked
-                .SubscribeAwait(async (_, ct) => await SaveAndBackAsync(ct), AwaitOperation.Drop)
+            globalHeader.Attach(this, new GlobalHeaderOptions { Title = "パーティ編成", LeaveAsync = SaveIfDirtyAsync })
                 .AddTo(disposables);
             return UniTask.CompletedTask;
         }
@@ -109,21 +107,16 @@ namespace Atlas.Presentation.Party
             RefreshParty();
         }
 
-        private async UniTask SaveAndBackAsync(CancellationToken cancellation)
+        private UniTask<bool> SaveIfDirtyAsync()
         {
-            if (editor.IsDirty)
+            if (!editor.IsDirty)
             {
-                view.SetBackButtonInteractable(false);
-                if (!await partyService.SaveAsync(editor.ToInputs()))
-                {
-                    // ダイアログは通信の共通処理が出している。画面に留まって編集内容を残し、もう一度戻るを押すと送り直す
-                    view.SetBackButtonInteractable(true);
-                    return;
-                }
+                return UniTask.FromResult(true);
             }
 
-            cancellation.ThrowIfCancellationRequested();
-            await screenNavigator.PopPageAsync(this);
+            // 失敗したときのダイアログは通信の共通処理が出している。falseを返して画面に留まり、編集内容を残す。
+            // もう一度戻るを押すと送り直す
+            return partyService.SaveAsync(editor.ToInputs());
         }
 
         private void RefreshParty()

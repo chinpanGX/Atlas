@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/navigation, client/assemblies, client/battle-screen, client/services-and-player-data]
 code: [Client/AtlasUnityProject/Assets/Scripts/Presentation]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # 画面の構成(View / Presenter)
@@ -43,18 +43,36 @@ updated: 2026-10-11
 - どの画面から・どの画面へと決まらない通知(トースト等)だけ、Supplement の `IMessageBroker` を使う。実装(`GlobalMessageBroker`)は型ごとの
   静的なチャンネルに委譲するだけなので、どのスコープで解決しても同じチャンネルにつながる。登録は Root で1回。メッセージは `struct` で、
   通知の内容を表す名前にする(画面名は付けない)
-- いまは Root に登録してあるだけで、使っているメッセージは無い。ホームのジェムの表示は、スカウトから戻ったとき(`WillPopEnterAsync`)に取り直している
+- いま使っているメッセージは `ItemQuantityChanged`(所持アイテムの数が変わった)だけ。`ItemRepository` が送り、グローバルヘッダーが受けて所持数を出し直す
 - Push した画面から結果を受け取るのは `WaitForPopAsync` で行い、`IMessageBroker` は使わない
+
+## グローバルヘッダー
+
+アウトゲームの画面に共通のヘッダー(戻る・画面名・ジェムと育成チケットの所持数・ショップ)。仕様は
+[遊びの流れとアカウント](../game/flow.md)の「グローバルヘッダー」。
+
+- Home シーンに1つだけ置き(`GlobalHeaderView`)、Home のシーンスコープに `GlobalHeaderPresenter` を登録する。Page ごとに持たないのは、
+  画面の切り替えでヘッダーまで一緒に動かさず、所持数の更新も1か所で済ませるため
+- シーンの中では `PageContainer` と `ModalContainer` の間に置く。Modal の背景がヘッダーも覆うので、マッチング待ちやスカウトの確認の間は
+  ヘッダーを押せない
+- ヘッダーを使う画面の Presenter は、`InitializeAsync` で `GlobalHeaderPresenter.Attach` し、戻り値(`GlobalHeaderHandle`)を購読と一緒に破棄する。
+  ヘッダーは最後に Attach した(一番上に積まれた)画面の `GlobalHeaderOptions`(画面名・戻るを出すか・ショップを押せるか)で表示する。
+  Attach している画面が無い(タイトル)ときは出さない
+- 戻るは、一番上の画面の `LeaveAsync` を呼んでから Pop する。`false` が返れば留まる(パーティ編成は、ここで変更を保存する)。
+  確かめている間(保存の通信中)はヘッダーを押せなくする
+- 途中で抜けると進行が壊れる間は、`GlobalHeaderHandle.SetLocked(true)` でヘッダーを押せなくする(スカウトで候補を選んでいる間)
+- 所持数は `IItemService` から読み、`ItemQuantityChanged` を受けたら出し直す
+- ショップのボタンは、ショップの画面が未実装のため、押してもログを出すだけ
 
 ## 画面一覧
 
 | 機能 | 画面 | 種類 | 内容 |
 |---|---|---|---|
 | タイトル | `TitlePage` | Page | 「スタート」でサインインし、ホームへ([サインイン](sign-in.md)) |
-| ホーム | `HomePage` | Page | 所持ジェム、スカウト・パーティ編成・対戦への入口、開発用のジェム付与ボタン |
+| ホーム | `HomePage` | Page | スカウト・パーティ編成・対戦への入口、開発用のジェム付与ボタン |
 | | `MatchmakingModal` | Modal | マッチング待ち。キャンセルできる |
-| パーティ編成 | `PartyPage` | Page | 所持個体の一覧と6つの枠。個体の能力と技(`PachimonInfoView`)を表示し、保存して戻る |
-| スカウト | `ScoutPage` | Page | 紹介を受け、候補10体から選ぶ。候補をタップすると詳細を出し、同じ候補をもう一度タップすると確認へ進む。選ぶまで戻れない |
+| パーティ編成 | `PartyPage` | Page | 所持個体の一覧と6つの枠。個体の能力と技(`PachimonInfoView`)を表示する。ヘッダーの戻る・ホームで離れるときに保存する |
+| スカウト | `ScoutPage` | Page | 紹介を受け、候補10体から選ぶ。候補をタップすると詳細を出し、同じ候補をもう一度タップすると確認へ進む。選ぶまでヘッダーを押せない |
 | | `ScoutConfirmModal` | Modal | 選ぶ候補の確認。入手に失敗したら候補を残し、もう一度タップすれば送り直せる |
 | 対戦 | `BattlePage` ほか | Page / Modal | [バトル画面](battle-screen.md) |
 

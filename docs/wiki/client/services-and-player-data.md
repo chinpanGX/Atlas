@@ -4,7 +4,7 @@ status: current
 area: client
 related: [conventions/player-diff, client/assemblies, client/sign-in, client/error-dialog, server/matchmaking]
 code: [Client/AtlasUnityProject/Assets/Scripts/Application, Client/AtlasUnityProject/Assets/Scripts/Infrastructure, Client/AtlasUnityProject/Assets/Scripts/DI/_DIExtensions.cs, Client/AtlasUnityProject/Assets/Scripts/Domain]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # サービスと所持データ
@@ -59,6 +59,8 @@ updated: 2026-10-11
   先に消さないとサーバーで無くなったものが残るため
 - 汎用の Diff 型・汎用の Repository は作らず、種別ごとに `XxxDiffApplier` と Repository を1組ずつ足す
 - Repository はメモリに持つだけでディスクには保存しない。サーバーの DB が正で、サインインで全件を取り直せるため
+- `ItemRepository` は、所持アイテムが変わるたびに `IMessageBroker` で `ItemQuantityChanged` を送る。どの画面にいても所持数を出し直せるように
+  するため(グローバルヘッダーが受ける)
 
 ## 対戦の接続
 

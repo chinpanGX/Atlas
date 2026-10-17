@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/navigation, client/screens, client/sign-in, master-data/pipeline]
 code: [Client/AtlasUnityProject/Assets/Scripts/DI, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/_DIExtensions.cs, Client/AtlasUnityProject/Assets/Scripts/Application/BattleEntryStore.cs]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # シーンとスコープ
@@ -47,7 +47,7 @@ VContainer のスコープは3段。
 | 段 | 生存期間 | 登録するもの |
 |---|---|---|
 | Root(`RootLifetimeScope`) | アプリ | ローダー、暗号化セーブ、`IMessageBroker`、`ISceneNavigator`、`IErrorNavigator`、`BattleEntryStore`、Repository・Service・`ApiCore`・生成したラッパー、対戦のマッチング・接続のファクトリ、マスタ |
-| シーン(`HomeLifetimeScope`/`BattleLifetimeScope`) | シーン | そのシーンの USN のコンテナと `IScreenNavigator`。`FindParent()` で Root を直接親にする |
+| シーン(`HomeLifetimeScope`/`BattleLifetimeScope`) | シーン | そのシーンの USN のコンテナと `IScreenNavigator`。Home はグローバルヘッダー(`GlobalHeaderView`・`GlobalHeaderPresenter`)も。`FindParent()` で Root を直接親にする |
 | Push 単位の子スコープ | 画面の表示期間 | View・ViewDto・Presenter。フォークの `ScreenNavigator` が `CreateScope` で作るヘッドレスなスコープ |
 
 - Presenter はコンテナを直接触らず `IScreenNavigator` で遷移する

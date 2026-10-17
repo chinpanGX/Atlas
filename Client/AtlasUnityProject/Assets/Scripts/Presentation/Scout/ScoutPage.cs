@@ -14,15 +14,12 @@ namespace Atlas.Presentation.Scout
     public sealed class ScoutPage : Page
     {
         [SerializeField] private TextMeshProUGUI bannerText;
-        [SerializeField] private TextMeshProUGUI gemText;
         [SerializeField] private TextMeshProUGUI guideText;
         [SerializeField] private CommonButton scoutButton;
-        [SerializeField] private CommonButton backButton;
         [SerializeField] private ScoutCandidateListView candidateListView;
         [SerializeField] private PachimonInfoView pachimonInfoView;
 
         public Observable<Unit> OnScoutButtonClicked => scoutButton.OnClickAsObservable();
-        public Observable<Unit> OnBackButtonClicked => backButton.OnClickAsObservable();
         // 押された候補の並び順(0始まり)を流す。
         public Observable<int> OnCandidateClicked => candidateListView.OnCandidateClicked;
 
@@ -31,19 +28,9 @@ namespace Atlas.Presentation.Scout
             bannerText.text = $"{bannerName}(1回 {costPerRoll}ジェム)";
         }
 
-        public void SetGems(int gems)
-        {
-            gemText.text = $"ジェム {gems}";
-        }
-
         public void SetScoutButtonInteractable(bool interactable)
         {
             scoutButton.interactable = interactable;
-        }
-
-        public void SetBackButtonInteractable(bool interactable)
-        {
-            backButton.interactable = interactable;
         }
 
         public void ShowCandidates(IReadOnlyList<PachimonDto> candidates)

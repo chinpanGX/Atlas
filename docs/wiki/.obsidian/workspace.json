@@ -11,12 +11,14 @@
             "id": "57b320a867cc58e1",
             "type": "leaf",
             "state": {
-              "type": "image",
+              "type": "markdown",
               "state": {
-                "file": "game/images/training-stats.svg"
+                "file": "game/flow.md",
+                "mode": "source",
+                "source": false
               },
-              "icon": "lucide-image",
-              "title": "training-stats"
+              "icon": "lucide-file",
+              "title": "flow"
             }
           }
         ]
@@ -188,6 +190,19 @@
   },
   "active": "57b320a867cc58e1",
   "lastOpenFiles": [
+    "game/index.md",
+    "game/gems.md",
+    "game/out-of-scope.md",
+    "game/pachimon.md",
+    "game/party-training.md",
+    "game/images/global-header.svg",
+    "game/shop.md",
+    "game/scout.md",
+    "game/images/shop-purchased.svg",
+    "game/images/shop-page.svg",
+    "game/images/shop-confirm.svg",
+    "game/flow.md",
+    "game/images/training-stats.svg",
     "client/testing.md.tmp.22344.7a2fe1e1f171",
     "master-data/sedHFarq9",
     "master-data/sedrKNM6V",
@@ -198,16 +213,10 @@
     "master-data/sedblNCHu",
     "conventions/sedgCZYz3",
     "server/game-log.md.tmp.11260.e15ceaae0442",
-    "game/pachimon.md.tmp.11260.fc6c90b2370c",
     "server/shop.md",
     "game/images/training-moves.svg",
-    "game/images/training-stats.svg",
     "game/images/training-move-select.svg",
-    "game/images/shop-purchased.svg",
-    "game/images/shop-page.svg",
     "game/images/shop-from-training.svg",
-    "game/images/shop-confirm.svg",
-    "game/images/global-header.svg",
     "game/battle-rules.md",
     "development.md",
     "server/index.md",
@@ -215,20 +224,12 @@
     "master-data/pipeline.md",
     "master-data/index.md",
     "master-data/tables.md",
-    "game/party-training.md",
     "db/player-tables.md",
     "db/scout-tables.md",
     "db/index.md",
     "db/battle-tables.md",
     "conventions/errors.md",
     "conventions/index.md",
-    "game/shop.md",
-    "game/scout.md",
-    "game/pachimon.md",
-    "game/out-of-scope.md",
-    "game/index.md",
-    "game/gems.md",
-    "game/flow.md",
     "conventions/nullable.md",
     "conventions/player-diff.md",
     "conventions/naming-and-ids.md"

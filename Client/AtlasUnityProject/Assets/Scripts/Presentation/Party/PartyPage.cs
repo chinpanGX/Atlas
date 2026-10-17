@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using R3;
-using UIPackages.Runtime;
 using UnityEngine;
 using UnityScreenNavigator.Runtime.Core.Page;
 using ZLinq;
@@ -15,13 +14,11 @@ namespace Atlas.Presentation.Party
         [SerializeField] private PartySlotView[] slotViews;
         [SerializeField] private PachimonListView pachimonListView;
         [SerializeField] private PachimonInfoView pachimonInfoView;
-        [SerializeField] private CommonButton backButton;
 
         // 押されたパーティ枠のslot番号(1始まり)を流す。
         public Observable<int> OnSlotClicked { get; private set; }
         // 押された所持パチモンのPlayerPachimonIdを流す。
         public Observable<string> OnPachimonClicked => pachimonListView.OnPachimonClicked;
-        public Observable<Unit> OnBackButtonClicked => backButton.OnClickAsObservable();
 
         private void Awake()
         {
@@ -64,12 +61,6 @@ namespace Atlas.Presentation.Party
         public void HidePachimonInfo()
         {
             pachimonInfoView.Hide();
-        }
-
-        // 保存中は戻るボタンを押せなくする。
-        public void SetBackButtonInteractable(bool interactable)
-        {
-            backButton.interactable = interactable;
         }
     }
 }

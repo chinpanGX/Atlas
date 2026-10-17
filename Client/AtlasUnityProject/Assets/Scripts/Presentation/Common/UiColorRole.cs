@@ -46,5 +46,9 @@ namespace Atlas.Presentation.Common
         HpGaugeLow,
         // 通信エラーのダイアログの後ろで、画面を暗くして操作を塞ぐ幕。
         Scrim,
+        // ジェムのアイコン。
+        GemIcon,
+        // 育成チケットのアイコン。
+        TicketIcon,
     }
 }

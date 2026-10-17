@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
+using Atlas.Presentation.GlobalHeader;
 using Atlas.Presentation.Party;
 using Atlas.Presentation.Scout;
 using Cysharp.Threading.Tasks;
@@ -14,46 +15,36 @@ namespace Atlas.Presentation.Home
     [AssetAddress(AddressDefinition.HomePage)]
     public sealed class HomePresenter : IPresenter
     {
-        // itemsマスタのitem_id=1(ジェム)。
-        private const int GemItemId = 1;
-
         private readonly HomePage view;
         private readonly IPlayerAccountService playerService;
-        private readonly IItemService itemService;
-        private readonly IDebugConnectService debugConnectService;
         private readonly IScreenNavigator screenNavigator;
         private readonly ISceneNavigator sceneNavigator;
         private readonly BattleEntryStore battleEntryStore;
         private readonly IBattleMatchMaker battleMatchMaker;
+        private readonly GlobalHeaderPresenter globalHeader;
         private readonly CompositeDisposable disposables = new();
 
-        public HomePresenter(HomePage view, IPlayerAccountService playerService, IItemService itemService,
-            IDebugConnectService debugConnectService, IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator,
-            BattleEntryStore battleEntryStore, IBattleMatchMaker battleMatchMaker)
+        public HomePresenter(HomePage view, IPlayerAccountService playerService,
+            IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator,
+            BattleEntryStore battleEntryStore, IBattleMatchMaker battleMatchMaker, GlobalHeaderPresenter globalHeader)
         {
             this.view = view;
             this.playerService = playerService;
-            this.itemService = itemService;
-            this.debugConnectService = debugConnectService;
             this.screenNavigator = screenNavigator;
             this.sceneNavigator = sceneNavigator;
             this.battleEntryStore = battleEntryStore;
             this.battleMatchMaker = battleMatchMaker;
+            this.globalHeader = globalHeader;
         }
 
         // HomeはPush時のViewDtoを持たず、自分でIPlayerAccountServiceから初期データを取得する。
         public UniTask InitializeAsync()
         {
             view.Refresh(CreateDto());
-
-            // 動作確認用。連打でも1回分ずつ送るよう、実行中の押下は待たせる(捨てない)。
-            view.OnGrantGemsButtonClicked
-                .SubscribeAwait(async (_, _) =>
-                {
-                    await debugConnectService.GrantGemsAsync();
-                    view.Refresh(CreateDto());
-                })
+            // ホームは一番下の画面なので、戻るは出さない。
+            globalHeader.Attach(this, new GlobalHeaderOptions { Title = "ホーム", ShowsBack = false })
                 .AddTo(disposables);
+
             // Push完了までの連打で同じPageを重ねて積まないよう、実行中の押下は捨てる。
             view.OnScoutButtonClicked
                 .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<ScoutPresenter>(), AwaitOperation.Drop)
@@ -67,13 +58,6 @@ namespace Atlas.Presentation.Home
                 .AddTo(disposables);
             // 育成画面は未実装のため、現時点ではログのみ。
             view.OnTrainingButtonClicked.Subscribe(_ => Debug.Log("[Home] Training button clicked (not implemented yet)")).AddTo(disposables);
-            return UniTask.CompletedTask;
-        }
-
-        // スカウトでジェムが減るため、上に積んだ画面から戻ってきたらHomeの表示を取り直す。
-        public UniTask WillPopEnterAsync()
-        {
-            view.Refresh(CreateDto());
             return UniTask.CompletedTask;
         }
 
@@ -110,8 +94,7 @@ namespace Atlas.Presentation.Home
         private HomeViewDto CreateDto()
         {
             var player = playerService.Get();
-            var gems = itemService.GetAmount(GemItemId);
-            return new HomeViewDto { PlayerId = player.PlayerId, Gems = gems };
+            return new HomeViewDto { PlayerId = player.PlayerId };
         }
 
         public void Dispose()
