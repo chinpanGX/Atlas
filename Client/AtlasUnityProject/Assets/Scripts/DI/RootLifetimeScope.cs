@@ -11,7 +11,6 @@ using Grpc.Net.Client;
 using Supplement.Core;
 using Supplement.MessagePack;
 using Supplement.Unity;
-using Supplement.ZeroMessenger;
 using UnityEngine;
 using UnityScreenNavigator;
 using VContainer;
@@ -59,7 +58,7 @@ namespace Atlas.DI
                 builder.RegisterBuildCallback(resolver =>
                     resolver.Resolve<IFileStorageService>().SetDirectoryName(saveDataDirectory));
             }
-            builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
+            builder.RegisterMessageBroker();
 
             builder.Register<SceneNavigator>(Lifetime.Singleton);
             builder.Register<ISceneNavigator, TransitionAwareSceneNavigator>(Lifetime.Singleton);

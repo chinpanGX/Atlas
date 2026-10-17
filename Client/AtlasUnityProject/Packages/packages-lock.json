@@ -26,7 +26,7 @@
       "dependencies": {}
     },
     "com.chinpangx.supplement": {
-      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement#v1.4.0",
+      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement#v1.5.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
@@ -34,28 +34,19 @@
         "jp.hadashikick.vcontainer": "1.19.0",
         "com.unity.addressables": "2.7.6"
       },
-      "hash": "56381bab0c2d629efa4173f1938a26c599ecd1db"
+      "hash": "e69448be2bbc4f936127c0abb1273c0e9e02cf31"
     },
     "com.chinpangx.supplement.messagepack": {
-      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.MessagePack#v1.4.0",
+      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.MessagePack#v1.5.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
         "com.chinpangx.supplement": "1.4.0"
       },
-      "hash": "56381bab0c2d629efa4173f1938a26c599ecd1db"
-    },
-    "com.chinpangx.supplement.zeromessenger": {
-      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger#v1.4.0",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.chinpangx.supplement": "1.0.0"
-      },
-      "hash": "56381bab0c2d629efa4173f1938a26c599ecd1db"
+      "hash": "e69448be2bbc4f936127c0abb1273c0e9e02cf31"
     },
     "com.chinpangx.voltech.grpc": {
-      "version": "https://github.com/chinpanGX/VolTech-gRPC.git?path=/Unity/com.chinpangx.voltech.grpc#v0.3.0",
+      "version": "https://github.com/chinpanGX/VolTech-gRPC.git?path=/Unity/com.chinpangx.voltech.grpc#v0.4.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
@@ -66,7 +57,7 @@
         "org.nuget.grpc.net.client": "2.84.0",
         "org.nuget.system.io.pipelines": "10.0.12"
       },
-      "hash": "dc51cfcc56f3b3f3c9a2799caa35a246c924d8ce"
+      "hash": "e543a61f359ac8a6138eaaff592fd57077565b2f"
     },
     "com.cysharp.magiconion.client.unity": {
       "version": "7.11.0",

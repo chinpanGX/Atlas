@@ -5,7 +5,7 @@
 DOTNET ?= C:/Program Files/dotnet/dotnet.exe
 
 # gRPC基盤(VolTech gRPC)のタグ。Client/AtlasUnityProject/Packages/manifest.json・Server/Cargo.toml のタグと同じにする
-VOLTECH_TAG := v0.3.0
+VOLTECH_TAG := v0.4.0
 VOLTECH_REPO := https://github.com/chinpanGX/VolTech-gRPC
 VOLTECH_ROOT := .tools/voltech-grpc-src/$(VOLTECH_TAG)
 ATLAS_ERRORS_CS := Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Grpc/Generated/Errors/AtlasErrors.cs
