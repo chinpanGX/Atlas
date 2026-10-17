@@ -26,6 +26,7 @@ namespace Atlas.Application.Address
         public const string Home = "Home";
         public const string HomePage = "HomePage";
         public const string MatchmakingModal = "MatchmakingModal";
+        public const string MoveReplaceModal = "MoveReplaceModal";
         public const string OpponentCanvas = "OpponentCanvas";
         public const string OpponentSwitchingModal = "OpponentSwitchingModal";
         public const string PachimonInfoPanel = "PachimonInfoPanel";

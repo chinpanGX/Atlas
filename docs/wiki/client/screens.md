@@ -77,6 +77,7 @@ updated: 2026-10-17
 | 育成 | `TrainingPage` | Page | 所持個体の一覧(パーティの印付き。一覧はパーティ編成の `PachimonListView` を使う)と、選んだ個体の技・ステータスのタブ。`TrainingArgs` で最初に選ぶ個体を受け取る。割り振りの調整は `TrainingStatAllocation` が持ち、「確定する」まで通信しない。確定の通信の間はヘッダーを押せない |
 | | `TicketShortageModal` | Modal | 育成チケットが足りないときのダイアログ。「ショップへ」を選んだかを返し、育成画面がショップを Push する |
 | | `DiscardAdjustmentModal` | Modal | 確定していない割り振りの調整があるまま、別の個体・別のタブ・別の画面へ移るときの確認。捨てるかを返す |
+| | `MoveReplaceModal` | Modal | 技の枠に入れる技を、種族の技グループの技(`PachimonMoveLookup.GetLearnableMoves`)から選ぶ。いまの技・別の枠で覚えている技は薄くして理由を出す。選んだ技(`MoveReplaceResult`)を返し、付け替えの送信は育成画面が行う。「やめる」に `BackKeyReceiver` を付けている |
 | スカウト | `ScoutPage` | Page | 紹介を受け、候補10体から選ぶ。候補をタップすると詳細を出し、同じ候補をもう一度タップすると確認へ進む。選ぶまでヘッダーを押せない |
 | | `ScoutConfirmModal` | Modal | 選ぶ候補の確認。入手に失敗したら候補を残し、もう一度タップすれば送り直せる |
 | ショップ | `ShopPage` | Page | 商品の一覧(`ListProducts` の結果を並べる)。ジェムが足りない商品は押せなくし、足りない数を出す。購入できたらトーストで知らせて残る。開発ビルドでは左に開発用のジェム付与を出す |

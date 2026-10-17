@@ -14,7 +14,6 @@ using Cysharp.Threading.Tasks;
 using MasterMemory;
 using R3;
 using Supplement.Core;
-using UnityEngine;
 using UnityScreenNavigator;
 using ZLinq;
 
@@ -38,6 +37,7 @@ namespace Atlas.Presentation.Training
         private readonly IPartyService partyService;
         private readonly IPachimonMoveMappingService pachimonMoveMappingService;
         private readonly IPachimonStatPointsEditService statPointsEditService;
+        private readonly IPachimonMoveEditService moveEditService;
         private readonly IItemService itemService;
         private readonly IMessageBroker messageBroker;
         private readonly MemoryDatabase database;
@@ -59,6 +59,7 @@ namespace Atlas.Presentation.Training
             IPartyService partyService,
             IPachimonMoveMappingService pachimonMoveMappingService,
             IPachimonStatPointsEditService statPointsEditService,
+            IPachimonMoveEditService moveEditService,
             IItemService itemService,
             IMessageBroker messageBroker,
             MemoryDatabase database,
@@ -71,6 +72,7 @@ namespace Atlas.Presentation.Training
             this.partyService = partyService;
             this.pachimonMoveMappingService = pachimonMoveMappingService;
             this.statPointsEditService = statPointsEditService;
+            this.moveEditService = moveEditService;
             this.itemService = itemService;
             this.messageBroker = messageBroker;
             this.database = database;
@@ -231,9 +233,14 @@ namespace Atlas.Presentation.Training
             RefreshStats();
         }
 
-        // 技の候補の画面はまだ無い。チケットが足りないときは、候補を選んでから足りないと分かることのないよう先に知らせる。
+        // チケットが足りないときは、候補を選んでから足りないと分かることのないよう、候補を開く前に知らせる。
         private async UniTask OpenMoveCandidatesAsync(int slot, CancellationToken cancellation)
         {
+            if (selected is null)
+            {
+                return;
+            }
+
             var owned = itemService.GetAmount(TicketItemId);
             if (owned < MoveReplaceTicketCost)
             {
@@ -241,7 +248,54 @@ namespace Atlas.Presentation.Training
                 return;
             }
 
-            Debug.Log($"[Training] 技の候補の画面は未実装です(slot={slot})");
+            var pachimon = selected;
+            var learnedMoves = pachimonMoveMappingService.GetByPlayerPachimonId(pachimon.PlayerPachimonId);
+            var currentMoveId = (int)learnedMoves.First(moveMap => moveMap.Slot == slot).MoveId;
+            var modal = await screenNavigator.PushModalAsync<MoveReplacePresenter, MoveReplaceViewDto>(new MoveReplaceViewDto
+            {
+                PachimonName = FindMaster(pachimon).Name,
+                CurrentMoveName = database.MovesDataTable.FindByMoveId(currentMoveId).Name,
+                Candidates = CreateMoveCandidateDtos(pachimon, currentMoveId, learnedMoves),
+                TicketsBefore = owned,
+                TicketCost = MoveReplaceTicketCost,
+            });
+            var result = await screenNavigator.WaitForPopAsync<MoveReplaceResult>(modal, cancellation);
+            if (result is null)
+            {
+                return;
+            }
+
+            // 通信の途中で戻ると、結果を出す画面が無くなるため、終わるまでヘッダーを押せなくする。
+            header.SetLocked(true);
+            var replaced = await moveEditService.EditAsync(pachimon.PlayerPachimonId, slot, result.MoveId);
+            cancellation.ThrowIfCancellationRequested();
+            header.SetLocked(false);
+            // 失敗したときのダイアログは通信の共通処理が出している。技はそのままにする
+            if (replaced && selected?.PlayerPachimonId == pachimon.PlayerPachimonId)
+            {
+                view.MovesView.Refresh(CreateMoveDtos(pachimon));
+            }
+        }
+
+        // 付け替えられない技(いまの技・別の枠で覚えている技)も、消さずに理由を付けて並べる。
+        private IReadOnlyList<MoveCandidateDto> CreateMoveCandidateDtos(
+            PachimonEntity pachimon, int currentMoveId, IReadOnlyList<PachimonMoveMapEntity> learnedMoves)
+        {
+            return PachimonMoveLookup.GetLearnableMoves(database, (int)pachimon.PachimonId)
+                .Select(move => new MoveCandidateDto
+                {
+                    MoveId = move.MoveId,
+                    Name = move.Name,
+                    Type = move.MoveType,
+                    CategoryName = ToCategoryName(move.Category),
+                    BasePower = move.BasePower,
+                    Accuracy = move.Accuracy,
+                    MaxPp = move.MaxPp,
+                    DisabledReason = move.MoveId == currentMoveId ? "いまの技"
+                        : learnedMoves.Any(moveMap => moveMap.MoveId == move.MoveId) ? "覚えている"
+                        : null,
+                })
+                .ToList();
         }
 
         // 「ショップへ」を選んだら、育成画面の上にショップを開く(戻ると育成画面に戻る)。

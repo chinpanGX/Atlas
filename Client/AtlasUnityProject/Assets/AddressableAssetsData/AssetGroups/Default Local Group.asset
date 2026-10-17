@@ -155,6 +155,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ce94f93f2749eab4e872110bb56c12cf
+    m_Address: MoveReplaceModal
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d000faabb84a26020cf7acc612247b12
     m_Address: SwitchSelectModal
     m_ReadOnly: 0
