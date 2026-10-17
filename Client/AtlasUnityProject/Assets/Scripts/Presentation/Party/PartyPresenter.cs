@@ -195,7 +195,7 @@ namespace Atlas.Presentation.Party
                     var maxPp = database.MovesDataTable.FindByMoveId(moveId).MaxPp;
                     return new PachimonInfoDtoBuilder.MoveInput(moveMap.Slot, moveId, maxPp);
                 });
-            return PachimonInfoDtoBuilder.Build(database, (int)pachimon.PachimonId, moves.ToArray());
+            return PachimonInfoDtoBuilder.Build(database, (int)pachimon.PachimonId, pachimon.StatPoints, moves.ToArray());
         }
 
         private PachimonData FindMaster(PachimonEntity pachimon)

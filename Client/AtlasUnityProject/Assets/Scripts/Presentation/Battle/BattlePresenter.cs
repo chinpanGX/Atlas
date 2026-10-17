@@ -29,6 +29,7 @@ namespace Atlas.Presentation.Battle
         private readonly BattlePage view;
         private readonly IBattleConnection connection;
         private readonly MemoryDatabase database;
+        private readonly IPachimonService pachimonService;
         private readonly IPachimonMoveMappingService pachimonMoveMappingService;
         private readonly BattleViewDto initialDto;
         private readonly IScreenNavigator screenNavigator;
@@ -69,6 +70,9 @@ namespace Atlas.Presentation.Battle
         // 選出各枠のマスターデータのPachimonId・技。どちらもOnMatchStart(サーバーが判定に使う値)から取る。
         private int[] selfPachimonIdBySlot;
         private PachimonMoveSet[] selfMoveSets;
+        // 選出各枠のステータスポイント。OnMatchStartには含まれないため手元の所持データから取る
+        // (対戦中は育成できないため、サーバーが判定に使う値と食い違わない)。
+        private StatPoints[] selfStatPointsBySlot;
         // 選出各枠・各技の残りPP。OnMatchStartの値から、自分が技を使うたびに減らす(再接続時は再送値で戻す)。
         private int[][] selfCurrentPp;
         private int[] selfHpPercentBySlot;
@@ -85,12 +89,14 @@ namespace Atlas.Presentation.Battle
 
         public BattlePresenter(
             BattlePage view, IBattleConnection connection, MemoryDatabase database,
-            IPachimonMoveMappingService pachimonMoveMappingService, BattleViewDto initialDto,
+            IPachimonService pachimonService, IPachimonMoveMappingService pachimonMoveMappingService,
+            BattleViewDto initialDto,
             IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator)
         {
             this.view = view;
             this.connection = connection;
             this.database = database;
+            this.pachimonService = pachimonService;
             this.pachimonMoveMappingService = pachimonMoveMappingService;
             this.initialDto = initialDto;
             this.screenNavigator = screenNavigator;
@@ -226,7 +232,14 @@ namespace Atlas.Presentation.Battle
                     return new PachimonInfoDtoBuilder.MoveInput(
                         moveMap.Slot, moveId, database.MovesDataTable.FindByMoveId(moveId).MaxPp);
                 });
-            return PachimonInfoDtoBuilder.Build(database, pachimon.PachimonId, moves.ToArray());
+            return PachimonInfoDtoBuilder.Build(
+                database, pachimon.PachimonId, FindStatPoints(pachimon.PlayerPachimonId), moves.ToArray());
+        }
+
+        // Mock対戦のように手元に無い個体が選ばれている場合は、割り振っていない扱いにする。
+        private StatPoints FindStatPoints(string playerPachimonId)
+        {
+            return pachimonService.Get(playerPachimonId)?.StatPoints ?? StatPoints.Zero;
         }
 
         private SelectionViewDto BuildSelectionDto()
@@ -380,7 +393,7 @@ namespace Atlas.Presentation.Battle
                     .Select((pachimonId, slot) =>
                     {
                         var master = database.PachimonDataTable.FindByPachimonId(pachimonId);
-                        var maxHp = PachimonStatCalculator.CalculateHp(master.BaseHp);
+                        var maxHp = PachimonStatCalculator.CalculateHp(master.BaseHp, selfStatPointsBySlot[slot].Hp);
                         var moves = selfMoveSets[slot].Moves.Select((m, i) =>
                             new PachimonInfoDtoBuilder.MoveInput(i + 1, int.Parse(m.MoveId), selfCurrentPp[slot][i]));
                         return new SwitchCandidateDto
@@ -391,7 +404,7 @@ namespace Atlas.Presentation.Battle
                             MaxHp = maxHp,
                             IsActive = slot == selfActiveIndex,
                             IsFainted = selfFaintedBySlot[slot],
-                            Info = PachimonInfoDtoBuilder.Build(database, pachimonId, moves.ToArray()),
+                            Info = PachimonInfoDtoBuilder.Build(database, pachimonId, selfStatPointsBySlot[slot], moves.ToArray()),
                         };
                     })
                     .ToList(),
@@ -408,6 +421,7 @@ namespace Atlas.Presentation.Battle
             selfActiveIndex = payload.Self.ActivePachimonIndex;
             selfPachimonIdBySlot = payload.Self.SelectedPachimon.Select(s => s.State.PachimonId).ToArray();
             selfMoveSets = payload.SelfMoves;
+            selfStatPointsBySlot = payload.Self.SelectedPachimon.Select(s => FindStatPoints(s.State.PlayerPachimonId)).ToArray();
             selfCurrentPp = payload.SelfMoves.Select(set => set.Moves.Select(m => m.CurrentPp).ToArray()).ToArray();
             selfHpPercentBySlot = payload.Self.SelectedPachimon.Select(s => s.State?.HpPercent ?? 100).ToArray();
             selfFaintedBySlot = payload.Self.SelectedPachimon.Select(s => s.State?.IsFainted ?? false).ToArray();
@@ -766,7 +780,7 @@ namespace Atlas.Presentation.Battle
             var selfPachimonId = selfPachimonIdBySlot[selfActiveIndex];
             var selfPachimon = database.PachimonDataTable.FindByPachimonId(selfPachimonId);
             var selfHpPercent = selfHpPercentBySlot[selfActiveIndex];
-            var selfMaxHp = PachimonStatCalculator.CalculateHp(selfPachimon.BaseHp);
+            var selfMaxHp = PachimonStatCalculator.CalculateHp(selfPachimon.BaseHp, selfStatPointsBySlot[selfActiveIndex].Hp);
 
             var opponentHpPercent = opponentHpPercentBySlot[opponentActiveIndex];
             var opponentName = ActivePachimonName(isSelf: false);

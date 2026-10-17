@@ -73,7 +73,7 @@ updated: 2026-10-17
 | タイトル | `TitlePage` | Page | 「スタート」でサインインし、ホームへ([サインイン](sign-in.md)) |
 | ホーム | `HomePage` | Page | スカウト・パーティ編成・対戦・育成への入口 |
 | | `MatchmakingModal` | Modal | マッチング待ち。キャンセルできる |
-| パーティ編成 | `PartyPage` | Page | 所持個体の一覧と6つの枠。個体の能力と技(`PachimonInfoView`)を表示する。ヘッダーの戻る・ホームで離れるときと、「育成する」で育成画面を開く前に保存する |
+| パーティ編成 | `PartyPage` | Page | 所持個体の一覧と6つの枠。個体の能力(種族値から計算した値にステータスポイントを足したもの)と技(`PachimonInfoView`)を表示する。ヘッダーの戻る・ホームで離れるときと、「育成する」で育成画面を開く前に保存する |
 | 育成 | `TrainingPage` | Page | 所持個体の一覧(パーティの印付き。一覧はパーティ編成の `PachimonListView` を使う)と、選んだ個体の技・ステータスのタブ。`TrainingArgs` で最初に選ぶ個体を受け取る。割り振りの調整は `TrainingStatAllocation` が持ち、「確定する」まで通信しない。確定の通信の間はヘッダーを押せない |
 | | `TicketShortageModal` | Modal | 育成チケットが足りないときのダイアログ。「ショップへ」を選んだかを返し、育成画面がショップを Push する |
 | | `DiscardAdjustmentModal` | Modal | 確定していない割り振りの調整があるまま、別の個体・別のタブ・別の画面へ移るときの確認。捨てるかを返す |

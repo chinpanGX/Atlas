@@ -1,6 +1,7 @@
 using System.Threading;
 using Atlas.Application;
 using Atlas.Application.Address;
+using Atlas.Domain;
 using Atlas.Presentation.GlobalHeader;
 using Atlas.Presentation.Party;
 using MasterMemory;
@@ -189,7 +190,8 @@ namespace Atlas.Presentation.Scout
         {
             var moves = candidate.MoveIds.Select((moveId, index) =>
                 new PachimonInfoDtoBuilder.MoveInput(index + 1, moveId, database.MovesDataTable.FindByMoveId(moveId).MaxPp));
-            return PachimonInfoDtoBuilder.Build(database, candidate.PachimonId, moves.ToArray());
+            // スカウトで手に入る個体はステータスポイントを割り振っていない。
+            return PachimonInfoDtoBuilder.Build(database, candidate.PachimonId, StatPoints.Zero, moves.ToArray());
         }
 
         private string FindPachimonName(int pachimonId)
