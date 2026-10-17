@@ -53,6 +53,9 @@ namespace Atlas.BattleServer.Hubs
         public Task ForfeitAsync() =>
             coordinator.ForfeitAsync(RequireSession(), slot);
 
+        public Task ReadyForTurnAsync() =>
+            coordinator.ReadyForTurnAsync(RequireSession(), slot);
+
         protected override ValueTask OnConnecting()
         {
             logger.LogInformation("Connecting. connectionId={ConnectionId}", ConnectionId);

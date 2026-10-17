@@ -6,6 +6,7 @@ using Atlas.BattleServer.Internal;
 using Atlas.Internal.V1;
 using Grpc.Net.Client;
 using MagicOnion.Client;
+using MagicOnion.Server;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -26,7 +27,8 @@ namespace Atlas.BattleServer.Tests
 
         public FakeInternalApi ApiServer { get; } = new();
 
-        public BattleServerTestHost(Action<BattleTimingOptions>? configureTiming = null)
+        public BattleServerTestHost(
+            Action<BattleTimingOptions>? configureTiming = null, Action<MagicOnionOptions>? configureMagicOnion = null)
         {
             factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             {
@@ -39,6 +41,11 @@ namespace Atlas.BattleServer.Tests
                         options.ResultReportRetryDelays = [TimeSpan.FromMilliseconds(10)];
                         configureTiming?.Invoke(options);
                     });
+                    if (configureMagicOnion is not null)
+                    {
+                        services.PostConfigure(configureMagicOnion);
+                    }
+
                     services.AddSingleton<BattleInternalService.BattleInternalServiceClient>(ApiServer);
                     // Hubの進行だけを検証するため、選出個体の取得(Rustの内部API)は固定値に差し替える。
                     services.AddSingleton<IParticipantDataSource, DummyParticipantDataSource>();
@@ -51,10 +58,12 @@ namespace Atlas.BattleServer.Tests
             });
         }
 
-        public async Task<(IBattleHub Hub, TestReceiver Receiver)> ConnectAsync()
+        public async Task<(IBattleHub Hub, TestReceiver Receiver)> ConnectAsync(StreamingHubClientOptions? options = null)
         {
             var receiver = new TestReceiver();
-            var hub = await StreamingHubClient.ConnectAsync<IBattleHub, IBattleHubReceiver>(channel, receiver);
+            var hub = options is null
+                ? await StreamingHubClient.ConnectAsync<IBattleHub, IBattleHubReceiver>(channel, receiver)
+                : await StreamingHubClient.ConnectAsync<IBattleHub, IBattleHubReceiver>(channel, receiver, options);
             hubs.Add(hub);
             return (hub, receiver);
         }
@@ -114,6 +123,7 @@ namespace Atlas.BattleServer.Tests
         public List<BattleStartPayload> Starts { get; } = [];
         public List<TurnResultPayload> Turns { get; } = [];
         public List<BattleEndPayload> Ends { get; } = [];
+        public List<int> TurnStarts { get; } = [];
         public int OpponentDisconnectedCount { get; private set; }
         public int OpponentReconnectedCount { get; private set; }
 
@@ -121,6 +131,7 @@ namespace Atlas.BattleServer.Tests
         public void OnMatchStart(BattleStartPayload payload) { lock (gate) Starts.Add(payload); }
         public void OnTurnResult(TurnResultPayload payload) { lock (gate) Turns.Add(payload); }
         public void OnBattleEnd(BattleEndPayload payload) { lock (gate) Ends.Add(payload); }
+        public void OnTurnStart(int timeLimitSeconds) { lock (gate) TurnStarts.Add(timeLimitSeconds); }
         public void OnOpponentDisconnected() { lock (gate) OpponentDisconnectedCount++; }
         public void OnOpponentReconnected() { lock (gate) OpponentReconnectedCount++; }
 

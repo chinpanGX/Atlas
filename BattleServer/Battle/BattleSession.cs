@@ -35,6 +35,9 @@ namespace Atlas.BattleServer.Battle
 
         public PendingAction? Pending { get; set; }
 
+        // このターンの演出を流し終えて入力できる状態か(ReadyForTurnAsync)。ターンごと・再接続ごとに戻す。
+        public bool ReadyForTurn { get; set; }
+
         // ターンタイムアウトで行動しなかったターンの連続回数(行動すれば0に戻る)。
         public int ConsecutiveIdleTurns { get; set; }
     }
@@ -61,7 +64,11 @@ namespace Atlas.BattleServer.Battle
 
         // Selectingになった時点で設定される。OnSelectionStartの残り秒数の計算に使う。
         public DateTimeOffset SelectionDeadline { get; set; }
+        // ターンの制限時間。数え始めるまで(準備待ちの間)はnull。
         public CancellationTokenSource? TurnTimer { get; set; }
+
+        // 準備待ちの上限。
+        public CancellationTokenSource? ReadyTimer { get; set; }
 
         // 切断(または未参加)の猶予タイマー。未参加の枠にも張るため、BattleParticipantではなく枠ごとに持つ。
         public CancellationTokenSource?[] AbsenceTimers { get; } = new CancellationTokenSource?[2];

@@ -10,6 +10,10 @@ namespace Atlas.BattleServer.Battle
         // 「ターンタイムアウト」: 制限時間内に行動しなかった側は非行動(Skip)。
         public TimeSpan TurnTimeLimit { get; set; } = TimeSpan.FromSeconds(30);
 
+        // ターンの制限時間は、両者が演出を流し終えた(ReadyForTurnAsync)時点から数える。準備を送らないクライアントや
+        // 演出の遅い端末で対戦が止まらないよう、そろわなくてもこの時間で数え始める。
+        public TimeSpan TurnReadyTimeout { get; set; } = TimeSpan.FromSeconds(15);
+
         // 「放置」: ターンタイムアウトによる非行動がこの回数連続した側の敗北(Forfeit)。
         public int MaxConsecutiveIdleTurns { get; set; } = 3;
 

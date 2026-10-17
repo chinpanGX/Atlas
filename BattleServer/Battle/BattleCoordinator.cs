@@ -125,9 +125,11 @@ namespace Atlas.BattleServer.Battle
                     else if (session.Phase == BattlePhase.InProgress)
                     {
                         session.Group.Single(connectionId).OnMatchStart(BuildStartPayload(session, slot));
+                        // 戻った側は盤面を戻し終えてから準備を送る。待っていた側の準備は、切断前のものを残す。
+                        participant.ReadyForTurn = false;
                         if (session.AllConnected)
                         {
-                            StartTurnTimer(session);
+                            StartReadyWait(session);
                         }
                     }
                 }
@@ -276,6 +278,30 @@ namespace Atlas.BattleServer.Battle
             }
         }
 
+        public async Task ReadyForTurnAsync(BattleSession session, int slot)
+        {
+            await session.Gate.WaitAsync();
+            try
+            {
+                // 決着の直前に送られたもの等。何もしない。
+                if (session.Phase != BattlePhase.InProgress)
+                {
+                    return;
+                }
+
+                session.Participants[slot]!.ReadyForTurn = true;
+                if (session.TurnTimer is null && session.AllConnected
+                    && session.Participants.All(p => p!.ReadyForTurn))
+                {
+                    StartTurnTimer(session);
+                }
+            }
+            finally
+            {
+                session.Gate.Release();
+            }
+        }
+
         public async Task HandleDisconnectAsync(BattleSession session, int slot, Guid connectionId)
         {
             await session.Gate.WaitAsync();
@@ -292,8 +318,7 @@ namespace Atlas.BattleServer.Battle
                 session.Group?.Except(connectionId).OnOpponentDisconnected();
 
                 // 猶予中は両者とも行動を受け付けない(ターンを進めない)。
-                CancelTimer(session.TurnTimer);
-                session.TurnTimer = null;
+                CancelTurnTimers(session);
                 StartAbsenceTimer(session, slot);
             }
             finally
@@ -370,7 +395,7 @@ namespace Atlas.BattleServer.Battle
 
             if (session.AllConnected)
             {
-                StartTurnTimer(session);
+                BeginTurn(session);
             }
         }
 
@@ -385,8 +410,7 @@ namespace Atlas.BattleServer.Battle
         // 強制交代ターンの時間切れはここに来ない(StartTurnTimerで倒れた側の敗北にする)。
         private void ResolveTurn(BattleSession session)
         {
-            CancelTimer(session.TurnTimer);
-            session.TurnTimer = null;
+            CancelTurnTimers(session);
 
             var pending = session.Participants.Select(p => p!.Pending).ToArray();
             for (int slot = 0; slot < session.Participants.Length; slot++)
@@ -434,7 +458,7 @@ namespace Atlas.BattleServer.Battle
                 return;
             }
 
-            StartTurnTimer(session);
+            BeginTurn(session);
         }
 
         private ActionResult ToActionResult(BattleSession session, BattleActionOutcome outcome, string? moveId)
@@ -497,8 +521,7 @@ namespace Atlas.BattleServer.Battle
             session.Phase = BattlePhase.Finished;
             CancelTimer(session.SelectionTimer);
             session.SelectionTimer = null;
-            CancelTimer(session.TurnTimer);
-            session.TurnTimer = null;
+            CancelTurnTimers(session);
             for (int i = 0; i < session.AbsenceTimers.Length; i++)
             {
                 CancelTimer(session.AbsenceTimers[i]);
@@ -580,11 +603,50 @@ namespace Atlas.BattleServer.Battle
             });
         }
 
+        // 新しいターン。両者の準備(ReadyForTurnAsync)を待ってから制限時間を数え始める。
+        private void BeginTurn(BattleSession session)
+        {
+            foreach (var participant in session.Participants)
+            {
+                participant!.ReadyForTurn = false;
+            }
+
+            StartReadyWait(session);
+        }
+
+        // 準備待ちの上限を張る。行動は準備待ちの間も受け付け、両者の行動がそろえば数え始める前でも解決する。
+        private void StartReadyWait(BattleSession session)
+        {
+            CancelTurnTimers(session);
+            var cts = new CancellationTokenSource();
+            session.ReadyTimer = cts;
+            _ = RunTimerAsync(timing.TurnReadyTimeout, cts.Token, async () =>
+            {
+                await session.Gate.WaitAsync();
+                try
+                {
+                    if (cts.IsCancellationRequested || session.Phase != BattlePhase.InProgress
+                        || session.TurnTimer is not null || !session.AllConnected)
+                    {
+                        return;
+                    }
+
+                    logger.LogInformation("Turn ready timed out. matchId={MatchId}", session.MatchId);
+                    StartTurnTimer(session);
+                }
+                finally
+                {
+                    session.Gate.Release();
+                }
+            });
+        }
+
         private void StartTurnTimer(BattleSession session)
         {
-            CancelTimer(session.TurnTimer);
+            CancelTurnTimers(session);
             var cts = new CancellationTokenSource();
             session.TurnTimer = cts;
+            session.Group?.All.OnTurnStart((int)Math.Ceiling(timing.TurnTimeLimit.TotalSeconds));
             _ = RunTimerAsync(timing.TurnTimeLimit, cts.Token, async () =>
             {
                 await session.Gate.WaitAsync();
@@ -683,16 +745,34 @@ namespace Atlas.BattleServer.Battle
 
         private static void CancelTimer(CancellationTokenSource? timer) => timer?.Cancel();
 
+        private static void CancelTurnTimers(BattleSession session)
+        {
+            CancelTimer(session.ReadyTimer);
+            session.ReadyTimer = null;
+            CancelTimer(session.TurnTimer);
+            session.TurnTimer = null;
+        }
+
         private BattleStartPayload BuildStartPayload(BattleSession session, int selfSlot)
         {
             var core = session.Core!;
             var self = session.Participants[selfSlot]!;
             var selfSide = core.GetSide(ToSideId(selfSlot));
+            var opponent = session.Participants[1 - selfSlot]!;
+            // 強制交代を求められた側は、交代を送ってもターンが解決するまでRequiresForcedSwitchのまま。
+            // 送信済みかどうかはActionSubmittedで分かる。
+            var playersRequiringForcedSwitch = Enumerable.Range(0, session.Participants.Length)
+                .Where(i => core.GetSide(ToSideId(i)).RequiresForcedSwitch)
+                .Select(i => session.Participants[i]!.PlayerId)
+                .ToArray();
             return new BattleStartPayload(
                 BuildSnapshot(self, selfSide, revealAll: true),
-                BuildSnapshot(session.Participants[1 - selfSlot]!, core.GetSide(ToSideId(1 - selfSlot)), revealAll: false),
+                BuildSnapshot(opponent, core.GetSide(ToSideId(1 - selfSlot)), revealAll: false),
                 (int)Math.Ceiling(timing.TurnTimeLimit.TotalSeconds),
-                BuildSelfMoves(self, selfSide));
+                BuildSelfMoves(self, selfSide),
+                playersRequiringForcedSwitch,
+                ActionSubmitted: self.Pending is not null,
+                OpponentDisconnected: opponent.ConnectionId is null);
         }
 
         // 自分側の選出各枠の技と残りPP。クライアントはこれを表示・送信する(手元の所持データは使わない)。

@@ -32,16 +32,23 @@ namespace Atlas.BattleContracts
         [property: Key(0)] string PlayerPachimonId,
         [property: Key(1)] int PachimonId);
 
-    // TurnTimeLimitSecondsはUIのターンタイマー表示用(サーバー側の実際のタイムアウト判定とは別)。
+    // TurnTimeLimitSecondsはターンの制限時間(数え始めはOnTurnStartで知らせる)。
     // SelfMovesは自分側の選出各枠の技(Self.SelectedPachimonとインデックスが対応)。クライアントは手元の
     // 所持データではなくこれを表示・送信することで、サーバーが判定に使う技と常に一致させる。
     // 相手側の技は非公開のため送らない。
+    // 4〜6は再接続時の再送で、ターンの途中の状態を戻すためのもの(対戦開始時は空・false)。
+    // PlayersRequiringForcedSwitchは今が強制交代ターンなら交代を求められている側(TurnResultPayloadと同じ意味)。
+    // ActionSubmittedは自分がこのターンの行動を送信済みか(送信済みならターン結果を待つだけ)。
+    // OpponentDisconnectedは相手が切断して再接続の猶予中か(猶予中は両者とも行動できない)。
     [MessagePackObject]
     public sealed record BattleStartPayload(
         [property: Key(0)] ParticipantSnapshot Self,
         [property: Key(1)] ParticipantSnapshot Opponent,
         [property: Key(2)] int TurnTimeLimitSeconds,
-        [property: Key(3)] PachimonMoveSet[] SelfMoves);
+        [property: Key(3)] PachimonMoveSet[] SelfMoves,
+        [property: Key(4)] string[] PlayersRequiringForcedSwitch,
+        [property: Key(5)] bool ActionSubmitted,
+        [property: Key(6)] bool OpponentDisconnected);
 
     // 選出1枠分の技。Movesのインデックスが技スロット(PlayerAction.UseMoveのmoveIndex)。
     [MessagePackObject]

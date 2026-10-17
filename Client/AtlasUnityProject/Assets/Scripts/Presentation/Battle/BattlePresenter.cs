@@ -23,6 +23,9 @@ namespace Atlas.Presentation.Battle
     // 決着(OnBattleEnd)後はBattleResultModalを出し、そこからHomeシーンへ戻る。
     // 行動を送るとコマンドを隠し、届いたターン結果は行動順に1文ずつメッセージ枠へ流す(HP等の表示もその文に合わせて更新する)。
     // 流し終えてからコマンドを戻し、強制交代・相手の交代待ち・結果Modalへ進む。
+    // 自分の接続が切れたら入力を止めて参加し直し、再送されるOnMatchStartで盤面とターンの途中の状態を戻す。
+    // 演出を流し終えて入力できるようになったらサーバーに準備を送り、サーバーが制限時間を数え始めたら(OnTurnStart)、
+    // 行動を選べる間だけ残り時間を出す。
     [AssetAddress(AddressDefinition.BattlePage)]
     public sealed class BattlePresenter : IScreenWithArgs<BattleViewDto>
     {
@@ -34,6 +37,7 @@ namespace Atlas.Presentation.Battle
         private readonly BattleViewDto initialDto;
         private readonly IScreenNavigator screenNavigator;
         private readonly ISceneNavigator sceneNavigator;
+        private readonly ISystemDialog systemDialog;
         private readonly CompositeDisposable disposables = new();
         private readonly CancellationTokenSource lifetimeCancellation = new();
 
@@ -62,6 +66,15 @@ namespace Atlas.Presentation.Battle
         private int pendingPlaybacks;
         // 次に届くターン結果が強制交代ターンのものか(前のターン結果で誰かが倒れて交代を求められた)。
         private bool nextTurnIsForcedSwitch;
+        // 自分の接続が切れて参加し直している間。
+        private bool reconnecting;
+        // 参加し直した後、盤面の再送(OnMatchStart)を待っている間。それまでの手元の状態は古い可能性がある。
+        private bool resyncPending;
+        // 相手が切断して再接続の猶予中。サーバーはこの間どちらの行動も受け付けない。
+        private bool opponentDisconnected;
+        // ターンの締め切り(ローカル時刻)。サーバーが数え始めてから、ターン結果が届くか切断されるまで。
+        private DateTime? turnDeadline;
+        private int? displayedTurnSeconds;
 
         private string selfPlayerId;
         private string opponentPlayerId;
@@ -91,7 +104,7 @@ namespace Atlas.Presentation.Battle
             BattlePage view, IBattleConnection connection, MemoryDatabase database,
             IPachimonService pachimonService, IPachimonMoveMappingService pachimonMoveMappingService,
             BattleViewDto initialDto,
-            IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator)
+            IScreenNavigator screenNavigator, ISceneNavigator sceneNavigator, ISystemDialog systemDialog)
         {
             this.view = view;
             this.connection = connection;
@@ -101,6 +114,7 @@ namespace Atlas.Presentation.Battle
             this.initialDto = initialDto;
             this.screenNavigator = screenNavigator;
             this.sceneNavigator = sceneNavigator;
+            this.systemDialog = systemDialog;
         }
 
         public UniTask InitializeAsync()
@@ -109,9 +123,17 @@ namespace Atlas.Presentation.Battle
             connection.OnMatchStart += HandleMatchStart;
             connection.OnTurnResult += HandleTurnResult;
             connection.OnBattleEnd += HandleBattleEnd;
+            connection.OnTurnStart += HandleTurnStart;
+            connection.OnOpponentDisconnected += HandleOpponentDisconnected;
+            connection.OnOpponentReconnected += HandleOpponentReconnected;
+            connection.OnReconnecting += HandleReconnecting;
+            connection.OnReconnected += HandleReconnected;
+            connection.OnConnectionLost += HandleConnectionLost;
 
             // OnMatchStartが届くまでは行動できない。
             RefreshCommandsInteractable();
+            view.SetConnectionStatus(null);
+            RunTurnTimerAsync(lifetimeCancellation.Token).Forget();
 
             view.OnMoveButtonClicked.Subscribe(SubmitMove).AddTo(disposables);
 
@@ -128,15 +150,45 @@ namespace Atlas.Presentation.Battle
             return UniTask.CompletedTask;
         }
 
+        // 参加できなければ対戦できないため、知らせてからHomeへ戻す。
         private async UniTaskVoid JoinBattleAsync(CancellationToken cancellation)
         {
-            var join = await connection.JoinAsync(initialDto.BattleToken, initialDto.MatchId);
-            if (join.Status != JoinResultStatus.Success)
+            JoinResultStatus? status;
+            try
             {
-                // トークン期限切れ(マッチ成立から30秒)やシークレットの食い違い等。対戦できないためHomeへ戻す。
-                UnityEngine.Debug.LogError($"[Battle] BattleServerへの参加に失敗しました: {join.Status}");
-                await sceneNavigator.ChangeSceneAsync(AddressDefinition.Home, cancellation);
+                status = (await connection.JoinAsync(initialDto.BattleToken, initialDto.MatchId)).Status;
             }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                UnityEngine.Debug.LogWarning($"[Battle] BattleServerに接続できませんでした: {e.Message}");
+                status = null;
+            }
+
+            if (status == JoinResultStatus.Success || cancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            UnityEngine.Debug.LogWarning($"[Battle] BattleServerへの参加に失敗しました: {status}");
+            await systemDialog.ShowAsync("対戦に 参加できませんでした", JoinFailedMessage(status), "ホームへ");
+            await sceneNavigator.ChangeSceneAsync(AddressDefinition.Home, cancellation);
+        }
+
+        // InvalidTokenはトークンの期限切れ(マッチ成立から30秒)やシークレットの食い違い。nullは接続そのものの失敗。
+        private static string JoinFailedMessage(JoinResultStatus? status) => status switch
+        {
+            JoinResultStatus.InvalidToken => "マッチングから 時間が たちすぎました。\nもう一度 対戦相手を 探してください。",
+            JoinResultStatus.MatchNotFound => "対戦は すでに 終わっています。",
+            JoinResultStatus.AlreadyJoined => "この対戦には すでに 参加しています。",
+            _ => "対戦サーバーに つながりませんでした。\n通信環境の 良いところで もう一度 お試しください。",
+        };
+
+        // 参加し直せなかった(猶予が切れた・対戦が終わった)。結果も届かないため、知らせてからHomeへ戻す。
+        private async UniTaskVoid ShowConnectionLostAsync(CancellationToken cancellation)
+        {
+            await systemDialog.ShowAsync(
+                "通信が 切れました", "通信が 切れたため、対戦を 続けられませんでした。", "ホームへ");
+            await sceneNavigator.ChangeSceneAsync(AddressDefinition.Home, cancellation);
         }
 
         // 送信済み(選出中に再接続した場合)なら相手の選出を待つだけ。
@@ -201,10 +253,16 @@ namespace Atlas.Presentation.Battle
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
-                UnityEngine.Debug.LogError($"[Battle] 選出の送信に失敗しました: {e.Message}");
+                UnityEngine.Debug.LogWarning($"[Battle] 選出の送信に失敗しました: {e.Message}");
                 if (openSelection == selection)
                 {
                     selection.CancelWaiting();
+                }
+
+                // 自分の接続が切れた場合は、参加し直した後の再送で選出画面を戻す。
+                if (!reconnecting)
+                {
+                    await systemDialog.ShowAsync("送信できませんでした", "選出を 送れませんでした。\nもう一度 「けってい」を 押してください。");
                 }
             }
         }
@@ -281,13 +339,19 @@ namespace Atlas.Presentation.Battle
             connection.OnMatchStart -= HandleMatchStart;
             connection.OnTurnResult -= HandleTurnResult;
             connection.OnBattleEnd -= HandleBattleEnd;
+            connection.OnTurnStart -= HandleTurnStart;
+            connection.OnOpponentDisconnected -= HandleOpponentDisconnected;
+            connection.OnOpponentReconnected -= HandleOpponentReconnected;
+            connection.OnReconnecting -= HandleReconnecting;
+            connection.OnReconnected -= HandleReconnected;
+            connection.OnConnectionLost -= HandleConnectionLost;
             lifetimeCancellation.Cancel();
             lifetimeCancellation.Dispose();
             disposables.Dispose();
         }
 
         private bool CanAct => matchStarted && !battleEnded && !awaitingTurnResult && !forcedSwitchRequired && !opponentSwitching
-                               && pendingPlaybacks == 0;
+                               && pendingPlaybacks == 0 && !reconnecting && !resyncPending && !opponentDisconnected;
 
         private void RefreshCommandsInteractable()
         {
@@ -308,7 +372,8 @@ namespace Atlas.Presentation.Battle
         // Presenterはターン結果を待たない。結果はOnTurnResultイベント経由でHandleTurnResultに届き、
         // そこで入力ロックを解除する(イベントで届いた結果から画面を更新する)。
         // MockBattleConnectionは送信処理の中で同期的にOnTurnResultを発火するため、ロックは送信前に掛ける。
-        private async UniTask SendActionAsync(Func<UniTask> send)
+        // 送れたらtrue。
+        private async UniTask<bool> SendActionAsync(Func<UniTask> send)
         {
             awaitingTurnResult = true;
             RefreshCommandsInteractable();
@@ -316,14 +381,23 @@ namespace Atlas.Presentation.Battle
             try
             {
                 await send();
+                return true;
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
                 // 送れなかった場合はターン結果が届かないため、ロックを戻して再入力できるようにする。
-                UnityEngine.Debug.LogError($"[Battle] 行動の送信に失敗しました: {e.Message}");
+                // 自分の接続が切れた場合は、参加し直した後の再送(OnMatchStart)で状態を戻す。
+                UnityEngine.Debug.LogWarning($"[Battle] 行動の送信に失敗しました: {e.Message}");
                 awaitingTurnResult = false;
+                if (reconnecting || battleEnded)
+                {
+                    return false;
+                }
+
                 view.ShowCommandPanel();
                 RefreshCommandsInteractable();
+                await systemDialog.ShowAsync("送信できませんでした", "行動を 送れませんでした。\nもう一度 選んでください。");
+                return false;
             }
         }
 
@@ -366,7 +440,14 @@ namespace Atlas.Presentation.Battle
                 return;
             }
 
-            await SendActionAsync(() => connection.SwitchAsync(result.PartySlot));
+            var sent = await SendActionAsync(() => connection.SwitchAsync(result.PartySlot));
+            // 強制交代は交代しないと進まないため、送れなかったら選び直させる。
+            if (!sent && isForced && !reconnecting && !battleEnded)
+            {
+                forcedSwitchRequired = true;
+                RefreshCommandsInteractable();
+                SelectAndSwitchAsync(isForced: true, cancellation).Forget();
+            }
         }
 
         // 表示中のSwitchSelectModalをCanceledで閉じる。通信対戦ではターンの制限時間切れ(スキップ)で
@@ -411,10 +492,27 @@ namespace Atlas.Presentation.Battle
             };
         }
 
+        // 対戦中の再送(参加し直した後)は、流している演出の後ろに並べてから戻す。
         private void HandleMatchStart(BattleStartPayload payload)
         {
-            CloseSelectionModalAsync().Forget();
+            if (!matchStarted)
+            {
+                CloseSelectionModalAsync().Forget();
+                ApplyMatchStart(payload, lifetimeCancellation.Token);
+                return;
+            }
 
+            EnqueuePlayback(async cancellation =>
+            {
+                // 交代先の選択は、戻した状態から選び直させる。
+                await CloseSwitchModalAsync();
+                ApplyMatchStart(payload, cancellation);
+            });
+        }
+
+        // 盤面と、ターンの途中の状態(強制交代・送信済み・相手の切断中)を、届いた内容に置き換える。
+        private void ApplyMatchStart(BattleStartPayload payload, CancellationToken cancellation)
+        {
             selfPlayerId = payload.Self.PlayerId;
             opponentPlayerId = payload.Opponent.PlayerId;
 
@@ -432,9 +530,140 @@ namespace Atlas.Presentation.Battle
             opponentHpPercentBySlot = payload.Opponent.SelectedPachimon.Select(s => s.State?.HpPercent ?? 100).ToArray();
             typeMatchupTable ??= new TypeMatchupTable(database);
 
+            opponentDisconnected = payload.OpponentDisconnected;
+            awaitingTurnResult = payload.ActionSubmitted;
+            nextTurnIsForcedSwitch = payload.PlayersRequiringForcedSwitch.Length > 0;
+            forcedSwitchRequired = payload.PlayersRequiringForcedSwitch.Contains(selfPlayerId) && !payload.ActionSubmitted;
+            opponentSwitching = payload.PlayersRequiringForcedSwitch.Contains(opponentPlayerId);
             matchStarted = true;
+            resyncPending = false;
+
             view.Refresh(BuildUiState());
+            // サーバーは対戦の開始・参加し直した後、準備がそろうまで数え始めない。
+            turnDeadline = null;
+            RefreshConnectionStatus();
+            BeginTurnInput(cancellation);
             RefreshCommandsInteractable();
+        }
+
+        // ターンの入力を始める。送信済みなら結果を待つ文を出し、強制交代なら交代先を選ばせる。
+        private void BeginTurnInput(CancellationToken cancellation)
+        {
+            if (awaitingTurnResult)
+            {
+                view.ShowMessage(BattleMessageBuilder.WaitingForOpponent);
+            }
+            else
+            {
+                view.ShowCommandPanel();
+            }
+
+            if (forcedSwitchRequired && openSwitchSelect is null)
+            {
+                SelectAndSwitchAsync(isForced: true, cancellation).Forget();
+            }
+
+            SyncOpponentSwitchingModalAsync().Forget();
+
+            // 後ろに演出が並んでいる(続けて届いたターン結果・再送)なら、それを流し終えてから送る。
+            // 先に送ると、まだ見せていないターンの制限時間を数え始めさせてしまう。
+            if (pendingPlaybacks <= 1)
+            {
+                SendReadyAsync().Forget();
+            }
+        }
+
+        // 送れなかった場合、接続が切れていれば参加し直した後の再送でもう一度送る。そうでなくてもサーバーは
+        // 準備待ちの上限で数え始めるため、知らせずに続ける。
+        private async UniTaskVoid SendReadyAsync()
+        {
+            try
+            {
+                await connection.ReadyForTurnAsync();
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                UnityEngine.Debug.LogWarning($"[Battle] 準備の送信に失敗しました: {e.Message}");
+            }
+        }
+
+        private void HandleTurnStart(int timeLimitSeconds)
+        {
+            turnDeadline = DateTime.UtcNow.AddSeconds(timeLimitSeconds);
+        }
+
+        private void HandleOpponentDisconnected()
+        {
+            opponentDisconnected = true;
+            turnDeadline = null;
+            RefreshConnectionStatus();
+            RefreshCommandsInteractable();
+        }
+
+        // ターンの制限時間は、サーバーが戻った側の準備を待って数え直す(OnTurnStart)。
+        private void HandleOpponentReconnected()
+        {
+            opponentDisconnected = false;
+            RefreshConnectionStatus();
+            RefreshCommandsInteractable();
+        }
+
+        private void HandleReconnecting()
+        {
+            reconnecting = true;
+            resyncPending = matchStarted;
+            turnDeadline = null;
+            RefreshConnectionStatus();
+            RefreshCommandsInteractable();
+        }
+
+        // 入力は、盤面の再送(OnMatchStart)が届くまで止めたままにする。
+        private void HandleReconnected()
+        {
+            reconnecting = false;
+            RefreshConnectionStatus();
+            RefreshCommandsInteractable();
+        }
+
+        private void HandleConnectionLost()
+        {
+            turnDeadline = null;
+            ShowConnectionLostAsync(lifetimeCancellation.Token).Forget();
+        }
+
+        private void RefreshConnectionStatus()
+        {
+            view.SetConnectionStatus(battleEnded ? null
+                : reconnecting ? BattleMessageBuilder.Reconnecting
+                : opponentDisconnected && matchStarted ? BattleMessageBuilder.OpponentDisconnected
+                : null);
+        }
+
+        // 技・交代(強制交代を含む)を選べる間。行動を送った後・演出中・相手の交代待ちは含まない。
+        private bool IsChoosingAction => CanAct
+                                         || (forcedSwitchRequired && matchStarted && !battleEnded && pendingPlaybacks == 0
+                                             && !reconnecting && !resyncPending && !opponentDisconnected);
+
+        // 残り時間はクライアントで数えて表示するだけで、時間切れの判定はサーバーが行う。行動を選べる間だけ出す。
+        private async UniTaskVoid RunTurnTimerAsync(CancellationToken cancellation)
+        {
+            while (true)
+            {
+                int? seconds = turnDeadline is { } deadline && IsChoosingAction
+                    ? Math.Max(0, (int)Math.Ceiling((deadline - DateTime.UtcNow).TotalSeconds))
+                    : null;
+                if (seconds != displayedTurnSeconds)
+                {
+                    displayedTurnSeconds = seconds;
+                    view.SetTurnRemainingSeconds(seconds);
+                }
+
+                if (await UniTask.Delay(TimeSpan.FromSeconds(0.2), cancellationToken: cancellation)
+                        .SuppressCancellationThrow())
+                {
+                    return;
+                }
+            }
         }
 
         // 投了確認Modalの結果(投了する=true)を待ち、投了する場合だけIBattleConnectionへ送る。
@@ -450,7 +679,18 @@ namespace Atlas.Presentation.Battle
             var forfeit = await screenNavigator.WaitForPopAsync<bool>(forfeitConfirm, cancellation);
             if (forfeit && !battleEnded)
             {
-                await connection.ForfeitAsync();
+                try
+                {
+                    await connection.ForfeitAsync();
+                }
+                catch (Exception e) when (e is not OperationCanceledException)
+                {
+                    UnityEngine.Debug.LogWarning($"[Battle] 投了の送信に失敗しました: {e.Message}");
+                    if (!reconnecting)
+                    {
+                        await systemDialog.ShowAsync("送信できませんでした", "降参を 送れませんでした。");
+                    }
+                }
             }
         }
 
@@ -458,6 +698,8 @@ namespace Atlas.Presentation.Battle
         {
             battleEnded = true;
             opponentSwitching = false;
+            turnDeadline = null;
+            RefreshConnectionStatus();
             RefreshCommandsInteractable();
             // 決着したターンの演出を流し終えてから結果Modalを出す。
             EnqueuePlayback(_ => ShowBattleResultAsync(payload));
@@ -485,8 +727,10 @@ namespace Atlas.Presentation.Battle
             _ => string.Empty,
         };
 
+        // 次のターンの制限時間は、演出を流し終えて準備を送った後にサーバーが数え始める。
         private void HandleTurnResult(TurnResultPayload payload)
         {
+            turnDeadline = null;
             EnqueuePlayback(cancellation => PlayTurnResultAsync(payload, cancellation));
         }
 
@@ -547,13 +791,7 @@ namespace Atlas.Presentation.Battle
                 return;
             }
 
-            view.ShowCommandPanel();
-            if (forcedSwitchRequired)
-            {
-                SelectAndSwitchAsync(isForced: true, cancellation).Forget();
-            }
-
-            SyncOpponentSwitchingModalAsync().Forget();
+            BeginTurnInput(cancellation);
         }
 
         private async UniTask PlayActionAsync(ActionResult action, bool isForcedSwitchTurn, CancellationToken cancellation)

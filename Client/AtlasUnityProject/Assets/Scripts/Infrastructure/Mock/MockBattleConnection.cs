@@ -39,8 +39,13 @@ namespace Atlas.Infrastructure.Mock
         public event Action<BattleStartPayload> OnMatchStart;
         public event Action<TurnResultPayload> OnTurnResult;
         public event Action<BattleEndPayload> OnBattleEnd;
-        public event Action OnOpponentDisconnected;
-        public event Action OnOpponentReconnected;
+        public event Action<int> OnTurnStart;
+        // 切断が起きないため発火しない。
+        public event Action OnOpponentDisconnected { add { } remove { } }
+        public event Action OnOpponentReconnected { add { } remove { } }
+        public event Action OnReconnecting { add { } remove { } }
+        public event Action OnReconnected { add { } remove { } }
+        public event Action OnConnectionLost { add { } remove { } }
 
         public MockBattleConnection(MemoryDatabase database, IRandomSource random = null)
         {
@@ -79,7 +84,10 @@ namespace Atlas.Infrastructure.Mock
                 BuildSnapshot(SelfPlayerId, state.Player1, selfMembers, selfRevealed),
                 BuildSnapshot(OpponentPlayerId, state.Player2, opponentMembers, opponentRevealed),
                 TurnTimeLimitSeconds,
-                BuildSelfMoves(selfMembers)));
+                BuildSelfMoves(selfMembers),
+                Array.Empty<string>(),
+                ActionSubmitted: false,
+                OpponentDisconnected: false));
 
             return UniTask.CompletedTask;
         }
@@ -94,6 +102,13 @@ namespace Atlas.Infrastructure.Mock
         public UniTask SwitchAsync(int partySlot)
         {
             return ProcessTurnAsync(PlayerAction.SwitchTo(partySlot));
+        }
+
+        // 対戦相手は簡易AIで演出を待たないため、準備がそろったものとしてすぐ数え始める(時間切れの判定はしない)。
+        public UniTask ReadyForTurnAsync()
+        {
+            OnTurnStart?.Invoke(TurnTimeLimitSeconds);
+            return UniTask.CompletedTask;
         }
 
         public UniTask ForfeitAsync()

@@ -4,7 +4,7 @@ status: current
 area: battle-server
 related: [battle-server/battle-flow, server/debug-api, client/testing]
 code: [BattleServer/Tests, BattleServer/BattleBot, Shared/BattleCore/Tests]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # テストとボット
@@ -32,4 +32,5 @@ updated: 2026-10-11
 - 基盤のデバイス登録の `.proto` は基盤のリポジトリにしか無いので、ビルドのときに基盤のタグの版を取ってくる
 - 起動のたびに新しいプレイヤーを作り、`DebugService/RandomizeParty` でパーティをランダムにする([開発用API](../server/debug-api.md))
 - 選出はパーティからランダム、技は使えるものからランダム、強制交代は生存している先頭の控え
+- 演出が無いので、対戦の開始・ターン結果を受けたらすぐに準備(`ReadyForTurnAsync`)を送る。送らないと、相手が準備を送るたびに上限(15秒)まで待たせてしまう
 - `--loop` で対戦のたびにマッチングに並び直し(Unity の対戦相手を常駐させる)、`--count 2` でボット同士を対戦させる(サーバー全体を通しで確かめる)

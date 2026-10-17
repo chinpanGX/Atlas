@@ -2,6 +2,7 @@ using System.Threading;
 using Atlas.Domain;
 using Cysharp.Threading.Tasks;
 using R3;
+using TMPro;
 using UIPackages.Runtime;
 using UnityEngine;
 using UnityScreenNavigator.Runtime.Core.Page;
@@ -20,6 +21,11 @@ namespace Atlas.Presentation.Battle
         [SerializeField] private CommonButton forfeitButton;
         // 効果抜群・急所のときに画面ごと揺らす対象。
         [SerializeField] private RectTransform screenShakeTarget;
+        [SerializeField] private GameObject turnTimer;
+        [SerializeField] private TextMeshProUGUI turnTimerText;
+        // 自分の再接続中・相手の切断中に出す帯。
+        [SerializeField] private GameObject connectionStatus;
+        [SerializeField] private TextMeshProUGUI connectionStatusText;
 
         // 押された技のSlotNoを流す。
         public Observable<int> OnMoveButtonClicked => commandView.OnMoveClicked;
@@ -97,6 +103,26 @@ namespace Atlas.Presentation.Battle
         {
             commandView.SetVisible(false);
             return messageView.ShowAndWaitAsync(message, cancellation);
+        }
+
+        // ターンの残り時間。nullなら隠す(対戦の開始前・決着後・接続の待ち中)。
+        public void SetTurnRemainingSeconds(int? seconds)
+        {
+            turnTimer.SetActive(seconds.HasValue);
+            if (seconds is { } value)
+            {
+                turnTimerText.text = $"のこり {value}秒";
+            }
+        }
+
+        // nullなら隠す。
+        public void SetConnectionStatus(string message)
+        {
+            connectionStatus.SetActive(message is not null);
+            if (message is not null)
+            {
+                connectionStatusText.text = message;
+            }
         }
 
         // 相性が良いほど・急所ほど、攻撃を受けた側を大きく揺らす。

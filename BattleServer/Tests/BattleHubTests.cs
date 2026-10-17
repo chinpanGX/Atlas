@@ -299,6 +299,9 @@ namespace Atlas.BattleServer.Tests
             Assert.False(restored.Opponent.SelectedPachimon[1].IsRevealed);
             Assert.True(restored.Opponent.SelectedPachimon[2].IsRevealed);
             Assert.Equal(opponentHpAfterHit, restored.Opponent.SelectedPachimon[2].State!.HpPercent);
+            Assert.Empty(restored.PlayersRequiringForcedSwitch);
+            Assert.False(restored.ActionSubmitted);
+            Assert.False(restored.OpponentDisconnected);
 
             await a2.SubmitMoveAsync(new MoveRequest("19"));
             await b.SubmitMoveAsync(new MoveRequest("19"));
@@ -307,9 +310,69 @@ namespace Atlas.BattleServer.Tests
         }
 
         [Fact]
+        public async Task Reconnect_ResendsSubmittedActionAndAbsentOpponent()
+        {
+            await using var host = new BattleServerTestHost();
+            var tokenA = BattleServerTestHost.Token("m", "pA");
+            var (a, ra, b, _) = await host.StartBattleAsync("m", ["a1"], ["b1"]);
+
+            await a.SubmitMoveAsync(new MoveRequest("19"));
+            await b.DisposeAsync();
+            await ra.WaitForAsync(r => r.OpponentDisconnectedCount == 1);
+            await a.DisposeAsync();
+
+            var (a2, ra2) = await host.ConnectAsync();
+            Assert.Equal(JoinResultStatus.Success, (await a2.JoinAsync(tokenA, "m")).Status);
+            await ra2.WaitForAsync(r => r.Starts.Count == 1);
+
+            Assert.True(ra2.Starts[0].ActionSubmitted);
+            Assert.True(ra2.Starts[0].OpponentDisconnected);
+        }
+
+        [Fact]
+        public async Task Reconnect_DuringForcedSwitchTurn_ResendsForcedSwitchState()
+        {
+            await using var host = new BattleServerTestHost();
+            var (a, ra, b, rb) = await host.StartBattleAsync("m", ["a1", "a2"], ["b1", "b2"]);
+
+            await HitUntilForcedSwitchAsync(a, ra, b);
+            var switching = ra.Turns[^1].PlayersRequiringForcedSwitch.Single();
+            var waiting = switching == "pA" ? "pB" : "pA";
+
+            // 交代する側・待つ側の両方が切断し、それぞれ再接続する
+            await a.DisposeAsync();
+            await rb.WaitForAsync(r => r.OpponentDisconnectedCount == 1);
+            var (a2, ra2) = await host.ConnectAsync();
+            Assert.Equal(JoinResultStatus.Success, (await a2.JoinAsync(BattleServerTestHost.Token("m", "pA"), "m")).Status);
+            await ra2.WaitForAsync(r => r.Starts.Count == 1);
+
+            await b.DisposeAsync();
+            await ra2.WaitForAsync(r => r.OpponentDisconnectedCount == 1);
+            var (b2, rb2) = await host.ConnectAsync();
+            Assert.Equal(JoinResultStatus.Success, (await b2.JoinAsync(BattleServerTestHost.Token("m", "pB"), "m")).Status);
+            await rb2.WaitForAsync(r => r.Starts.Count == 1);
+
+            Assert.Equal([switching], ra2.Starts[0].PlayersRequiringForcedSwitch);
+            Assert.Equal([switching], rb2.Starts[0].PlayersRequiringForcedSwitch);
+            Assert.False(ra2.Starts[0].ActionSubmitted);
+            Assert.False(rb2.Starts[0].ActionSubmitted);
+
+            // 戻した状態のまま、交代する側が交代すれば強制交代ターンが進む
+            await (switching == "pA" ? a2 : b2).SwitchAsync(1);
+            await ra2.WaitForAsync(r => r.Turns.Count == 1);
+            Assert.Contains(ra2.Turns[0].Actions, x => x.PlayerId == switching && x.Type == ActionType.Switch);
+            Assert.Contains(ra2.Turns[0].Actions, x => x.PlayerId == waiting && x.Type == ActionType.Skip);
+        }
+
+        [Fact]
         public async Task TurnTimeout_ResolvesTurnWithSkipForIdlePlayer()
         {
-            await using var host = new BattleServerTestHost(o => o.TurnTimeLimit = TimeSpan.FromMilliseconds(500));
+            await using var host = new BattleServerTestHost(o =>
+            {
+                o.TurnTimeLimit = TimeSpan.FromMilliseconds(500);
+                // 準備を送らないため、準備待ちの上限ですぐに数え始めさせる
+                o.TurnReadyTimeout = TimeSpan.FromMilliseconds(50);
+            });
             var (a, ra, _, _) = await host.StartBattleAsync("m", ["a1"], ["b1"]);
 
             await a.SubmitMoveAsync(new MoveRequest("19"));
@@ -321,9 +384,75 @@ namespace Atlas.BattleServer.Tests
         }
 
         [Fact]
+        public async Task TurnTimer_StartsOnlyAfterBothReady()
+        {
+            await using var host = new BattleServerTestHost(o =>
+            {
+                o.TurnTimeLimit = TimeSpan.FromMilliseconds(300);
+                o.TurnReadyTimeout = TimeSpan.FromSeconds(30);
+            });
+            var (a, ra, b, rb) = await host.StartBattleAsync("m", ["a1"], ["b1"]);
+
+            // 片方の準備だけでは数え始めないため、制限時間を過ぎてもターンは進まない
+            await a.ReadyForTurnAsync();
+            await a.SubmitMoveAsync(new MoveRequest("19"));
+            await Task.Delay(600);
+            Assert.Empty(ra.TurnStarts);
+            Assert.Empty(ra.Turns);
+
+            await b.ReadyForTurnAsync();
+            await ra.WaitForAsync(r => r.TurnStarts.Count == 1);
+            await rb.WaitForAsync(r => r.TurnStarts.Count == 1);
+            Assert.Equal(1, ra.TurnStarts[0]);
+
+            await ra.WaitForAsync(r => r.Turns.Count == 1);
+            Assert.Contains(ra.Turns[0].Actions, x => x.PlayerId == "pB" && x.Type == ActionType.Skip);
+        }
+
+        [Fact]
+        public async Task TurnTimer_StartsAfterReadyTimeoutEvenIfNotReady()
+        {
+            await using var host = new BattleServerTestHost(o => o.TurnReadyTimeout = TimeSpan.FromMilliseconds(200));
+            var (a, ra, _, rb) = await host.StartBattleAsync("m", ["a1"], ["b1"]);
+
+            await a.ReadyForTurnAsync();
+            await ra.WaitForAsync(r => r.TurnStarts.Count == 1);
+            await rb.WaitForAsync(r => r.TurnStarts.Count == 1);
+        }
+
+        [Fact]
+        public async Task TurnTimer_RestartsAfterReconnectedPlayerIsReady()
+        {
+            await using var host = new BattleServerTestHost(o => o.TurnReadyTimeout = TimeSpan.FromSeconds(30));
+            var tokenA = BattleServerTestHost.Token("m", "pA");
+            var (a, ra, b, rb) = await host.StartBattleAsync("m", ["a1"], ["b1"]);
+            await a.ReadyForTurnAsync();
+            await b.ReadyForTurnAsync();
+            await rb.WaitForAsync(r => r.TurnStarts.Count == 1);
+
+            await a.DisposeAsync();
+            await rb.WaitForAsync(r => r.OpponentDisconnectedCount == 1);
+            var (a2, ra2) = await host.ConnectAsync();
+            Assert.Equal(JoinResultStatus.Success, (await a2.JoinAsync(tokenA, "m")).Status);
+            await ra2.WaitForAsync(r => r.Starts.Count == 1);
+
+            // 待っていた側の準備は切断前のものが残り、戻った側の準備で数え始める
+            await Task.Delay(200);
+            Assert.Single(rb.TurnStarts);
+            await a2.ReadyForTurnAsync();
+            await rb.WaitForAsync(r => r.TurnStarts.Count == 2);
+            await ra2.WaitForAsync(r => r.TurnStarts.Count == 1);
+        }
+
+        [Fact]
         public async Task ForcedSwitchTimeout_PlayerWhoDidNotSwitchLoses()
         {
-            await using var host = new BattleServerTestHost(o => o.TurnTimeLimit = TimeSpan.FromSeconds(1));
+            await using var host = new BattleServerTestHost(o =>
+            {
+                o.TurnTimeLimit = TimeSpan.FromSeconds(1);
+                // 準備を送らないため、準備待ちの上限ですぐに数え始めさせる
+                o.TurnReadyTimeout = TimeSpan.FromMilliseconds(50);
+            });
             var (a, ra, b, rb) = await host.StartBattleAsync("m", ["a1", "a2"], ["b1", "b2"]);
 
             // どちらかが倒れるまで殴り合い、強制交代ターンで交代しないまま時間切れにする
@@ -438,7 +567,12 @@ namespace Atlas.BattleServer.Tests
         [Fact]
         public async Task IdleForThreeTurns_Loses()
         {
-            await using var host = new BattleServerTestHost(o => o.TurnTimeLimit = TimeSpan.FromMilliseconds(300));
+            await using var host = new BattleServerTestHost(o =>
+            {
+                o.TurnTimeLimit = TimeSpan.FromMilliseconds(300);
+                // 準備を送らないため、準備待ちの上限ですぐに数え始めさせる
+                o.TurnReadyTimeout = TimeSpan.FromMilliseconds(50);
+            });
             var (a, ra, _, _) = await host.StartBattleAsync("m", ["a1"], ["b1"]);
 
             // Aだけ毎ターン行動し、Bは放置する(ダミーのステータスでは3発では倒れない)
@@ -457,7 +591,12 @@ namespace Atlas.BattleServer.Tests
         [Fact]
         public async Task IdleCounter_ResetsWhenPlayerActs()
         {
-            await using var host = new BattleServerTestHost(o => o.TurnTimeLimit = TimeSpan.FromMilliseconds(300));
+            await using var host = new BattleServerTestHost(o =>
+            {
+                o.TurnTimeLimit = TimeSpan.FromMilliseconds(300);
+                // 準備を送らないため、準備待ちの上限ですぐに数え始めさせる
+                o.TurnReadyTimeout = TimeSpan.FromMilliseconds(50);
+            });
             var (a, ra, b, _) = await host.StartBattleAsync("m", ["a1", "a2"], ["b1", "b2"]);
 
             // Bは2ターン放置→1ターン行動→2ターン放置。連続3ターンには達しないので決着しない。
@@ -482,7 +621,12 @@ namespace Atlas.BattleServer.Tests
         [Fact]
         public async Task BothIdle_EndsWithoutWinner()
         {
-            await using var host = new BattleServerTestHost(o => o.TurnTimeLimit = TimeSpan.FromMilliseconds(200));
+            await using var host = new BattleServerTestHost(o =>
+            {
+                o.TurnTimeLimit = TimeSpan.FromMilliseconds(200);
+                // 準備を送らないため、準備待ちの上限ですぐに数え始めさせる
+                o.TurnReadyTimeout = TimeSpan.FromMilliseconds(50);
+            });
             var (_, ra, _, rb) = await host.StartBattleAsync("m", ["a1"], ["b1"]);
 
             await ra.WaitForAsync(r => r.Ends.Count == 1);

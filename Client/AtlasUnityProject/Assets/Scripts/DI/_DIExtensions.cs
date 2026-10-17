@@ -29,7 +29,7 @@ public static class DIExtensions
             builder.Register<IAccountStore>(
                 resolver => new FileAccountStore(resolver.Resolve<IFileStorageService>(), grpcAddress),
                 Lifetime.Singleton);
-            builder.RegisterComponent(errorDialog).As<IErrorDialogView>();
+            builder.RegisterComponent(errorDialog).As<IErrorDialogView, ISystemDialog>();
             builder.Register(resolver => new ApiCore(
                     options,
                     new DeviceTokenProvider(callInvoker, resolver.Resolve<IAccountStore>(), options),

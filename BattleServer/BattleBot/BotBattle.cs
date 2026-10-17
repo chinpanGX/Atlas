@@ -51,10 +51,13 @@ namespace Atlas.BattleBot
                             break;
                         case BattleStartPayload start:
                             HandleStart(start);
+                            await ReadyAsync();
                             await ActAsync(forcedSwitch: false);
                             break;
                         case TurnResultPayload turn:
                             HandleTurn(turn);
+                            // 演出が無いので、すぐに準備を送る(送らないと、相手の準備がそろっても上限まで待たされる)。
+                            await ReadyAsync();
                             // 相手の強制交代ターンは、相手が交代するまで何も送れない(次のターン結果を待つ)。
                             if (turn.PlayersRequiringForcedSwitch.Length == 0 || turn.PlayersRequiringForcedSwitch.Contains(selfId))
                             {
@@ -146,12 +149,24 @@ namespace Atlas.BattleBot
             }
         }
 
+        private async Task ReadyAsync()
+        {
+            try
+            {
+                await hub.ReadyForTurnAsync();
+            }
+            catch (RpcException e) when (e.StatusCode == StatusCode.FailedPrecondition)
+            {
+            }
+        }
+
         private void Log(string message) => Console.WriteLine($"[{name}] {message}");
 
         void IBattleHubReceiver.OnSelectionStart(SelectionStartPayload payload) => events.Writer.TryWrite(payload);
         void IBattleHubReceiver.OnMatchStart(BattleStartPayload payload) => events.Writer.TryWrite(payload);
         void IBattleHubReceiver.OnTurnResult(TurnResultPayload payload) => events.Writer.TryWrite(payload);
         void IBattleHubReceiver.OnBattleEnd(BattleEndPayload payload) => events.Writer.TryWrite(payload);
+        void IBattleHubReceiver.OnTurnStart(int timeLimitSeconds) { }
         void IBattleHubReceiver.OnOpponentDisconnected() => Log("相手が切断しました(再接続待ち)");
         void IBattleHubReceiver.OnOpponentReconnected() => Log("相手が再接続しました");
     }

@@ -9,6 +9,9 @@ namespace Atlas.Presentation.Battle
         public const string WaitingForOpponentSelection = "相手の 選出を 待っています…";
         public const string Missed = "しかし 攻撃は はずれた!";
         public const string Critical = "急所に 当たった!";
+        // 接続の状態(メッセージ枠ではなく画面上部の帯に出す)。
+        public const string OpponentDisconnected = "相手の 接続を 待っています…";
+        public const string Reconnecting = "再接続しています…";
 
         public static string MoveUsed(bool isSelf, string pachimonName, string moveName)
         {

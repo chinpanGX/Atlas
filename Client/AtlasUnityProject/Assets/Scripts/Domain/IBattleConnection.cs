@@ -13,13 +13,25 @@ namespace Atlas.Domain
         UniTask SubmitMoveAsync(MoveRequest move);
         UniTask SwitchAsync(int partySlot);
         UniTask ForfeitAsync();
+        // ターン結果の演出を流し終えて入力できる状態になった(対戦開始・再接続の後も送る)。サーバーは両者がそろってから
+        // ターンの制限時間を数え始め、OnTurnStartで知らせる。
+        UniTask ReadyForTurnAsync();
 
         event Action<SelectionStartPayload> OnSelectionStart;
         event Action<BattleStartPayload> OnMatchStart;
         event Action<TurnResultPayload> OnTurnResult;
         event Action<BattleEndPayload> OnBattleEnd;
+        // ターンの制限時間を数え始めた。引数は制限時間の秒数。
+        event Action<int> OnTurnStart;
         event Action OnOpponentDisconnected;
         event Action OnOpponentReconnected;
+
+        // 自分の接続が切れ、同じbattleToken/matchIdで参加し直している間。参加し直せたらOnReconnected
+        // (盤面はサーバーが再送するOnSelectionStart/OnMatchStartで戻す)、諦めたらOnConnectionLostが届く。
+        // 決着後と、自分から閉じた(Dispose)後は参加し直さない。
+        event Action OnReconnecting;
+        event Action OnReconnected;
+        event Action OnConnectionLost;
     }
 
     public enum JoinResultStatus { Success, InvalidToken, MatchNotFound, AlreadyJoined }
@@ -40,8 +52,12 @@ namespace Atlas.Domain
 
     // SelfMovesは自分側の選出各枠の技(Self.SelectedPachimonとインデックスが対応)。サーバーが判定に使う
     // 技そのものなので、技の表示・送信は手元の所持データではなくこれを使う。
+    // 残りの3つは再接続時の再送でターンの途中の状態を戻すためのもの(対戦開始時は空・false)。
+    // PlayersRequiringForcedSwitchは今が強制交代ターンなら交代を求められている側、ActionSubmittedは自分が
+    // このターンの行動を送信済みか、OpponentDisconnectedは相手が切断して再接続の猶予中か。
     public sealed record BattleStartPayload(
-        ParticipantSnapshot Self, ParticipantSnapshot Opponent, int TurnTimeLimitSeconds, PachimonMoveSet[] SelfMoves);
+        ParticipantSnapshot Self, ParticipantSnapshot Opponent, int TurnTimeLimitSeconds, PachimonMoveSet[] SelfMoves,
+        string[] PlayersRequiringForcedSwitch, bool ActionSubmitted, bool OpponentDisconnected);
 
     // 選出1枠分の技。Movesのインデックスが技スロット。
     public sealed record PachimonMoveSet(MoveState[] Moves);

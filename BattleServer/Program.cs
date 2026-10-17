@@ -16,7 +16,14 @@ builder.WebHost.ConfigureKestrel(options =>
         endpointOptions.Protocols = HttpProtocols.Http2;
     });
 });
-builder.Services.AddMagicOnion();
+builder.Services.AddMagicOnion(options =>
+{
+    // クライアントが黙って消えた(電波が切れた等で切断が届かない)ときにも、TCPが切れるのを待たずに切断として扱い、
+    // 相手への通知(OnOpponentDisconnected)と再接続の猶予を始める。クライアントは自動で応答する。
+    options.EnableStreamingHubHeartbeat = true;
+    options.StreamingHubHeartbeatInterval = TimeSpan.FromSeconds(5);
+    options.StreamingHubHeartbeatTimeout = TimeSpan.FromSeconds(10);
+});
 
 // BATTLE_TOKEN_SECRET等は環境変数(またはappsettings/user-secrets)からIConfiguration経由で読む。
 builder.Services.AddOptions<BattleTimingOptions>();

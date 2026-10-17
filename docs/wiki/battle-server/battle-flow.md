@@ -3,7 +3,7 @@ title: "対戦の進行"
 status: current
 area: battle-server
 related: [game/battle-rules, battle-server/contracts, battle-server/api-integration, server/auth, client/battle-screen]
-code: [BattleServer/Battle/BattleCoordinator.cs, BattleServer/Battle/BattleSession.cs, BattleServer/Battle/BattleTimingOptions.cs, BattleServer/Hubs/BattleHub.cs, BattleServer/Auth/BattleTokenValidator.cs]
+code: [BattleServer/Battle/BattleCoordinator.cs, BattleServer/Battle/BattleSession.cs, BattleServer/Battle/BattleTimingOptions.cs, BattleServer/Hubs/BattleHub.cs, BattleServer/Auth/BattleTokenValidator.cs, BattleServer/Program.cs]
 updated: 2026-10-18
 ---
 
@@ -28,6 +28,7 @@ stateDiagram-v2
 |---|---|
 | 選出の制限時間 | 2分 |
 | ターンの制限時間 | 30秒 |
+| ターンの準備待ちの上限 | 15秒 |
 | 放置で負けになる、何もしなかったターンの連続回数 | 3 |
 | 切断・未参加の猶予 | 60秒 |
 | 決着後にメモリに残す時間(遅れて来た参加に `MatchNotFound` を返すため) | 60秒 |
@@ -54,6 +55,13 @@ stateDiagram-v2
 
 - 行動すべき側の行動がそろったら `BattleEngine.ProcessTurn` で解決し、全員に `OnTurnResult` を送る。制限時間(30秒)が切れたら、送らなかった側は
   何もしない扱いで解決する
+- 制限時間は、対戦の開始・ターンの解決の直後からではなく、両者の準備(`ReadyForTurnAsync`)がそろってから数え始め、`OnTurnStart` で両者に知らせる。
+  クライアントはターン結果の演出を流し終えてから準備を送る。サーバーには演出の長さ(文の数・早送りしたか)が分からないため、直後から数えると、
+  演出の長いターンほどコマンドを選べる時間が減り、相手との間にも差が出る
+  - 準備を送らないクライアントや演出の遅い端末で対戦が止まらないよう、そろわなくても上限(15秒)で数え始める
+  - 準備が届かないことは切断とはみなさない(生きている接続でも、バックグラウンドに回った等で遅れるため)。切断は接続の切断で検知する
+  - 行動は準備待ちの間も受け付け、両者の行動がそろえば数え始める前でも解決する
+  - 強制交代ターンも、待っている側を含む両者の準備を待つ
 - 技は、選出時に取得した技にあるか(無ければ `InvalidArgument`)と、PP が残っているか(無ければ `FailedPrecondition`)を確かめる。
   交代は、選出の中の生きている控えか(違えば `InvalidArgument`)を確かめる
 - 1ターンに1回だけ受け付ける。相手の切断中・相手の強制交代中・送信済みのときは `FailedPrecondition`
@@ -85,10 +93,14 @@ stateDiagram-v2
 
 - 切断は `OnDisconnected` で検知し、相手に `OnOpponentDisconnected` を送って猶予タイマー(60秒)を張る。猶予中は両者とも行動できず、
   ターンのタイマーも止める
+- クライアントが黙って消えた(電波が切れた等で切断が届かない)ときにも気付けるよう、MagicOnion のサーバー側のハートビートを使う
+  (5秒ごと、10秒応答が無ければ切断扱い。`Program.cs`)。使わないと TCP が切れるまで気付けず、相手は切断中の表示も出ないまま待たされる。
+  クライアントは自動で応答する。逆向き(サーバーが消えたことにクライアントが気付く)はクライアント側のハートビートで行う
 - 猶予中に同じトークンで `JoinAsync` し直せば再開する。トークンの有効期限(30秒)は猶予より短いため、再接続に限り期限切れ(署名は正当)の
   トークンを受け付ける。新規の参加では期限切れを受け付けない
 - 専用の再同期のメソッドは設けず、再接続した人にだけ現在の状態を送り直す(選出中なら `OnSelectionStart`、対戦中なら `OnMatchStart`)。
-  Client は受け取った内容で初期化するため、そのまま復元になる。ターンのタイマーは、両者がそろっていれば30秒からやり直す
+  Client は受け取った内容で初期化するため、そのまま復元になる。ターンの制限時間は、両者がそろったら戻った側の準備を待って30秒から数え直す
+  (待っていた側の準備は切断前のものを残す)
 - 盤面だけではターンの途中の状態が戻らないため、`OnMatchStart` には次の3つも入れる(対戦開始時は空・false)
   - 強制交代を求められている側(強制交代ターンなら)。無いと、強制交代ターンの途中で戻った側が交代先の選択や相手の交代待ちを出せない
   - このターンの行動を送信済みか。送信済みの側にもう一度行動を選ばせると、サーバーが「送信済み」で弾くため
