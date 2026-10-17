@@ -75,7 +75,7 @@ flowchart LR
 |---|---|---|
 | [遊びの流れとアカウント](game/flow.md) | `current` | コアループ、用語、画面の流れ、ゲストアカウント |
 | [パチモン](game/pachimon.md) | `current` | 種族・タイプ・能力・個体・技 |
-| [パーティ編成・育成](game/party-training.md) | `current` | 編成、技の付け替え、ステータスポイント(どちらも画面は未実装) |
+| [パーティ編成・育成](game/party-training.md) | `current` | 編成、技の付け替え(候補の画面は未実装)、ステータスポイント |
 | [スカウト](game/scout.md) | `current` | 候補10体から1体を選ぶ抽選 |
 | [ショップ](game/shop.md) | `current` | ジェムで育成チケットを買う |
 | [対戦のルール](game/battle-rules.md) | `current` | マッチング・選出・ターン・ダメージ・勝敗 |

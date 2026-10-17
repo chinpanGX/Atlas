@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using R3;
+using UIPackages.Runtime;
 using UnityEngine;
 using UnityScreenNavigator.Runtime.Core.Page;
 using ZLinq;
@@ -14,11 +15,14 @@ namespace Atlas.Presentation.Party
         [SerializeField] private PartySlotView[] slotViews;
         [SerializeField] private PachimonListView pachimonListView;
         [SerializeField] private PachimonInfoView pachimonInfoView;
+        [SerializeField] private CommonButton trainingButton;
 
         // 押されたパーティ枠のslot番号(1始まり)を流す。
         public Observable<int> OnSlotClicked { get; private set; }
         // 押された所持パチモンのPlayerPachimonIdを流す。
         public Observable<string> OnPachimonClicked => pachimonListView.OnPachimonClicked;
+        // 詳細に出しているパチモンを選んだ状態で育成画面を開く。
+        public Observable<Unit> OnTrainingButtonClicked => trainingButton.OnClickAsObservable();
 
         private void Awake()
         {
@@ -56,11 +60,13 @@ namespace Atlas.Presentation.Party
         public void RefreshPachimonInfo(PachimonInfoDto info)
         {
             pachimonInfoView.Refresh(info);
+            trainingButton.gameObject.SetActive(true);
         }
 
         public void HidePachimonInfo()
         {
             pachimonInfoView.Hide();
+            trainingButton.gameObject.SetActive(false);
         }
     }
 }

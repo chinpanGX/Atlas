@@ -5,6 +5,7 @@ using Atlas.Application.Address;
 using Atlas.Domain;
 using Atlas.MasterData.Models;
 using Atlas.Presentation.GlobalHeader;
+using Atlas.Presentation.Training;
 using MasterMemory;
 using Cysharp.Threading.Tasks;
 using R3;
@@ -25,11 +26,14 @@ namespace Atlas.Presentation.Party
         private readonly IPachimonMoveMappingService pachimonMoveMappingService;
         private readonly MemoryDatabase database;
         private readonly GlobalHeaderPresenter globalHeader;
+        private readonly IScreenNavigator screenNavigator;
         private readonly CompositeDisposable disposables = new();
 
         private PartyEditor editor;
         // PlayerPachimonId → 一覧・枠の表示データ。入れ替えのたびにマスタを引き直さないよう画面を開いた時に作る。
         private Dictionary<string, PachimonDto> pachimonDtos;
+        // 詳細に出しているパチモン。出していなければnull。
+        private string shownPachimonId;
 
         public PartyPresenter(
             PartyPage view,
@@ -37,7 +41,8 @@ namespace Atlas.Presentation.Party
             IPachimonService pachimonService,
             IPachimonMoveMappingService pachimonMoveMappingService,
             MemoryDatabase database,
-            GlobalHeaderPresenter globalHeader)
+            GlobalHeaderPresenter globalHeader,
+            IScreenNavigator screenNavigator)
         {
             this.view = view;
             this.partyService = partyService;
@@ -45,6 +50,7 @@ namespace Atlas.Presentation.Party
             this.pachimonMoveMappingService = pachimonMoveMappingService;
             this.database = database;
             this.globalHeader = globalHeader;
+            this.screenNavigator = screenNavigator;
         }
 
         public UniTask InitializeAsync()
@@ -66,6 +72,7 @@ namespace Atlas.Presentation.Party
             var first = editor.ToInputs().FirstOrDefault();
             if (first.PlayerPachimonId is null)
             {
+                shownPachimonId = null;
                 view.HidePachimonInfo();
             }
             else
@@ -75,6 +82,10 @@ namespace Atlas.Presentation.Party
 
             view.OnSlotClicked.Subscribe(OnSlotClicked).AddTo(disposables);
             view.OnPachimonClicked.Subscribe(OnPachimonClicked).AddTo(disposables);
+            // 保存〜Push完了までの連打で同じPageを重ねて積まないよう、実行中の押下は捨てる。
+            view.OnTrainingButtonClicked
+                .SubscribeAwait(async (_, _) => await OpenTrainingAsync(), AwaitOperation.Drop)
+                .AddTo(disposables);
             globalHeader.Attach(this, new GlobalHeaderOptions { Title = "パーティ編成", LeaveAsync = SaveIfDirtyAsync })
                 .AddTo(disposables);
             return UniTask.CompletedTask;
@@ -105,6 +116,18 @@ namespace Atlas.Presentation.Party
             }
 
             RefreshParty();
+        }
+
+        // 育成画面はパーティに入っている個体に印を付けるため、編成を変えていれば先に保存してから開く。
+        private async UniTask OpenTrainingAsync()
+        {
+            if (shownPachimonId is null || !await SaveIfDirtyAsync())
+            {
+                return;
+            }
+
+            await screenNavigator.PushPageAsync<TrainingPresenter, TrainingArgs>(
+                new TrainingArgs { InitialPlayerPachimonId = shownPachimonId });
         }
 
         private UniTask<bool> SaveIfDirtyAsync()
@@ -142,9 +165,12 @@ namespace Atlas.Presentation.Party
             var pachimon = pachimonService.Get(playerPachimonId);
             if (pachimon is null)
             {
+                shownPachimonId = null;
                 view.HidePachimonInfo();
                 return;
             }
+
+            shownPachimonId = playerPachimonId;
 
             view.RefreshPachimonInfo(CreatePachimonInfoDto(pachimon));
         }

@@ -21,6 +21,7 @@ namespace Atlas.Application.Address
         public const string BattleResultModal = "BattleResultModal";
         public const string CellTemplate = "CellTemplate";
         public const string CommandCanvas = "CommandCanvas";
+        public const string DiscardAdjustmentModal = "DiscardAdjustmentModal";
         public const string ForfeitConfirmModal = "ForfeitConfirmModal";
         public const string Home = "Home";
         public const string HomePage = "HomePage";
@@ -40,7 +41,9 @@ namespace Atlas.Application.Address
         public const string SwitchSelectModal = "SwitchSelectModal";
         public const string Texturecircle_white_256png = "Texture/circle_white_256.png";
         public const string Textureframe_white_256png = "Texture/frame_white_256.png";
+        public const string TicketShortageModal = "TicketShortageModal";
         public const string TitlePage = "TitlePage";
+        public const string TrainingPage = "TrainingPage";
         public const string white_2x2 = "white_2x2";
         public static string GetThumb(long id)
         {

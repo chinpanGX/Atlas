@@ -25,11 +25,12 @@ updated: 2026-10-17
 | `ISignInService` | (下の Service 経由) | 未作成なら作ってからサインインし直す | タイトル |
 | `IPlayerSignInService` | `PlayerApi` | サインアップ・サインイン。サインインの全件を各 Repository に入れる | (`ISignInService` から) |
 | `IPlayerAccountService` | なし | プレイヤー ID・ニックネーム | ホーム |
-| `IItemService` | なし | アイテムの所持数 | グローバルヘッダー・スカウト・ショップ |
-| `IPachimonService` | なし | 所持個体 | パーティ編成・スカウト |
-| `IPachimonMoveMappingService` | なし | 個体が覚えている技 | パーティ編成・バトル |
-| `IPartyService` | `PartyApi` | 編成の取得と保存(全置き換え) | パーティ編成 |
-| `IPachimonMoveEditService` | `PartyApi` | 技の付け替え | (画面は未実装) |
+| `IItemService` | なし | アイテムの所持数 | グローバルヘッダー・スカウト・ショップ・育成 |
+| `IPachimonService` | なし | 所持個体(ステータスポイントの割り振りを含む) | パーティ編成・スカウト・育成 |
+| `IPachimonMoveMappingService` | なし | 個体が覚えている技 | パーティ編成・バトル・育成 |
+| `IPartyService` | `PartyApi` | 編成の取得と保存(全置き換え) | パーティ編成・育成(パーティの印) |
+| `IPachimonMoveEditService` | `PartyApi` | 技の付け替え | (候補の画面は未実装) |
+| `IPachimonStatPointsEditService` | `PartyApi` | ステータスポイントの割り振り(割り振りの後の値を送る) | 育成 |
 | `IScoutService` | `ScoutApi` | バナー一覧・紹介・選択 | スカウト |
 | `IShopService` | `ShopApi` | 商品一覧・購入 | ショップ |
 | `IDebugConnectService` | `DebugApi` | 開発用のジェム付与 | ショップ |

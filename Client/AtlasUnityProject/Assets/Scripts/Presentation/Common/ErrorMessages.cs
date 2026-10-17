@@ -28,6 +28,8 @@ namespace Atlas.Presentation.Common
             [new ErrorCode(AtlasDomain, "PACHIMON_NOT_OWNED")] = new("エラー", "持っていないパチモンが指定されました。"),
             [new ErrorCode(AtlasDomain, "INVALID_MOVE_SLOT")] = new("エラー", "技の枠の指定が正しくありません。"),
             [new ErrorCode(AtlasDomain, "MOVE_NOT_LEARNABLE")] = new("覚えられません", "このパチモンはその技を覚えられません。"),
+            [new ErrorCode(AtlasDomain, "INVALID_STAT_POINTS")] = new("割り振れません", "ステータスポイントは0以上で、合計64までしか割り振れません。"),
+            [new ErrorCode(AtlasDomain, "INSUFFICIENT_TRAINING_TICKETS")] = new("育成チケットが足りません", "必要な育成チケットが足りません。"),
             [new ErrorCode(AtlasDomain, "SCOUT_BANNER_NOT_FOUND")] = new("スカウトできません", "このスカウトは見つかりませんでした。"),
             [new ErrorCode(AtlasDomain, "SCOUT_BANNER_CLOSED")] = new("スカウトできません", "このスカウトは開催期間外です。"),
             [new ErrorCode(AtlasDomain, "INSUFFICIENT_GEMS")] = new("ジェムが足りません", "必要なジェムが足りません。"),

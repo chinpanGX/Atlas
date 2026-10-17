@@ -32,6 +32,8 @@ namespace Atlas.Presentation.Common
         [SerializeField] private Color scrim = new(0f, 0f, 0f, 0.6f);
         [SerializeField] private Color gemIcon = new(0.29f, 0.56f, 0.85f);
         [SerializeField] private Color ticketIcon = new(0.96f, 0.77f, 0.26f);
+        [SerializeField] private Color textIncrease = new(0.45f, 0.9f, 0.5f);
+        [SerializeField] private Color textMuted = new(0.72f, 0.74f, 0.84f);
 
         public Color Get(UiColorRole role) => role switch
         {
@@ -58,6 +60,8 @@ namespace Atlas.Presentation.Common
             UiColorRole.Scrim => scrim,
             UiColorRole.GemIcon => gemIcon,
             UiColorRole.TicketIcon => ticketIcon,
+            UiColorRole.TextIncrease => textIncrease,
+            UiColorRole.TextMuted => textMuted,
             _ => throw new ArgumentOutOfRangeException(nameof(role), role, null),
         };
 

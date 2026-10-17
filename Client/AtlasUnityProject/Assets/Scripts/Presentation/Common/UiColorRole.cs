@@ -50,5 +50,9 @@ namespace Atlas.Presentation.Common
         GemIcon,
         // 育成チケットのアイコン。
         TicketIcon,
+        // 濃い地の上で、増やしたことを示す文字(育成の割り振りで増やしたポイント)。
+        TextIncrease,
+        // 濃い地の上の補足や、減らしたことを示す控えめな文字。
+        TextMuted,
     }
 }

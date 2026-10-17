@@ -33,6 +33,7 @@ public static class _DIExtensions
         builder.Register<IItemService, ItemService>(Lifetime.Singleton);
         builder.Register<IPartyService, PartyService>(Lifetime.Singleton);
         builder.Register<IPachimonMoveEditService, PachimonMoveEditService>(Lifetime.Singleton);
+        builder.Register<IPachimonStatPointsEditService, PachimonStatPointsEditService>(Lifetime.Singleton);
         builder.Register<IPachimonService, PachimonService>(Lifetime.Singleton);
         builder.Register<IPachimonMoveMappingService, PachimonMoveMappingService>(Lifetime.Singleton);
         builder.Register<IPlayerSession, PlayerSession>(Lifetime.Singleton);

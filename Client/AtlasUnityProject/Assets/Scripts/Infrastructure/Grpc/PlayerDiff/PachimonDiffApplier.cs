@@ -26,7 +26,9 @@ namespace Atlas.Infrastructure.Grpc
 
         public static PachimonEntity ToEntity(PlayerPachimon pachimon)
         {
-            return new PachimonEntity(pachimon.PlayerPachimonId, pachimon.PachimonId);
+            var points = pachimon.StatPoints;
+            return new PachimonEntity(pachimon.PlayerPachimonId, pachimon.PachimonId,
+                new Domain.StatPoints(points.Hp, points.Atk, points.Def, points.Spatk, points.Spdef, points.Speed));
         }
     }
 }

@@ -5,11 +5,13 @@ namespace Atlas.Domain
     {
         public readonly string PlayerPachimonId;
         public readonly long PachimonId;
+        public readonly StatPoints StatPoints;
 
-        public PachimonEntity(string playerPachimonId, long pachimonId)
+        public PachimonEntity(string playerPachimonId, long pachimonId, StatPoints statPoints)
         {
             PlayerPachimonId = playerPachimonId;
             PachimonId = pachimonId;
+            StatPoints = statPoints;
         }
     }
 }

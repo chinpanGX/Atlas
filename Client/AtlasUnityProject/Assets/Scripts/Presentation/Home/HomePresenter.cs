@@ -5,9 +5,9 @@ using Atlas.Application.Address;
 using Atlas.Presentation.GlobalHeader;
 using Atlas.Presentation.Party;
 using Atlas.Presentation.Scout;
+using Atlas.Presentation.Training;
 using Cysharp.Threading.Tasks;
 using R3;
-using UnityEngine;
 using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Home
@@ -56,8 +56,10 @@ namespace Atlas.Presentation.Home
             view.OnBattleButtonClicked
                 .SubscribeAwait(async (_, ct) => await FindMatchAndStartBattleAsync(ct), AwaitOperation.Drop)
                 .AddTo(disposables);
-            // 育成画面は未実装のため、現時点ではログのみ。
-            view.OnTrainingButtonClicked.Subscribe(_ => Debug.Log("[Home] Training button clicked (not implemented yet)")).AddTo(disposables);
+            view.OnTrainingButtonClicked
+                .SubscribeAwait(async (_, _) => await screenNavigator.PushPageAsync<TrainingPresenter, TrainingArgs>(new TrainingArgs()),
+                    AwaitOperation.Drop)
+                .AddTo(disposables);
             return UniTask.CompletedTask;
         }
 

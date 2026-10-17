@@ -140,6 +140,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c4b5ef7091338014d835430b1ecbd346
+    m_Address: TrainingPage
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: cc0d54a90512d014aa665ab8709471e5
     m_Address: ScoutConfirmModal
     m_ReadOnly: 0
@@ -152,6 +157,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d000faabb84a26020cf7acc612247b12
     m_Address: SwitchSelectModal
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d935e8b4f668ece428d85fd60604f173
+    m_Address: TicketShortageModal
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -172,6 +182,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f4e0dbd9ee9763f4ca126e529a92d1f8
     m_Address: CellTemplate
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fc39c5313b0675b42a4066c5edd696ea
+    m_Address: DiscardAdjustmentModal
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

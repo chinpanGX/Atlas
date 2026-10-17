@@ -33,6 +33,7 @@ updated: 2026-10-17
 | `Shared/BattleCore/Tests/` | EditMode | ダメージ計算・行動順・ターン処理。乱数とタイプ相性を固定して確かめる |
 | `Tests/Infrastructure/Mock/` | EditMode | `MockBattleConnection`・`TestPartyFactory` |
 | `Tests/Presentation/Party/` | EditMode | `PartyEditor`(編成の編集ロジック) |
+| `Tests/Presentation/Training/` | EditMode | `TrainingStatAllocation`(ステータスポイントの割り振りの調整と、必要なチケットの枚数) |
 | `Tests/Presentation/Battle/` | PlayMode | Bootstrap → Home → Battle の起動経路を、APIサーバー無しで通す |
 
 - C# を変えたら `unity recompile --strict` でエラー・警告が0であることを確かめる。テスト(`unity command run_tests`)は頼まれたときだけ回す
