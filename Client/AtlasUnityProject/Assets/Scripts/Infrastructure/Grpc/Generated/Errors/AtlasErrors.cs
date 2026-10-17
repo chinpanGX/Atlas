@@ -42,6 +42,26 @@ namespace Atlas.Api.V1
         public static readonly global::VolTech.Client.ErrorCode MoveNotLearnable = new(Domain, "MOVE_NOT_LEARNABLE");
 
         /// <summary>
+        /// 技の枠に、今と同じ技を入れようとした。育成チケットは使わない。
+        /// </summary>
+        public static readonly global::VolTech.Client.ErrorCode MoveUnchanged = new(Domain, "MOVE_UNCHANGED");
+
+        /// <summary>
+        /// 指定した技を、その個体が別の枠で覚えている。同じ技を2つは覚えられない。育成チケットは使わない。
+        /// </summary>
+        public static readonly global::VolTech.Client.ErrorCode MoveAlreadyLearned = new(Domain, "MOVE_ALREADY_LEARNED");
+
+        /// <summary>
+        /// ステータスポイントの割り振りに負の値がある、または合計が64を超えている。
+        /// </summary>
+        public static readonly global::VolTech.Client.ErrorCode InvalidStatPoints = new(Domain, "INVALID_STAT_POINTS");
+
+        /// <summary>
+        /// 技の付け替え・ステータスポイントの割り振りに使う育成チケットが足りない。
+        /// </summary>
+        public static readonly global::VolTech.Client.ErrorCode InsufficientTrainingTickets = new(Domain, "INSUFFICIENT_TRAINING_TICKETS");
+
+        /// <summary>
         /// 指定したバナーが無い。
         /// </summary>
         public static readonly global::VolTech.Client.ErrorCode ScoutBannerNotFound = new(Domain, "SCOUT_BANNER_NOT_FOUND");
@@ -52,7 +72,7 @@ namespace Atlas.Api.V1
         public static readonly global::VolTech.Client.ErrorCode ScoutBannerClosed = new(Domain, "SCOUT_BANNER_CLOSED");
 
         /// <summary>
-        /// ロールに使うジェムが足りない。
+        /// スカウトのロール・ショップの購入に使うジェムが足りない。
         /// </summary>
         public static readonly global::VolTech.Client.ErrorCode InsufficientGems = new(Domain, "INSUFFICIENT_GEMS");
 
@@ -72,6 +92,11 @@ namespace Atlas.Api.V1
         public static readonly global::VolTech.Client.ErrorCode ScoutRollAlreadySelected = new(Domain, "SCOUT_ROLL_ALREADY_SELECTED");
 
         /// <summary>
+        /// 指定した商品が無い。
+        /// </summary>
+        public static readonly global::VolTech.Client.ErrorCode ShopProductNotFound = new(Domain, "SHOP_PRODUCT_NOT_FOUND");
+
+        /// <summary>
         /// パーティが1体も編成されていないので、待機列に入れない。
         /// </summary>
         public static readonly global::VolTech.Client.ErrorCode PartyEmpty = new(Domain, "PARTY_EMPTY");
@@ -86,12 +111,17 @@ namespace Atlas.Api.V1
             new global::VolTech.Client.ErrorDefinition(PachimonNotOwned, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(InvalidMoveSlot, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(MoveNotLearnable, global::VolTech.Client.ErrorAction.Stay),
+            new global::VolTech.Client.ErrorDefinition(MoveUnchanged, global::VolTech.Client.ErrorAction.Stay),
+            new global::VolTech.Client.ErrorDefinition(MoveAlreadyLearned, global::VolTech.Client.ErrorAction.Stay),
+            new global::VolTech.Client.ErrorDefinition(InvalidStatPoints, global::VolTech.Client.ErrorAction.Stay),
+            new global::VolTech.Client.ErrorDefinition(InsufficientTrainingTickets, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(ScoutBannerNotFound, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(ScoutBannerClosed, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(InsufficientGems, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(ScoutRollNotFound, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(ScoutCandidateOutOfRange, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(ScoutRollAlreadySelected, global::VolTech.Client.ErrorAction.Stay),
+            new global::VolTech.Client.ErrorDefinition(ShopProductNotFound, global::VolTech.Client.ErrorAction.Stay),
             new global::VolTech.Client.ErrorDefinition(PartyEmpty, global::VolTech.Client.ErrorAction.Stay),
         };
     }

@@ -5,6 +5,7 @@
 // - test_load_master_data_with_seeded_rows: INSERT済みのpachimon行が、PachimonType/Rarityへの
 //   デコードも含めて期待通りにロードされることを確認
 // - test_load_starter_party_slots: INSERT済みのstarter_party_slots行がロードできることを確認
+// - test_load_shop_products: INSERT済みのshop_products行がshop_product_idの順にロードできることを確認
 use sqlx::MySqlPool;
 
 use Server::master::{MasterData, PachimonType, Rarity};
@@ -90,4 +91,33 @@ async fn test_load_items(pool: MySqlPool) {
     assert_eq!(master.items.len(), 1);
     assert_eq!(master.items[0].item_id, 1);
     assert_eq!(master.items[0].name, "ジェム");
+}
+
+/// `shop_products`テーブルに投入済みの行が、`shop_product_id`の順にロードされることを確認する。
+#[sqlx::test]
+async fn test_load_shop_products(pool: MySqlPool) {
+    let queries = [
+        "INSERT INTO items (item_id, name) VALUES (1, 'ジェム'), (2, '育成チケット')",
+        "INSERT INTO shop_products (shop_product_id, item_id, amount, cost_item_id, cost_amount) \
+         VALUES (2, 2, 100, 1, 450), (1, 2, 10, 1, 50)",
+    ];
+    for query in queries {
+        sqlx::query(query).execute(&pool).await.unwrap();
+    }
+
+    let master = MasterData::load(&pool).await.unwrap();
+    let products: Vec<(i32, i32, i32, i32, i32)> = master
+        .shop_products
+        .iter()
+        .map(|p| {
+            (
+                p.shop_product_id,
+                p.item_id,
+                p.amount,
+                p.cost_item_id,
+                p.cost_amount,
+            )
+        })
+        .collect();
+    assert_eq!(products, vec![(1, 2, 10, 1, 50), (2, 2, 100, 1, 450)]);
 }

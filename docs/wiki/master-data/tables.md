@@ -4,7 +4,7 @@ status: current
 area: master-data
 related: [master-data/pipeline, game/pachimon, battle-server/battle-core]
 code: [Shared/master-data/schema, Shared/master-data/csv]
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 
 # マスターデータのテーブル
@@ -83,7 +83,7 @@ updated: 2026-10-16
 | `item_id` | PK。`1` がジェム、`2` が育成チケット |
 | `name` | |
 
-## shop_products(追加予定の機能のマスタ)
+## shop_products
 
 | 列 | 説明 |
 |---|---|
@@ -95,7 +95,8 @@ updated: 2026-10-16
 
 - 現状は3件(育成チケット10枚 = ジェム50、100枚 = 450、200枚 = 800)
 - マスタにある商品はいつでも買える(販売期間を持たない)
-- DB のテーブル(マイグレーション)と `seed_master_data` への投入は未作成
+- `targets: [server]`(購入の可否はサーバーが判定し、商品は `ShopService/ListProducts` で返すので、Client には配らない)
+- `seed_master_data` が、数が1以上で払うアイテムがジェムであることを確かめてから、全件を入れ直す([ショップ(API)](../server/shop.md))
 
 ## scout_banners
 

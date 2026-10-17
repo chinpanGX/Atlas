@@ -3,7 +3,7 @@
 use crate::model::{player_item, player_pachimon, player_party_slot};
 use crate::proto::atlas::v1::{
     ItemsDiff, PachimonDiff, PachimonMoveMapDiff, PartySlot, PartySlotsDiff, PlayerDiff,
-    PlayerItem, PlayerPachimon, PlayerPachimonMove,
+    PlayerItem, PlayerPachimon, PlayerPachimonMove, StatPoints,
 };
 use crate::service::player_diff::PlayerDiffCollector;
 
@@ -18,6 +18,30 @@ pub(crate) fn pachimon_to_proto(pachimon: player_pachimon::PlayerPachimon) -> Pl
     PlayerPachimon {
         player_pachimon_id: pachimon.player_pachimon_id,
         pachimon_id: pachimon.pachimon_id,
+        stat_points: Some(stat_points_to_proto(pachimon.stat_points)),
+    }
+}
+
+fn stat_points_to_proto(points: player_pachimon::StatPoints) -> StatPoints {
+    StatPoints {
+        hp: points.hp,
+        atk: points.atk,
+        def: points.def,
+        spatk: points.spatk,
+        spdef: points.spdef,
+        speed: points.speed,
+    }
+}
+
+/// リクエストのステータスポイントを所持データの型にする。値の検証はしない(サービス層で行う)。
+pub(crate) fn stat_points_from_proto(points: StatPoints) -> player_pachimon::StatPoints {
+    player_pachimon::StatPoints {
+        hp: points.hp,
+        atk: points.atk,
+        def: points.def,
+        spatk: points.spatk,
+        spdef: points.spdef,
+        speed: points.speed,
     }
 }
 
@@ -64,6 +88,7 @@ pub(crate) fn diff_to_proto(diff: &PlayerDiffCollector) -> Option<PlayerDiff> {
                 .map(|pachimon| PlayerPachimon {
                     player_pachimon_id: pachimon.player_pachimon_id.clone(),
                     pachimon_id: pachimon.pachimon_id,
+                    stat_points: Some(stat_points_to_proto(pachimon.stat_points)),
                 })
                 .collect(),
             removed: Vec::new(),

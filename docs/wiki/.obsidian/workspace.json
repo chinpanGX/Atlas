@@ -11,14 +11,12 @@
             "id": "57b320a867cc58e1",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "image",
               "state": {
-                "file": "development.md",
-                "mode": "source",
-                "source": false
+                "file": "game/images/training-stats.svg"
               },
-              "icon": "lucide-file",
-              "title": "development"
+              "icon": "lucide-image",
+              "title": "training-stats"
             }
           }
         ]
@@ -190,15 +188,35 @@
   },
   "active": "57b320a867cc58e1",
   "lastOpenFiles": [
+    "master-data/sedHFarq9",
+    "master-data/sedrKNM6V",
+    "index.md.tmp.11260.5f37cc4835b8",
+    "game/flow.md.tmp.11260.b6b53ff30dd9",
+    "db/sednLYmIU",
+    "battle-server/sed6ceDFK",
+    "master-data/sedblNCHu",
+    "conventions/sedgCZYz3",
+    "server/game-log.md.tmp.11260.e15ceaae0442",
+    "game/pachimon.md.tmp.11260.fc6c90b2370c",
+    "game/gems.md.tmp.11260.c97042833965",
+    "server/shop.md",
+    "game/images/training-moves.svg",
+    "game/images/training-stats.svg",
+    "game/images/training-move-select.svg",
+    "game/images/shop-purchased.svg",
+    "game/images/shop-page.svg",
+    "game/images/shop-from-training.svg",
+    "game/images/shop-confirm.svg",
+    "game/images/global-header.svg",
+    "game/battle-rules.md",
+    "development.md",
     "server/index.md",
     "index.md",
-    "development.md",
     "master-data/pipeline.md",
     "master-data/index.md",
     "master-data/tables.md",
     "game/party-training.md",
     "db/player-tables.md",
-    "master-data/sedrpwysk",
     "db/scout-tables.md",
     "db/index.md",
     "db/battle-tables.md",
@@ -211,11 +229,8 @@
     "game/index.md",
     "game/gems.md",
     "game/flow.md",
-    "game/battle-rules.md",
     "conventions/nullable.md",
     "conventions/player-diff.md",
-    "conventions/naming-and-ids.md",
-    "client/battle-screen.md",
-    "client/libraries.md"
+    "conventions/naming-and-ids.md"
   ]
 }

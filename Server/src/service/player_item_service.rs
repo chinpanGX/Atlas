@@ -8,6 +8,10 @@ use crate::service::game_log::{GameLogCollector, ItemReason};
 /// `Shared/master-data/csv/items_master.csv`で`item_id=1`として定義されている。
 pub const GEM_ITEM_ID: i32 = 1;
 
+/// 育成チケット(技の付け替え・ステータスポイントの割り振りに使う。ショップでジェムと交換する)の`item_id`。
+/// `Shared/master-data/csv/items_master.csv`で`item_id=2`として定義されている。
+pub const TRAINING_TICKET_ITEM_ID: i32 = 2;
+
 /// 新規行としてアイテムを付与する(`player_service::create`のsignup時初期付与のみで使う想定)。
 /// 付与をゲームログ(理由はサインアップ)に記録する。呼び出し元のトランザクション内で実行する。
 ///
@@ -92,7 +96,7 @@ pub async fn list(
         .collect())
 }
 
-/// 指定アイテムを`amount`分消費し、消費した後の所持数を返す(`scout_service::create_roll`のgems消費から利用)。
+/// 指定アイテムを`amount`分消費し、消費した後の所持数を返す(スカウト・ショップのジェム、育成の育成チケットの消費に使う)。
 /// `WHERE quantity >= amount`を満たす行のみUPDATEすることで、所持数不足を1クエリで
 /// 原子的に検出する(呼び出し元のトランザクション内で実行する)。
 /// 所持数が不足している場合(対象行が無い場合を含む)は何も変えずに`None`を返す。

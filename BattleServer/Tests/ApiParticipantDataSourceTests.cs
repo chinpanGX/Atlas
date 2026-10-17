@@ -30,7 +30,7 @@ namespace Atlas.BattleServer.Tests
                         },
                         new Loadout
                         {
-                            PlayerPachimonId = "ppA", PachimonId = 1031, EffortValues = new EffortValues { Speed = 252 }, MoveIds = { 33 },
+                            PlayerPachimonId = "ppA", PachimonId = 1031, EffortValues = new EffortValues { Speed = 32 }, MoveIds = { 33 },
                         },
                     },
                 },
@@ -42,7 +42,7 @@ namespace Atlas.BattleServer.Tests
             Assert.NotNull(loadouts);
             Assert.Equal([1033, 1031], loadouts.Select(l => l.PachimonId));
             Assert.Equal(["35", "19"], loadouts[0].Moves.Select(m => m.MoveId));
-            Assert.Equal(134, loadouts[1].Stats.Speed);
+            Assert.Equal(135, loadouts[1].Stats.Speed);
 
             Assert.Equal(Secret, api.LastSecret);
             Assert.Equal("player-1", api.LastLoadoutsRequest!.PlayerId);

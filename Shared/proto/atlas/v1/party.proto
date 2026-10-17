@@ -6,7 +6,8 @@ import "atlas/v1/player_data.proto";
 
 option csharp_namespace = "Atlas.Api.V1";
 
-// パーティの編成と、所持パチモンの技の付け替え。
+// パーティの編成と、所持パチモンの育成(技の付け替え・ステータスポイントの割り振り)。
+// 育成には育成チケット(items マスタの item_id = 2)を使う。
 service PartyService {
   // パーティを編成し直す(全置き換え)。リクエストに含まれない枠は解除される。
   // 割当の ID を作り直すので、player_diff の party_slots は、以前の割当がすべて removed に、新しい割当が upserted に入る。
@@ -14,11 +15,21 @@ service PartyService {
   // 自分の所持個体でない個体を指定したときは FAILED_PRECONDITION + PACHIMON_NOT_OWNED を返し、何も変えない。
   rpc SetParty(SetPartyRequest) returns (SetPartyResponse);
 
-  // 所持パチモンの技の枠に、技グループの候補技を入れる(付け替え)。何度でも付け替えられる。
-  // 既にある枠を付け替えても、割当の ID(player_pachimon_move_id)は変わらない。
-  // 枠が1〜4でないときは INVALID_MOVE_SLOT、候補技でないときは MOVE_NOT_LEARNABLE、
-  // 自分の所持個体でないときは PACHIMON_NOT_OWNED を、FAILED_PRECONDITION で返し、何も変えない。
+  // 所持パチモンの技の枠に、技グループの候補技を入れる(付け替え)。1回につき育成チケットを5枚使う。
+  // 候補は技グループのすべての技(最初から覚えていた技も含む)。既にある枠を付け替えても、割当の ID(player_pachimon_move_id)は変わらない。
+  // 次の順に確かめ、当てはまれば FAILED_PRECONDITION で返して何も変えない(チケットも使わない)。
+  // 枠が1〜4でない → INVALID_MOVE_SLOT、自分の所持個体でない → PACHIMON_NOT_OWNED、候補技でない → MOVE_NOT_LEARNABLE、
+  // その枠に今と同じ技が入っている → MOVE_UNCHANGED、別の枠でその技を覚えている → MOVE_ALREADY_LEARNED、
+  // 育成チケットが5枚に足りない → INSUFFICIENT_TRAINING_TICKETS。
   rpc SetPachimonMove(SetPachimonMoveRequest) returns (SetPachimonMoveResponse);
+
+  // 所持パチモンのステータスポイントの割り振りを、送った値に変える(割り振りの後の値を送る。64を使い切らなくてよい)。
+  // 増やしたポイントの合計(能力ごとの max(0, 新しい値 - 今の値) の和)の数だけ育成チケットを使う。減らすのは無料。
+  // 今と同じ割り振りを送ったときは、チケットを使わず何も変えない(player_diff は無い)。
+  // 次の順に確かめ、当てはまれば FAILED_PRECONDITION で返して何も変えない。
+  // 負の値がある・合計が64を超える → INVALID_STAT_POINTS、自分の所持個体でない → PACHIMON_NOT_OWNED、
+  // 育成チケットが足りない → INSUFFICIENT_TRAINING_TICKETS。
+  rpc SetPachimonStatPoints(SetPachimonStatPointsRequest) returns (SetPachimonStatPointsResponse);
 }
 
 message SetPartyRequest {
@@ -49,6 +60,19 @@ message SetPachimonMoveRequest {
 }
 
 message SetPachimonMoveResponse {
-  // 規約: 共通レスポンス項目。pachimon_move_map(付け替えた1件)だけが入る。
+  // 規約: 共通レスポンス項目。pachimon_move_map(付け替えた1件)と items(使った後の育成チケット)が入る。
+  PlayerDiff player_diff = 1;
+}
+
+message SetPachimonStatPointsRequest {
+  // 割り振りを変える所持個体の ID(ULID)。
+  string player_pachimon_id = 1;
+  // 割り振りの後の値。必ず入れる(無いときは INVALID_STAT_POINTS)。
+  StatPoints stat_points = 2;
+}
+
+message SetPachimonStatPointsResponse {
+  // 規約: 共通レスポンス項目。pachimon(割り振りを変えた1体)と、チケットを使ったときは items(使った後の育成チケット)が入る。
+  // 今と同じ割り振りを送ったときは無い。
   PlayerDiff player_diff = 1;
 }

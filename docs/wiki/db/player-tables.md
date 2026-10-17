@@ -4,7 +4,7 @@ status: current
 area: db
 related: [db/index, server/player, server/party, conventions/player-diff, conventions/items]
 code: [Server/migrations, Server/src/model]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # プレイヤーと所持データのテーブル
@@ -38,11 +38,12 @@ updated: 2026-10-11
 | `player_pachimon_id` | CHAR(26) | PK | |
 | `player_id` | CHAR(26) | NOT NULL, FK → `players` | |
 | `pachimon_id` | INT | NOT NULL, FK → `pachimon` | 種族 |
-| `effort_values` | JSON | NOT NULL | 能力に割り振ったポイント。`{"hp","atk","def","spatk","spdef","speed"}`、入手時はすべて0 |
+| `effort_values` | JSON | NOT NULL | 能力に割り振ったステータスポイント。`{"hp","atk","def","spatk","spdef","speed"}`、入手時はすべて0 |
 | `obtained_at` | DATETIME(3) | NOT NULL | |
 
 - レベルは列を持たない(全員50の固定値)。個体値も持たない
-- `effort_values` はステータスポイント(64ポイント)の入れ物。割り振る機能は追加予定で、計算式への反映の仕方も未確定
+- `effort_values` はステータスポイント(どれも0以上、合計64以下)。`SetPachimonStatPoints` で書き換え([パーティ編成・育成](../server/party.md))、
+  能力の値にそのまま足す。列名は努力値のころのまま(名前を変えるだけのマイグレーションをしていない)
 
 ## player_pachimon_moves
 

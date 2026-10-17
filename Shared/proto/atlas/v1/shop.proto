@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+import "atlas/v1/player_data.proto";
+
+option csharp_namespace = "Atlas.Api.V1";
+
+// ショップ(ジェムを払ってアイテムを購入する)。商品は shop_products マスタで持ち、販売期間・購入履歴は無い。
+service ShopService {
+  // 購入できる商品を、shop_product_id の順にすべて返す。
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // 商品を1つ購入する。値段のジェムを減らし、商品のアイテムを増やす。
+  // 商品が無いときは SHOP_PRODUCT_NOT_FOUND、ジェムが足りないときは INSUFFICIENT_GEMS を、
+  // FAILED_PRECONDITION で返し、何も変えない。
+  rpc Purchase(PurchaseRequest) returns (PurchaseResponse);
+}
+
+message ListProductsRequest {}
+
+message ListProductsResponse {
+  // 購入できる商品。
+  repeated ShopProduct products = 1;
+}
+
+// ショップの商品1つ。1回の購入で item_id を amount 個受け取り、cost_item_id を cost_amount 個払う。
+message ShopProduct {
+  // 商品の ID(shop_products マスタの shop_product_id)。Purchase に渡す。
+  int32 shop_product_id = 1;
+  // 受け取るアイテムの items マスタの item_id。
+  int32 item_id = 2;
+  // 受け取る数。
+  int32 amount = 3;
+  // 払うアイテムの items マスタの item_id。今はどの商品も 1(ジェム)。
+  int32 cost_item_id = 4;
+  // 払う数。
+  int32 cost_amount = 5;
+}
+
+message PurchaseRequest {
+  // 購入する商品の ID。
+  int32 shop_product_id = 1;
+}
+
+message PurchaseResponse {
+  // 規約: 共通レスポンス項目。items(払った後のジェムと、受け取った後のアイテム)だけが入る。
+  PlayerDiff player_diff = 1;
+}

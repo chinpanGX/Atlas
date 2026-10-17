@@ -35,11 +35,18 @@ namespace Atlas.Api.V1 {
             "YWNoaW1vbklkEhIKBHNsb3QYAiABKAVSBHNsb3QSFwoHbW92ZV9pZBgDIAEo",
             "BVIGbW92ZUlkIlAKF1NldFBhY2hpbW9uTW92ZVJlc3BvbnNlEjUKC3BsYXll",
             "cl9kaWZmGAEgASgLMhQuYXRsYXMudjEuUGxheWVyRGlmZlIKcGxheWVyRGlm",
-            "ZjKpAQoMUGFydHlTZXJ2aWNlEkEKCFNldFBhcnR5EhkuYXRsYXMudjEuU2V0",
-            "UGFydHlSZXF1ZXN0GhouYXRsYXMudjEuU2V0UGFydHlSZXNwb25zZRJWCg9T",
-            "ZXRQYWNoaW1vbk1vdmUSIC5hdGxhcy52MS5TZXRQYWNoaW1vbk1vdmVSZXF1",
-            "ZXN0GiEuYXRsYXMudjEuU2V0UGFjaGltb25Nb3ZlUmVzcG9uc2VCD6oCDEF0",
-            "bGFzLkFwaS5WMWIGcHJvdG8z"));
+            "ZiKDAQocU2V0UGFjaGltb25TdGF0UG9pbnRzUmVxdWVzdBIsChJwbGF5ZXJf",
+            "cGFjaGltb25faWQYASABKAlSEHBsYXllclBhY2hpbW9uSWQSNQoLc3RhdF9w",
+            "b2ludHMYAiABKAsyFC5hdGxhcy52MS5TdGF0UG9pbnRzUgpzdGF0UG9pbnRz",
+            "IlYKHVNldFBhY2hpbW9uU3RhdFBvaW50c1Jlc3BvbnNlEjUKC3BsYXllcl9k",
+            "aWZmGAEgASgLMhQuYXRsYXMudjEuUGxheWVyRGlmZlIKcGxheWVyRGlmZjKT",
+            "AgoMUGFydHlTZXJ2aWNlEkEKCFNldFBhcnR5EhkuYXRsYXMudjEuU2V0UGFy",
+            "dHlSZXF1ZXN0GhouYXRsYXMudjEuU2V0UGFydHlSZXNwb25zZRJWCg9TZXRQ",
+            "YWNoaW1vbk1vdmUSIC5hdGxhcy52MS5TZXRQYWNoaW1vbk1vdmVSZXF1ZXN0",
+            "GiEuYXRsYXMudjEuU2V0UGFjaGltb25Nb3ZlUmVzcG9uc2USaAoVU2V0UGFj",
+            "aGltb25TdGF0UG9pbnRzEiYuYXRsYXMudjEuU2V0UGFjaGltb25TdGF0UG9p",
+            "bnRzUmVxdWVzdBonLmF0bGFzLnYxLlNldFBhY2hpbW9uU3RhdFBvaW50c1Jl",
+            "c3BvbnNlQg+qAgxBdGxhcy5BcGkuVjFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Atlas.Api.V1.PlayerDataReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -47,7 +54,9 @@ namespace Atlas.Api.V1 {
             new pbr::GeneratedClrTypeInfo(typeof(global::Atlas.Api.V1.PartySlotInput), global::Atlas.Api.V1.PartySlotInput.Parser, new[]{ "Slot", "PlayerPachimonId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Atlas.Api.V1.SetPartyResponse), global::Atlas.Api.V1.SetPartyResponse.Parser, new[]{ "PlayerDiff" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Atlas.Api.V1.SetPachimonMoveRequest), global::Atlas.Api.V1.SetPachimonMoveRequest.Parser, new[]{ "PlayerPachimonId", "Slot", "MoveId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Atlas.Api.V1.SetPachimonMoveResponse), global::Atlas.Api.V1.SetPachimonMoveResponse.Parser, new[]{ "PlayerDiff" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Atlas.Api.V1.SetPachimonMoveResponse), global::Atlas.Api.V1.SetPachimonMoveResponse.Parser, new[]{ "PlayerDiff" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Atlas.Api.V1.SetPachimonStatPointsRequest), global::Atlas.Api.V1.SetPachimonStatPointsRequest.Parser, new[]{ "PlayerPachimonId", "StatPoints" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Atlas.Api.V1.SetPachimonStatPointsResponse), global::Atlas.Api.V1.SetPachimonStatPointsResponse.Parser, new[]{ "PlayerDiff" }, null, null, null, null)
           }));
     }
     #endregion
@@ -1028,7 +1037,7 @@ namespace Atlas.Api.V1 {
     public const int PlayerDiffFieldNumber = 1;
     private global::Atlas.Api.V1.PlayerDiff playerDiff_;
     /// <summary>
-    /// 規約: 共通レスポンス項目。pachimon_move_map(付け替えた1件)だけが入る。
+    /// 規約: 共通レスポンス項目。pachimon_move_map(付け替えた1件)と items(使った後の育成チケット)が入る。
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1121,6 +1130,467 @@ namespace Atlas.Api.V1 {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public void MergeFrom(SetPachimonMoveResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.playerDiff_ != null) {
+        if (playerDiff_ == null) {
+          PlayerDiff = new global::Atlas.Api.V1.PlayerDiff();
+        }
+        PlayerDiff.MergeFrom(other.PlayerDiff);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (playerDiff_ == null) {
+              PlayerDiff = new global::Atlas.Api.V1.PlayerDiff();
+            }
+            input.ReadMessage(PlayerDiff);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (playerDiff_ == null) {
+              PlayerDiff = new global::Atlas.Api.V1.PlayerDiff();
+            }
+            input.ReadMessage(PlayerDiff);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class SetPachimonStatPointsRequest : pb::IMessage<SetPachimonStatPointsRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<SetPachimonStatPointsRequest> _parser = new pb::MessageParser<SetPachimonStatPointsRequest>(() => new SetPachimonStatPointsRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<SetPachimonStatPointsRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Atlas.Api.V1.PartyReflection.Descriptor.MessageTypes[5]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SetPachimonStatPointsRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SetPachimonStatPointsRequest(SetPachimonStatPointsRequest other) : this() {
+      playerPachimonId_ = other.playerPachimonId_;
+      statPoints_ = other.statPoints_ != null ? other.statPoints_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SetPachimonStatPointsRequest Clone() {
+      return new SetPachimonStatPointsRequest(this);
+    }
+
+    /// <summary>Field number for the "player_pachimon_id" field.</summary>
+    public const int PlayerPachimonIdFieldNumber = 1;
+    private string playerPachimonId_ = "";
+    /// <summary>
+    /// 割り振りを変える所持個体の ID(ULID)。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string PlayerPachimonId {
+      get { return playerPachimonId_; }
+      set {
+        playerPachimonId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "stat_points" field.</summary>
+    public const int StatPointsFieldNumber = 2;
+    private global::Atlas.Api.V1.StatPoints statPoints_;
+    /// <summary>
+    /// 割り振りの後の値。必ず入れる(無いときは INVALID_STAT_POINTS)。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Atlas.Api.V1.StatPoints StatPoints {
+      get { return statPoints_; }
+      set {
+        statPoints_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as SetPachimonStatPointsRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(SetPachimonStatPointsRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (PlayerPachimonId != other.PlayerPachimonId) return false;
+      if (!object.Equals(StatPoints, other.StatPoints)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (PlayerPachimonId.Length != 0) hash ^= PlayerPachimonId.GetHashCode();
+      if (statPoints_ != null) hash ^= StatPoints.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (PlayerPachimonId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(PlayerPachimonId);
+      }
+      if (statPoints_ != null) {
+        output.WriteRawTag(18);
+        output.WriteMessage(StatPoints);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (PlayerPachimonId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(PlayerPachimonId);
+      }
+      if (statPoints_ != null) {
+        output.WriteRawTag(18);
+        output.WriteMessage(StatPoints);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (PlayerPachimonId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(PlayerPachimonId);
+      }
+      if (statPoints_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(StatPoints);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(SetPachimonStatPointsRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.PlayerPachimonId.Length != 0) {
+        PlayerPachimonId = other.PlayerPachimonId;
+      }
+      if (other.statPoints_ != null) {
+        if (statPoints_ == null) {
+          StatPoints = new global::Atlas.Api.V1.StatPoints();
+        }
+        StatPoints.MergeFrom(other.StatPoints);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            PlayerPachimonId = input.ReadString();
+            break;
+          }
+          case 18: {
+            if (statPoints_ == null) {
+              StatPoints = new global::Atlas.Api.V1.StatPoints();
+            }
+            input.ReadMessage(StatPoints);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            PlayerPachimonId = input.ReadString();
+            break;
+          }
+          case 18: {
+            if (statPoints_ == null) {
+              StatPoints = new global::Atlas.Api.V1.StatPoints();
+            }
+            input.ReadMessage(StatPoints);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class SetPachimonStatPointsResponse : pb::IMessage<SetPachimonStatPointsResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<SetPachimonStatPointsResponse> _parser = new pb::MessageParser<SetPachimonStatPointsResponse>(() => new SetPachimonStatPointsResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<SetPachimonStatPointsResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Atlas.Api.V1.PartyReflection.Descriptor.MessageTypes[6]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SetPachimonStatPointsResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SetPachimonStatPointsResponse(SetPachimonStatPointsResponse other) : this() {
+      playerDiff_ = other.playerDiff_ != null ? other.playerDiff_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SetPachimonStatPointsResponse Clone() {
+      return new SetPachimonStatPointsResponse(this);
+    }
+
+    /// <summary>Field number for the "player_diff" field.</summary>
+    public const int PlayerDiffFieldNumber = 1;
+    private global::Atlas.Api.V1.PlayerDiff playerDiff_;
+    /// <summary>
+    /// 規約: 共通レスポンス項目。pachimon(割り振りを変えた1体)と、チケットを使ったときは items(使った後の育成チケット)が入る。
+    /// 今と同じ割り振りを送ったときは無い。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Atlas.Api.V1.PlayerDiff PlayerDiff {
+      get { return playerDiff_; }
+      set {
+        playerDiff_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as SetPachimonStatPointsResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(SetPachimonStatPointsResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(PlayerDiff, other.PlayerDiff)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (playerDiff_ != null) hash ^= PlayerDiff.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (playerDiff_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(PlayerDiff);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (playerDiff_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(PlayerDiff);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (playerDiff_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(PlayerDiff);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(SetPachimonStatPointsResponse other) {
       if (other == null) {
         return;
       }

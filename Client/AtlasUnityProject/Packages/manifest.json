@@ -27,7 +27,6 @@
     "com.unity.timeline": "6.6.0",
     "com.unity.ugui": "2.6.0",
     "com.unity.visualscripting": "1.9.12",
-    "io.github.hatayama.uloopmcp": "https://github.com/hatayama/unity-cli-loop.git?path=/Packages/src",
     "jp.co.cyberagent.address-definition-generator": "https://github.com/CyberAgentGameEntertainment/AddressDefinitionGenerator.git?path=/Packages/AddressDefinitionGenerator",
     "jp.co.cyberagent.smartaddresser": "https://github.com/CyberAgentGameEntertainment/SmartAddresser.git?path=/Assets/SmartAddresser",
     "jp.hadashikick.vcontainer": "1.19.0",

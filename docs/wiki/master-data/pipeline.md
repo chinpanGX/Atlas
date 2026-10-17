@@ -4,7 +4,7 @@ status: current
 area: master-data
 related: [master-data/tables, server/structure, client/scenes-and-scopes, battle-server/structure]
 code: [Shared/master-data, master-data-pipeline, Server/src/master, Server/src/bin/seed_master_data.rs, Client/AtlasUnityProject/Assets/Scripts/MasterData, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/MasterData, BattleServer/MasterData, BattleServer/Battle/MasterDatabaseFactory.cs]
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 
 # マスターデータの生成・配布・運用
@@ -34,7 +34,7 @@ updated: 2026-10-16
 |---|---|---|
 | `move_groups` | サーバーだけ | Client は `pachimon.move_group_id` から `move_group_moves` を直接引くので、グループ自体は要らない |
 | `starter_party_slots` | サーバーだけ | 新規プレイヤーの作成はサーバーだけで行う |
-| `shop_products` | サーバーだけ | 購入の可否と支払う数はサーバーが判定する。購入できる商品は通信で返す(追加予定) |
+| `shop_products` | サーバーだけ | 購入の可否と支払う数はサーバーが判定する。購入できる商品は `ShopService/ListProducts` で返す |
 | `scout_banners`・`scout_banner_rates` | サーバーだけ | 開催中のバナーは通信で返し、排出率(抽選の生の値)はクライアントに配らない |
 | `type_chart` | Client・バトルサーバー(DB には入れない) | ダメージを計算するのは BattleCore だけで、APIサーバーには不要 |
 | ほか | すべて | |

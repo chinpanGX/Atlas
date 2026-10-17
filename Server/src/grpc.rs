@@ -9,6 +9,7 @@ mod player;
 mod player_data;
 mod player_lookup;
 mod scout;
+mod shop;
 
 use std::future::Future;
 
@@ -28,6 +29,7 @@ pub use party::PartyServiceImpl;
 pub use player::PlayerServiceImpl;
 pub use player_lookup::PlayerLookup;
 pub use scout::ScoutServiceImpl;
+pub use shop::ShopServiceImpl;
 
 use crate::proto;
 use crate::state::AppState;
@@ -97,6 +99,11 @@ pub async fn serve(
         .add_service(auth.layer(date_change.layer(
             ScoutServiceImpl::new(transactions.clone(), state.master.clone()).into_server(),
         )))
+        .add_service(auth.layer(
+            date_change.layer(
+                ShopServiceImpl::new(transactions.clone(), state.master.clone()).into_server(),
+            ),
+        ))
         .add_service(
             auth.layer(
                 date_change.layer(

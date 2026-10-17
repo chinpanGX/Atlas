@@ -2,7 +2,7 @@ use sqlx::MySqlPool;
 
 use super::{
     Items, MoveGroupMoves, Pachimon, PachimonType, Rarity, ScoutBanner, ScoutBannerRate,
-    StarterPartySlots,
+    ShopProducts, StarterPartySlots,
 };
 
 /// 起動時にDBから読み込むマスタデータのメモリキャッシュ。
@@ -20,6 +20,8 @@ pub struct MasterData {
     pub items: Vec<Items>,
     /// スカウトのバナーと排出率。開催期間外のものも含む(開催中かはリクエストのたびに今の時刻と比べる)
     pub scout_banners: Vec<ScoutBanner>,
+    /// ショップの商品(`shop_product_id`の順)
+    pub shop_products: Vec<ShopProducts>,
 }
 
 impl MasterData {
@@ -33,6 +35,7 @@ impl MasterData {
         let starter_party_slots = load_starter_party_slots(pool).await?;
         let items = load_items(pool).await?;
         let scout_banners = load_scout_banners(pool).await?;
+        let shop_products = load_shop_products(pool).await?;
 
         Ok(MasterData {
             pachimon,
@@ -40,6 +43,7 @@ impl MasterData {
             starter_party_slots,
             items,
             scout_banners,
+            shop_products,
         })
     }
 }
@@ -186,6 +190,35 @@ struct ScoutBannerRatesRow {
     banner_id: String,
     rarity: u8,
     weight: i32,
+}
+
+#[derive(sqlx::FromRow)]
+struct ShopProductsRow {
+    shop_product_id: i32,
+    item_id: i32,
+    amount: i32,
+    cost_item_id: i32,
+    cost_amount: i32,
+}
+
+async fn load_shop_products(pool: &MySqlPool) -> Result<Vec<ShopProducts>, sqlx::Error> {
+    let rows: Vec<ShopProductsRow> = sqlx::query_as(
+        "SELECT shop_product_id, item_id, amount, cost_item_id, cost_amount FROM shop_products \
+         ORDER BY shop_product_id",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| ShopProducts {
+            shop_product_id: row.shop_product_id,
+            item_id: row.item_id,
+            amount: row.amount,
+            cost_item_id: row.cost_item_id,
+            cost_amount: row.cost_amount,
+        })
+        .collect())
 }
 
 /// `scout_banners`と`scout_banner_rates`を読み、バナーごとに排出率をまとめる。日時はUTCで入っている。

@@ -123,12 +123,12 @@ impl BattleInternalService for BattleInternalServiceImpl {
                     player_pachimon_id: loadout.player_pachimon_id,
                     pachimon_id: loadout.pachimon_id,
                     effort_values: Some(EffortValues {
-                        hp: loadout.effort_values.hp,
-                        atk: loadout.effort_values.atk,
-                        def: loadout.effort_values.def,
-                        spatk: loadout.effort_values.spatk,
-                        spdef: loadout.effort_values.spdef,
-                        speed: loadout.effort_values.speed,
+                        hp: loadout.stat_points.hp,
+                        atk: loadout.stat_points.atk,
+                        def: loadout.stat_points.def,
+                        spatk: loadout.stat_points.spatk,
+                        spdef: loadout.stat_points.spdef,
+                        speed: loadout.stat_points.speed,
                     }),
                     move_ids: loadout.moves.iter().map(|m| m.move_id).collect(),
                 })

@@ -14,6 +14,7 @@ const PROTO_FILES: &[&str] = &[
     "atlas/v1/player.proto",
     "atlas/v1/party.proto",
     "atlas/v1/scout.proto",
+    "atlas/v1/shop.proto",
     "atlas/v1/debug.proto",
     "atlas/v1/matchmaking.proto",
     "atlas/internal/v1/battle.proto",

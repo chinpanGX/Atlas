@@ -6,3 +6,4 @@ pub mod player_item_service;
 pub mod player_pachimon_service;
 pub mod player_service;
 pub mod scout_service;
+pub mod shop_service;

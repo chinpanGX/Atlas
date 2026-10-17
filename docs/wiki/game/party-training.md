@@ -3,7 +3,7 @@ title: "パーティ編成・育成"
 status: current
 area: game
 related: [server/party, client/screens, game/shop, game/flow, open-questions]
-code: [Server/src/service/player_pachimon_service.rs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Party]
+code: [Server/src/service/player_pachimon_service.rs, BattleServer/Battle/LoadoutBuilder.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Party]
 updated: 2026-10-17
 ---
 
@@ -32,9 +32,9 @@ updated: 2026-10-17
 - 次の付け替えはできない(チケットは使わない)。チケットを多く使うので、意味の無い操作でチケットを失わないようにするため
   - 今と同じ技に付け替える
   - 別の枠で覚えている技を、もう1つ覚える(同じ技を2つ持つ)
-- いまあるのは付け替えの API だけで、チケットの消費・上の2つの制限・画面は無い
+- API(チケットの消費と上の2つの制限を含む)はある。画面は無い([パーティ編成・育成(API)](../server/party.md))
 
-## ステータスポイントの割り振り(追加予定)
+## ステータスポイントの割り振り(画面は未実装)
 
 - 個体ごとにステータスポイントを64持ち、6つの能力(HP・こうげき・ぼうぎょ・とくこう・とくぼう・すばやさ)に自由に割り振る
 - 1つの能力に割り振れる上限は無い(64ポイントを1つの能力に全部入れてもよい)
@@ -44,8 +44,8 @@ updated: 2026-10-17
   - 最初の割り振りも振り直しも同じルールで数えられるようにするため
 - 画面で複数の能力のポイントをまとめて調整してから確定し、そのとき必要な枚数を一度に使う。チケットが足りなければ何も変わらない
 - 64ポイントを使い切らずに確定してよい(残りは後で足せる)。チケットが少ないうちから少しずつ育てられるようにするため
-- いまの実装にあるのは、個体ごとの割り振りの入れ物(全能力0)だけ。割り振り・チケット・交換の API と画面は無い
-- 能力の計算式は、いまは本家の努力値の式(`floor(努力値 / 4)`)のままになっている([バトルの計算](../battle-server/battle-core.md))
+- 割り振りの API と、バトルサーバーの能力の計算への反映はある([バトルの計算](../battle-server/battle-core.md))。
+  画面は無く、Client の画面の能力の表示にも割り振りはまだ足していない
 
 ## 育成画面のワイヤー(案)
 

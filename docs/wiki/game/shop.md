@@ -1,13 +1,13 @@
 ---
-title: "ショップ(追加予定)"
-status: planned
+title: "ショップ(画面は未実装)"
+status: current
 area: game
-related: [game/flow, game/party-training, master-data/tables, conventions/items, open-questions]
-code: [Shared/master-data/csv/shop_products_master.csv]
+related: [game/flow, game/party-training, master-data/tables, conventions/items, server/shop, open-questions]
+code: [Shared/master-data/csv/shop_products_master.csv, Server/src/service/shop_service.rs]
 updated: 2026-10-17
 ---
 
-# ショップ(追加予定)
+# ショップ(画面は未実装)
 
 ジェムを使ってアイテムを購入する。今のところ商品は育成チケットだけ。
 
@@ -57,10 +57,10 @@ updated: 2026-10-17
    戻ると育成画面に戻る。チケットは育成にしか使わないので、ショップに来るのはほとんどが育成の途中でチケットが足りなくなった人で、
    ヘッダーに入口があっても、足りないと分かったその場で案内したほうが迷わないため
 
-
 ## いま実装にあるもの
 
 - マスタ `items` の育成チケット(`item_id: 2`)と、マスタ `shop_products` の商品3件(育成チケット10枚 = ジェム50、100枚 = 450、200枚 = 800)
-- 購入の API・DB のテーブル・画面は無い
+- 商品の一覧と購入の API([ショップ(API)](../server/shop.md))。1回の購入で買うのは1つ
+- 画面は無い
 
 未確定のこと(1つの商品を一度に複数個買えるか、購入数の上限)は [未確定・保留](../open-questions.md)。

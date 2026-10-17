@@ -16,7 +16,7 @@ updated: 2026-10-17
 
 | 待ち受け | 環境変数 | 既定 | 中身 |
 |---|---|---|---|
-| クライアント向け | `GRPC_ADDR` | `127.0.0.1:50051` | 基盤の `DeviceService` と、Atlas の `PlayerService`・`PartyService`・`ScoutService`・`MatchmakingService`・`DebugService` |
+| クライアント向け | `GRPC_ADDR` | `127.0.0.1:50051` | 基盤の `DeviceService` と、Atlas の `PlayerService`・`PartyService`・`ScoutService`・`ShopService`・`MatchmakingService`・`DebugService` |
 | 内部 API | `SERVER_ADDR` | `127.0.0.1:3000` | `atlas.internal.v1.BattleInternalService`([内部API](internal-api.md)) |
 
 - 同じプロセスにするのは、マッチングの待機列(メモリ)をクライアント向けと内部 API で共有するため
@@ -45,7 +45,7 @@ RpcLogLayer                   RPC ごとの span とアクセスログ(メンテ
     ├ DeviceService           デバイス登録・トークン発行(認証なし)
     └ AuthLayer               トークンの検証(Atlas の各サービスにだけ付ける)
       └ DateChangeLayer       ゲーム内の日付の変更(認証の後に判定する)
-        └ Player/Party/Scout/Matchmaking/DebugService
+        └ Player/Party/Scout/Shop/Matchmaking/DebugService
 ```
 
 - 開発ビルドでは gRPC リフレクションを有効にし、grpcurl・Postman から `.proto` 無しで呼べる
@@ -109,10 +109,10 @@ RpcLogLayer                   RPC ごとの span とアクセスログ(メンテ
 ## エラー
 
 - 業務エラーは `FAILED_PRECONDITION` + `ErrorInfo`([業務エラー](../conventions/errors.md))
-- サービス層は `AppError`(`BadRequest`・`NotFound`・`Conflict`・`InternalError`)か、機能ごとのエラー型(`PartyError`・`ScoutError`)を返し、
+- サービス層は `AppError`(`BadRequest`・`NotFound`・`Conflict`・`InternalError`)か、機能ごとのエラー型(`PartyError`・`ScoutError`・`ShopError`)を返し、
   ハンドラが `tonic::Status` に変える。クライアント向けでは機能ごとのエラーを業務エラーに、`AppError` を `INTERNAL` にする。
   内部 API では `AppError` を `INVALID_ARGUMENT`・`NOT_FOUND`・`ALREADY_EXISTS`・`INTERNAL` にする
-- 内部エラー(`AppError::InternalError`・`PartyError::Internal`・`ScoutError::Internal`)は基盤の `Internal` を持つ。DB などのエラーからは `?` で作れ、
+- 内部エラー(`AppError::InternalError`・`PartyError::Internal`・`ScoutError::Internal`・`ShopError::Internal`)は基盤の `Internal` を持つ。DB などのエラーからは `?` で作れ、
   原因と `?` を書いた場所を持ったまま運ばれる。ハンドラは `internal(err)`(または `or_internal()`)で `INTERNAL` にし、そのときに原因がログに出る
 
 ## API 一覧
@@ -126,10 +126,13 @@ RpcLogLayer                   RPC ごとの span とアクセスログ(メンテ
 | `atlas.v1.PlayerService/SignUp` | プレイヤーの作成(初期データの付与) | `IDEMPOTENT` | [プレイヤー](player.md) |
 | `atlas.v1.PlayerService/SignIn` | 所持データの全件取得 | `IDEMPOTENT` | [プレイヤー](player.md) |
 | `atlas.v1.PartyService/SetParty` | パーティの編成(全置き換え) | 対象 | [パーティ編成](party.md) |
-| `atlas.v1.PartyService/SetPachimonMove` | 技の付け替え | 対象 | [パーティ編成](party.md) |
+| `atlas.v1.PartyService/SetPachimonMove` | 技の付け替え(育成チケット5枚) | 対象 | [パーティ編成](party.md) |
+| `atlas.v1.PartyService/SetPachimonStatPoints` | ステータスポイントの割り振り(増やした分の育成チケット) | 対象 | [パーティ編成](party.md) |
 | `atlas.v1.ScoutService/ListBanners` | 開催中のバナー一覧 | `NO_SIDE_EFFECTS` | [スカウト](scout.md) |
 | `atlas.v1.ScoutService/Roll` | 紹介を受ける(ジェムを消費して候補10体) | 対象 | [スカウト](scout.md) |
 | `atlas.v1.ScoutService/Select` | 候補から1体を選んで入手 | 対象 | [スカウト](scout.md) |
+| `atlas.v1.ShopService/ListProducts` | 商品の一覧 | `NO_SIDE_EFFECTS` | [ショップ](shop.md) |
+| `atlas.v1.ShopService/Purchase` | 商品を1つ購入(ジェムを払ってアイテムを受け取る) | 対象 | [ショップ](shop.md) |
 | `atlas.v1.MatchmakingService/JoinQueue` | 待機列に入る(成立すれば対戦を記録) | 対象 | [マッチング](matchmaking.md) |
 | `atlas.v1.MatchmakingService/LeaveQueue` | 待機列から抜ける | `IDEMPOTENT` | [マッチング](matchmaking.md) |
 | `atlas.v1.MatchmakingService/GetQueueStatus` | 成立したかと接続情報 | `NO_SIDE_EFFECTS` | [マッチング](matchmaking.md) |

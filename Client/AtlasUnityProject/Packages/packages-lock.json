@@ -397,17 +397,6 @@
       },
       "url": "https://packages.unity.com"
     },
-    "io.github.hatayama.uloopmcp": {
-      "version": "https://github.com/hatayama/unity-cli-loop.git?path=/Packages/src",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.unity.ugui": "1.0.0",
-        "com.unity.nuget.newtonsoft-json": "3.2.1",
-        "com.unity.nuget.mono-cecil": "1.11.6"
-      },
-      "hash": "2230f8e60195fec4edd1d69622d6b1b641d90b60"
-    },
     "jp.co.cyberagent.address-definition-generator": {
       "version": "https://github.com/CyberAgentGameEntertainment/AddressDefinitionGenerator.git?path=/Packages/AddressDefinitionGenerator",
       "depth": 0,

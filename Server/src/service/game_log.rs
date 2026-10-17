@@ -5,7 +5,7 @@ use voltech_grpc_error::Internal;
 use voltech_grpc_transaction::{GameLog, GameLogSink, GameLogs, TxContext};
 
 use crate::model::player_item::PlayerItem;
-use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove};
+use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove, StatPoints};
 use crate::model::player_party_slot::PlayerPartySlot;
 
 /// ゲームログの種別: アイテムの増減。対象の ID はアイテムの ID、値は所持数。
@@ -18,9 +18,13 @@ pub const KIND_PARTY: &str = "party";
 pub const KIND_PACHIMON_MOVE: &str = "pachimon_move";
 /// ゲームログの種別: 対戦の結果。対象の ID は対戦の ID。
 pub const KIND_BATTLE: &str = "battle";
+/// ゲームログの種別: ステータスポイントの割り振りの変更。対象の ID は個体の ID。
+pub const KIND_PACHIMON_STAT_POINTS: &str = "pachimon_stat_points";
 
 /// 技の付け替えの理由。付け替えの手段は今は1つだけ。
 const REASON_SET_PACHIMON_MOVE: &str = "set_pachimon_move";
+/// ステータスポイントの割り振りの理由。割り振りの手段は今は1つだけ。
+const REASON_SET_PACHIMON_STAT_POINTS: &str = "set_pachimon_stat_points";
 /// 対戦の結果の理由。結果はバトルサーバーの報告でだけ決まる。
 const REASON_BATTLE_RESULT: &str = "battle_result";
 
@@ -31,6 +35,12 @@ pub enum ItemReason {
     SignUp,
     /// スカウトのロール。
     ScoutRoll,
+    /// ショップの購入(払ったジェムと、受け取ったアイテムの両方)。
+    ShopPurchase,
+    /// 技の付け替えで使った育成チケット。
+    SetPachimonMove,
+    /// ステータスポイントの割り振りで使った育成チケット。
+    SetPachimonStatPoints,
     /// 対戦の勝利の報酬。
     BattleReward,
     /// 開発用の API。
@@ -42,6 +52,9 @@ impl ItemReason {
         match self {
             Self::SignUp => "sign_up",
             Self::ScoutRoll => "scout_roll",
+            Self::ShopPurchase => "shop_purchase",
+            Self::SetPachimonMove => REASON_SET_PACHIMON_MOVE,
+            Self::SetPachimonStatPoints => REASON_SET_PACHIMON_STAT_POINTS,
             Self::BattleReward => "battle_reward",
             Self::Debug => "debug",
         }
@@ -174,6 +187,21 @@ impl GameLogCollector {
             .field("slot", after.slot)
             .field("before_move_id", before_move_id)
             .field("after_move_id", after.move_id);
+        self.logs.push((player_id.to_owned(), log));
+    }
+
+    /// ステータスポイントの割り振りの変更を、個体の ID・前後の割り振りで記録する。使った育成チケットは `record_item` で別に残る。
+    pub fn record_stat_points(
+        &mut self,
+        player_id: &str,
+        player_pachimon_id: &str,
+        before: StatPoints,
+        after: StatPoints,
+    ) {
+        let log = GameLog::event(KIND_PACHIMON_STAT_POINTS, REASON_SET_PACHIMON_STAT_POINTS)
+            .target(player_pachimon_id)
+            .field("before_stat_points", json!(before))
+            .field("after_stat_points", json!(after));
         self.logs.push((player_id.to_owned(), log));
     }
 

@@ -4,12 +4,13 @@
 // 起動時にDBからマスタを読み込みメモリキャッシュを参照する設計のため、マスタ更新時は
 // このコマンドを実行してDBへ反映したのち、サーバーを再起動して反映する(無停止での反映はしない)。
 //
-// move_groups → moves → move_group_moves → pachimon → starter_party_slots → items → scout_bannersの順で
-// 投入する(move_group_moves/pachimon/starter_party_slotsの外部キー制約を満たすため。itemsとscout_bannersは
-// 他のマスタに依存しないため末尾でよい)。
+// move_groups → moves → move_group_moves → pachimon → starter_party_slots → items → scout_banners →
+// shop_productsの順で投入する(move_group_moves/pachimon/starter_party_slotsの外部キー制約を満たすため。
+// shop_productsはitemsを参照するのでitemsより後にする)。
 //
-// スカウトのバナーは、パイプラインのvalidateで確かめられない決まり(日時として読めること、start_at < end_at、
-// バナーごとの重みの合計が10000)を、何かを投入する前に確かめ、合わなければ何も投入せずに止める。
+// スカウトのバナーとショップの商品は、パイプラインのvalidateで確かめられない決まり(バナーは日時として読めること、
+// start_at < end_at、バナーごとの重みの合計が10000。商品は数が1以上で、払うアイテムがジェムであること)を、
+// 何かを投入する前に確かめ、合わなければ何も投入せずに止める。
 //
 // 実行方法: cargo run --bin seed_master_data
 use sqlx::MySqlPool;
@@ -17,7 +18,7 @@ use sqlx::MySqlPool;
 use Server::master::scout_banner::build_scout_banners;
 use Server::master::{
     self, Items, MoveGroupMoves, MoveGroups, Moves, Pachimon, ScoutBanner, ScoutBannerRates,
-    StarterPartySlots,
+    ShopProducts, StarterPartySlots,
 };
 
 #[tokio::main]
@@ -33,6 +34,9 @@ async fn main() {
     let scout_banners =
         build_scout_banners(&master::seed_scout_banners_data(), &scout_banner_rates)
             .unwrap_or_else(|err| panic!("スカウトのバナーのマスタが正しくありません: {err}"));
+    let shop_products = master::seed_shop_products_data();
+    master::validate_shop_products(&shop_products)
+        .unwrap_or_else(|err| panic!("ショップの商品のマスタが正しくありません: {err}"));
 
     let move_groups = master::seed_move_groups_data();
     seed_move_groups(&pool, &move_groups).await;
@@ -54,8 +58,10 @@ async fn main() {
 
     seed_scout_banners(&pool, &scout_banners, &scout_banner_rates).await;
 
+    seed_shop_products(&pool, &shop_products).await;
+
     println!(
-        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件, starter_party_slots: {}件, items: {}件, scout_banners: {}件, scout_banner_rates: {}件)",
+        "マスタデータの投入が完了しました(move_groups: {}件, moves: {}件, move_group_moves: {}件, pachimon: {}件, starter_party_slots: {}件, items: {}件, scout_banners: {}件, scout_banner_rates: {}件, shop_products: {}件)",
         move_groups.len(),
         moves.len(),
         move_group_moves.len(),
@@ -63,7 +69,8 @@ async fn main() {
         starter_party_slots.len(),
         items.len(),
         scout_banners.len(),
-        scout_banner_rates.len()
+        scout_banner_rates.len(),
+        shop_products.len()
     );
 }
 
@@ -258,4 +265,42 @@ async fn seed_scout_banners(pool: &MySqlPool, banners: &[ScoutBanner], rates: &[
     tx.commit()
         .await
         .unwrap_or_else(|err| panic!("スカウトのバナーのコミットに失敗しました: {err}"));
+}
+
+/// 商品を参照するプレイヤーのデータは無いので、マスタから消した商品が残らないよう、全件を消してから入れ直す。
+/// 途中で失敗して商品が欠けたままにならないよう、1つのトランザクションで行う。
+async fn seed_shop_products(pool: &MySqlPool, products: &[ShopProducts]) {
+    let mut tx = pool
+        .begin()
+        .await
+        .unwrap_or_else(|err| panic!("トランザクションの開始に失敗しました: {err}"));
+
+    sqlx::query("DELETE FROM shop_products")
+        .execute(&mut *tx)
+        .await
+        .unwrap_or_else(|err| panic!("shop_productsの削除に失敗しました: {err}"));
+    for p in products {
+        sqlx::query(
+            "INSERT INTO shop_products \
+                (shop_product_id, item_id, amount, cost_item_id, cost_amount) \
+             VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(p.shop_product_id)
+        .bind(p.item_id)
+        .bind(p.amount)
+        .bind(p.cost_item_id)
+        .bind(p.cost_amount)
+        .execute(&mut *tx)
+        .await
+        .unwrap_or_else(|err| {
+            panic!(
+                "shop_product_id={}のシード投入に失敗しました: {err}",
+                p.shop_product_id
+            )
+        });
+    }
+
+    tx.commit()
+        .await
+        .unwrap_or_else(|err| panic!("ショップの商品のコミットに失敗しました: {err}"));
 }

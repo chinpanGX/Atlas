@@ -5,18 +5,19 @@ use voltech_grpc_error::{failed_precondition, internal};
 use voltech_grpc_transaction::Transactions;
 
 use crate::grpc::context::{player_id, to_ulid};
-use crate::grpc::player_data::diff_to_proto;
+use crate::grpc::player_data::{diff_to_proto, stat_points_from_proto};
 use crate::master::MasterData;
 use crate::proto::atlas::v1::party_service_server::{PartyService, PartyServiceServer};
 use crate::proto::atlas::v1::{
-    SetPachimonMoveRequest, SetPachimonMoveResponse, SetPartyRequest, SetPartyResponse,
+    SetPachimonMoveRequest, SetPachimonMoveResponse, SetPachimonStatPointsRequest,
+    SetPachimonStatPointsResponse, SetPartyRequest, SetPartyResponse,
 };
 use crate::proto::errors;
 use crate::service::game_log::GameLogCollector;
 use crate::service::player_diff::PlayerDiffCollector;
 use crate::service::player_pachimon_service::{self, MoveSlotInput, PartyError, PartySlotInput};
 
-/// `PartyService`(パーティの編成・技の付け替え)の実装。
+/// `PartyService`(パーティの編成・育成)の実装。
 #[derive(Clone)]
 pub struct PartyServiceImpl {
     transactions: Transactions,
@@ -122,6 +123,46 @@ impl PartyService for PartyServiceImpl {
             .await?;
         Ok(Response::new(response))
     }
+
+    async fn set_pachimon_stat_points(
+        &self,
+        request: Request<SetPachimonStatPointsRequest>,
+    ) -> Result<Response<SetPachimonStatPointsResponse>, Status> {
+        let player_id = player_id(&request)?;
+        let player_ulid = to_ulid(&player_id)?;
+        let SetPachimonStatPointsRequest {
+            player_pachimon_id,
+            stat_points,
+        } = request.get_ref().clone();
+        let stat_points = stat_points
+            .map(stat_points_from_proto)
+            .ok_or_else(|| to_status(PartyError::InvalidStatPoints))?;
+
+        let response = self
+            .transactions
+            .run(&request, Some(player_ulid), move |ctx| {
+                Box::pin(async move {
+                    let mut diff = PlayerDiffCollector::default();
+                    let mut logs = GameLogCollector::default();
+                    player_pachimon_service::set_stat_points(
+                        ctx.tx(),
+                        &mut diff,
+                        &mut logs,
+                        &player_id,
+                        &player_pachimon_id,
+                        stat_points,
+                    )
+                    .await
+                    .map_err(to_status)?;
+                    logs.write_to(ctx)?;
+                    Ok(SetPachimonStatPointsResponse {
+                        player_diff: diff_to_proto(&diff),
+                    })
+                })
+            })
+            .await?;
+        Ok(Response::new(response))
+    }
 }
 
 fn to_status(err: PartyError) -> Status {
@@ -136,6 +177,21 @@ fn to_status(err: PartyError) -> Status {
         PartyError::MoveNotLearnable => failed_precondition(
             errors::MOVE_NOT_LEARNABLE,
             "move is not a candidate move for this pachimon",
+        ),
+        PartyError::MoveUnchanged => {
+            failed_precondition(errors::MOVE_UNCHANGED, "the slot already has this move")
+        }
+        PartyError::MoveAlreadyLearned => failed_precondition(
+            errors::MOVE_ALREADY_LEARNED,
+            "the pachimon already knows this move in another slot",
+        ),
+        PartyError::InvalidStatPoints => failed_precondition(
+            errors::INVALID_STAT_POINTS,
+            "stat points must be non-negative and total at most 64",
+        ),
+        PartyError::InsufficientTrainingTickets => failed_precondition(
+            errors::INSUFFICIENT_TRAINING_TICKETS,
+            "not enough training tickets",
         ),
         PartyError::Internal(err) => internal(err),
     }

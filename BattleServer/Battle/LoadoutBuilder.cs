@@ -9,6 +9,7 @@ namespace Atlas.BattleServer.Battle
     // 所持データ1体分(Rustの/internal/battle/loadoutsが返すもの)。種族値・技の性能はマスタから引く。
     public sealed record OwnedPachimon(int PachimonId, EffortValues EffortValues, IReadOnlyList<int> MoveIds);
 
+    // 能力に割り振ったステータスポイント(内部APIの名前が努力値のころのままなので、型名も合わせている)。
     public sealed record EffortValues(int Hp, int Atk, int Def, int SpAtk, int SpDef, int Speed);
 
     // マスタ(MemoryDatabase)と所持データから、BattleCore用の型(ParticipantLoadout/ITypeChart)を組み立てる。
@@ -57,13 +58,14 @@ namespace Atlas.BattleServer.Battle
 
         public static ITypeChart BuildTypeChart(MemoryDatabase database) => new MasterDataTypeChart(database);
 
-        // HP = floor((2 * base + floor(EV/4)) * level / 100) + level + 10
-        public static int CalculateHp(int baseStat, int effortValue) =>
-            (2 * baseStat + effortValue / 4) * FixedLevel / 100 + FixedLevel + 10;
+        // 割り振ったステータスポイントは、種族値から計算した能力の値にそのまま足す。
+        // HP = floor(2 * base * level / 100) + level + 10 + ポイント
+        public static int CalculateHp(int baseStat, int statPoints) =>
+            2 * baseStat * FixedLevel / 100 + FixedLevel + 10 + statPoints;
 
-        // HP以外 = floor((2 * base + floor(EV/4)) * level / 100) + 5
-        public static int CalculateOther(int baseStat, int effortValue) =>
-            (2 * baseStat + effortValue / 4) * FixedLevel / 100 + 5;
+        // HP以外 = floor(2 * base * level / 100) + 5 + ポイント
+        public static int CalculateOther(int baseStat, int statPoints) =>
+            2 * baseStat * FixedLevel / 100 + 5 + statPoints;
 
         public static ElementType ToElementType(PachimonType type) => type switch
         {

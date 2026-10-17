@@ -42,12 +42,13 @@ timezone = "Asia/Tokyo"
 pub const SECRET_KEY: &str = "0123456789abcdef0123456789abcdef";
 
 /// `#[sqlx::test(migrations = false)]` で作った DB に、基盤と Atlas のマイグレーションを流し、
-/// サインアップで初期パーティ(pachimon_id=1 を1体)が付与されるだけのマスタを入れる。
+/// サインアップで初期パーティ(pachimon_id=1 を1体)が付与されるだけのマスタと、アイテム(ジェム・育成チケット)を入れる。
 /// `AppState::from_pool`(マスタのメモリ読み込み)より前に呼ぶ。
 pub async fn prepare_db(pool: &MySqlPool) {
     db::migrate(pool).await.unwrap();
     let queries = [
         "INSERT INTO items (item_id, name) VALUES (1, 'ジェム')",
+        "INSERT INTO items (item_id, name) VALUES (2, '育成チケット')",
         "INSERT INTO move_groups (move_group_id, name) VALUES (1, 'グループ1')",
         "INSERT INTO moves (move_id, name, move_type, category, base_power, accuracy, max_pp) \
          VALUES (1, 'たいあたり', 1, 1, 40, 100, 35)",
@@ -206,6 +207,34 @@ pub fn with_request_id<T>(message: T, token: &str, request_id: &str) -> Request<
         .metadata_mut()
         .insert("x-request-id", MetadataValue::try_from(request_id).unwrap());
     request
+}
+
+/// 育成チケットの `item_id`。
+pub const TRAINING_TICKET_ITEM_ID: i32 = 2;
+
+/// プレイヤーの所持アイテムの数を、DB に直接書いて `quantity` にする(育成チケットを持たせるときなど)。
+pub async fn set_item_quantity(pool: &MySqlPool, player_id: &str, item_id: i32, quantity: i32) {
+    sqlx::query(
+        "INSERT INTO player_items (player_id, item_id, quantity) VALUES (?, ?, ?) AS new \
+         ON DUPLICATE KEY UPDATE quantity = new.quantity",
+    )
+    .bind(player_id)
+    .bind(item_id)
+    .bind(quantity)
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+/// プレイヤーの所持アイテムの数を DB から読む。行が無ければ 0。
+pub async fn item_quantity(pool: &MySqlPool, player_id: &str, item_id: i32) -> i32 {
+    sqlx::query_scalar("SELECT quantity FROM player_items WHERE player_id = ? AND item_id = ?")
+        .bind(player_id)
+        .bind(item_id)
+        .fetch_optional(pool)
+        .await
+        .unwrap()
+        .unwrap_or(0)
 }
 
 /// 業務エラーの `ErrorInfo` の reason を読む。業務エラーでなければ `None`。

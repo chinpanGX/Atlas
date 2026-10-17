@@ -63,13 +63,13 @@ message Loadout {
   string player_pachimon_id = 1;
   // pachimon マスタの pachimon_id。
   int32 pachimon_id = 2;
-  // 努力値。
+  // 能力に割り振ったステータスポイント(名前は努力値のころのまま)。
   EffortValues effort_values = 3;
   // 覚えている技の moves マスタの move_id。技の枠の順。
   repeated int32 move_ids = 4;
 }
 
-// 努力値(能力ごとの値)。
+// 能力ごとのステータスポイント。種族値から計算した能力の値にそのまま足す。
 message EffortValues {
   int32 hp = 1;
   int32 atk = 2;

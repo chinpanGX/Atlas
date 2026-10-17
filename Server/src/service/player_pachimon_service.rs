@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use rand::seq::IndexedRandom;
-use serde::{Deserialize, Serialize};
+use sqlx::types::Json;
 use sqlx::{MySql, MySqlExecutor, MySqlPool, Transaction};
 use ulid::Ulid;
 
@@ -9,28 +9,21 @@ use voltech_grpc_error::Internal;
 
 use crate::error::AppError;
 use crate::master::MasterData;
-use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove};
+use crate::model::player_pachimon::{PlayerPachimon, PlayerPachimonMove, StatPoints};
 use crate::model::player_party_slot::PlayerPartySlot;
-use crate::service::game_log::{GameLogCollector, PachimonReason, PartyReason};
+use crate::service::game_log::{GameLogCollector, ItemReason, PachimonReason, PartyReason};
 use crate::service::player_diff::PlayerDiffCollector;
+use crate::service::player_item_service;
 
-/// `player_pachimon.effort_values`(JSON)の中身。キーは`grant`が書き込む形と同じ。
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EffortValues {
-    pub hp: i32,
-    pub atk: i32,
-    pub def: i32,
-    pub spatk: i32,
-    pub spdef: i32,
-    pub speed: i32,
-}
+/// 技の付け替え1回で使う育成チケットの枚数。
+pub const MOVE_CHANGE_TICKET_COST: i32 = 5;
 
-/// 対戦で1体を組み立てるための所持データ(`POST /internal/battle/loadouts`用)。
+/// 対戦で1体を組み立てるための所持データ(内部APIの`GetLoadouts`用)。
 /// `moves`はslot順。
 pub struct BattleLoadout {
     pub player_pachimon_id: String,
     pub pachimon_id: i32,
-    pub effort_values: EffortValues,
+    pub stat_points: StatPoints,
     pub moves: Vec<PlayerPachimonMove>,
 }
 
@@ -51,7 +44,7 @@ pub struct PartySlotInput {
 /// スカウトでの入手(`scout_service::select_candidate`)・スターター編成の付与
 /// (`player_service::create`)の両方から共通で使う。呼び出し元のトランザクション内で実行する。
 ///
-/// 努力値(`effort_values`)は付与時点では常に全ステータス0とする(配分機能は未実装)。
+/// ステータスポイントは入手したときは全能力0。
 ///
 /// # Errors
 /// DBアクセスに失敗した場合に`AppError::InternalError`を返す。
@@ -62,8 +55,7 @@ pub async fn grant(
     moves: &[i32],
 ) -> Result<(PlayerPachimon, Vec<PlayerPachimonMove>), AppError> {
     let player_pachimon_id = Ulid::generate().to_string();
-    let effort_values =
-        serde_json::json!({"hp": 0, "atk": 0, "def": 0, "spatk": 0, "spdef": 0, "speed": 0});
+    let stat_points = StatPoints::default();
 
     sqlx::query(
         "INSERT INTO player_pachimon (player_pachimon_id, player_id, pachimon_id, effort_values) \
@@ -72,7 +64,7 @@ pub async fn grant(
     .bind(&player_pachimon_id)
     .bind(player_id)
     .bind(pachimon_id)
-    .bind(sqlx::types::Json(&effort_values))
+    .bind(Json(stat_points))
     .execute(&mut **tx)
     .await?;
 
@@ -112,6 +104,7 @@ pub async fn grant(
             player_id: player_id.to_string(),
             pachimon_id,
             obtained_at: obtained_at.0,
+            stat_points,
         },
         granted_moves,
     ))
@@ -127,8 +120,8 @@ pub async fn list_owned_pachimon(
     executor: impl MySqlExecutor<'_>,
     player_id: &str,
 ) -> Result<Vec<PlayerPachimon>, AppError> {
-    let rows: Vec<(String, i32, chrono::NaiveDateTime)> = sqlx::query_as(
-        "SELECT player_pachimon_id, pachimon_id, obtained_at FROM player_pachimon \
+    let rows: Vec<(String, i32, chrono::NaiveDateTime, Json<StatPoints>)> = sqlx::query_as(
+        "SELECT player_pachimon_id, pachimon_id, obtained_at, effort_values FROM player_pachimon \
          WHERE player_id = ? ORDER BY obtained_at",
     )
     .bind(player_id)
@@ -138,11 +131,12 @@ pub async fn list_owned_pachimon(
     Ok(rows
         .into_iter()
         .map(
-            |(player_pachimon_id, pachimon_id, obtained_at)| PlayerPachimon {
+            |(player_pachimon_id, pachimon_id, obtained_at, Json(stat_points))| PlayerPachimon {
                 player_pachimon_id,
                 player_id: player_id.to_string(),
                 pachimon_id,
                 obtained_at,
+                stat_points,
             },
         )
         .collect())
@@ -191,7 +185,7 @@ pub async fn find_battle_loadouts(
     player_id: &str,
     player_pachimon_ids: &[String],
 ) -> Result<Vec<BattleLoadout>, AppError> {
-    let owned: Vec<(String, i32, sqlx::types::Json<EffortValues>)> = sqlx::query_as(
+    let owned: Vec<(String, i32, Json<StatPoints>)> = sqlx::query_as(
         "SELECT player_pachimon_id, pachimon_id, effort_values FROM player_pachimon \
          WHERE player_id = ?",
     )
@@ -205,14 +199,14 @@ pub async fn find_battle_loadouts(
     player_pachimon_ids
         .iter()
         .map(|id| {
-            let (player_pachimon_id, pachimon_id, effort_values) = owned
+            let (player_pachimon_id, pachimon_id, stat_points) = owned
                 .iter()
                 .find(|(owned_id, _, _)| owned_id == id)
                 .ok_or(AppError::NotFound)?;
             Ok(BattleLoadout {
                 player_pachimon_id: player_pachimon_id.clone(),
                 pachimon_id: *pachimon_id,
-                effort_values: effort_values.0,
+                stat_points: stat_points.0,
                 moves: owned_moves
                     .iter()
                     .filter(|m| &m.player_pachimon_id == id)
@@ -284,7 +278,7 @@ pub async fn list_party(
         .collect())
 }
 
-/// パーティの編成・技の付け替えの失敗。
+/// パーティの編成・育成(技の付け替え・ステータスポイントの割り振り)の失敗。
 #[derive(Debug)]
 pub enum PartyError {
     /// 人数・枠の番号・重複が規則に合わない。中身はログ用の理由。
@@ -295,8 +289,23 @@ pub enum PartyError {
     InvalidMoveSlot,
     /// 技が個体の技グループの候補技でない。
     MoveNotLearnable,
+    /// 技の枠に今と同じ技が入っている。
+    MoveUnchanged,
+    /// 別の枠でその技を覚えている。
+    MoveAlreadyLearned,
+    /// ステータスポイントに負の値がある、または合計が上限を超えている。
+    InvalidStatPoints,
+    /// 育成チケットが足りない。
+    InsufficientTrainingTickets,
     /// DBアクセスやマスタの不整合。
     Internal(Internal),
+}
+
+impl From<AppError> for PartyError {
+    #[track_caller]
+    fn from(err: AppError) -> Self {
+        Self::Internal(Internal::from(err))
+    }
 }
 
 impl<E> From<E> for PartyError
@@ -497,13 +506,17 @@ pub async fn randomize_party(
     Ok(())
 }
 
-/// 所持パチモンの技を付け替える。グループ内の候補技(`move_group_moves`)以外は指定できない。
-/// 付け替えた割当を`diff`に、前後の技をゲームログに記録する。呼び出し元のトランザクション内で実行する。
+/// 所持パチモンの技を付け替え、育成チケットを`MOVE_CHANGE_TICKET_COST`枚使う。グループ内の候補技
+/// (`move_group_moves`)以外は指定できない。付け替えた割当と使った後のチケットを`diff`に、前後の技とチケットの消費を
+/// ゲームログに記録する。呼び出し元のトランザクション内で実行する。
 ///
 /// # Errors
-/// `slot`が1-4の範囲外の場合に`PartyError::InvalidMoveSlot`、`move_id`が対象パチモンの技グループの
-/// 候補技でない場合に`PartyError::MoveNotLearnable`、指定した`player_pachimon_id`が呼び出したプレイヤー自身の
-/// 所持個体でない場合に`PartyError::PachimonNotOwned`、DBアクセスに失敗した場合に`PartyError::Internal`を返す。
+/// 次の順に確かめ、当てはまればチケットを使わずに返す。`slot`が1-4の範囲外の場合に`PartyError::InvalidMoveSlot`、
+/// 指定した`player_pachimon_id`が呼び出したプレイヤー自身の所持個体でない場合に`PartyError::PachimonNotOwned`、
+/// `move_id`が対象パチモンの技グループの候補技でない場合に`PartyError::MoveNotLearnable`、
+/// その枠に同じ技が入っている場合に`PartyError::MoveUnchanged`、別の枠でその技を覚えている場合に
+/// `PartyError::MoveAlreadyLearned`、チケットが足りない場合に`PartyError::InsufficientTrainingTickets`、
+/// DBアクセスに失敗した場合に`PartyError::Internal`を返す。
 pub async fn update_move(
     tx: &mut Transaction<'_, MySql>,
     diff: &mut PlayerDiffCollector,
@@ -521,8 +534,10 @@ pub async fn update_move(
         return Err(PartyError::InvalidMoveSlot);
     }
 
+    // 同じ個体を同時に付け替えて、同じ技が2つの枠に入らないよう、個体の行をロックしてから覚えている技を確かめる
     let row: Option<(i32,)> = sqlx::query_as(
-        "SELECT pachimon_id FROM player_pachimon WHERE player_pachimon_id = ? AND player_id = ?",
+        "SELECT pachimon_id FROM player_pachimon \
+         WHERE player_pachimon_id = ? AND player_id = ? FOR UPDATE",
     )
     .bind(&player_pachimon_id)
     .bind(player_id)
@@ -549,13 +564,38 @@ pub async fn update_move(
         return Err(PartyError::MoveNotLearnable);
     }
 
-    let before: Option<(i32,)> = sqlx::query_as(
-        "SELECT move_id FROM player_pachimon_moves WHERE player_pachimon_id = ? AND slot = ?",
+    let learned: Vec<(i32, i32)> = sqlx::query_as(
+        "SELECT slot, move_id FROM player_pachimon_moves WHERE player_pachimon_id = ?",
     )
     .bind(&player_pachimon_id)
-    .bind(slot)
-    .fetch_optional(&mut **tx)
+    .fetch_all(&mut **tx)
     .await?;
+
+    let before = learned
+        .iter()
+        .find(|(learned_slot, _)| *learned_slot == slot)
+        .map(|(_, learned_move)| *learned_move);
+    if before == Some(move_id) {
+        return Err(PartyError::MoveUnchanged);
+    }
+    if learned
+        .iter()
+        .any(|(learned_slot, learned_move)| *learned_slot != slot && *learned_move == move_id)
+    {
+        return Err(PartyError::MoveAlreadyLearned);
+    }
+
+    let tickets = player_item_service::deduct(
+        tx,
+        logs,
+        player_id,
+        player_item_service::TRAINING_TICKET_ITEM_ID,
+        MOVE_CHANGE_TICKET_COST,
+        ItemReason::SetPachimonMove,
+    )
+    .await?
+    .ok_or(PartyError::InsufficientTrainingTickets)?;
+    diff.record_item(tickets);
 
     // 新規slotの場合のみ使われるULID。既存slotの更新時はON DUPLICATE KEY UPDATEの対象に
     // player_pachimon_move_idを含めないため、既存の値がそのまま維持される。
@@ -589,7 +629,74 @@ pub async fn update_move(
         slot,
         move_id,
     };
-    logs.record_pachimon_move(player_id, &after, before.map(|(move_id,)| move_id));
+    logs.record_pachimon_move(player_id, &after, before);
     diff.record_pachimon_move(after);
+    Ok(())
+}
+
+/// 所持パチモンのステータスポイントの割り振りを`stat_points`に変え、増やしたポイントの合計の数だけ育成チケットを使う
+/// (減らすのは無料)。今と同じ割り振りなら何もしない。変えた個体と使った後のチケットを`diff`に、前後の割り振りと
+/// チケットの消費をゲームログに記録する。呼び出し元のトランザクション内で実行する。
+///
+/// # Errors
+/// 次の順に確かめ、当てはまれば何も変えずに返す。負の値がある・合計が上限を超える場合に`PartyError::InvalidStatPoints`、
+/// 指定した`player_pachimon_id`が呼び出したプレイヤー自身の所持個体でない場合に`PartyError::PachimonNotOwned`、
+/// チケットが足りない場合に`PartyError::InsufficientTrainingTickets`、DBアクセスに失敗した場合に`PartyError::Internal`を返す。
+pub async fn set_stat_points(
+    tx: &mut Transaction<'_, MySql>,
+    diff: &mut PlayerDiffCollector,
+    logs: &mut GameLogCollector,
+    player_id: &str,
+    player_pachimon_id: &str,
+    stat_points: StatPoints,
+) -> Result<(), PartyError> {
+    if !stat_points.is_valid() {
+        return Err(PartyError::InvalidStatPoints);
+    }
+
+    // 同時に割り振ったときに、どちらも同じ「今の値」から枚数を数えてチケットが足りなくならないよう、行をロックしてから読む
+    let row: Option<(i32, chrono::NaiveDateTime, Json<StatPoints>)> = sqlx::query_as(
+        "SELECT pachimon_id, obtained_at, effort_values FROM player_pachimon \
+         WHERE player_pachimon_id = ? AND player_id = ? FOR UPDATE",
+    )
+    .bind(player_pachimon_id)
+    .bind(player_id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let (pachimon_id, obtained_at, Json(before)) = row.ok_or(PartyError::PachimonNotOwned)?;
+
+    if before == stat_points {
+        return Ok(());
+    }
+
+    let cost = before.increase_to(stat_points);
+    if cost > 0 {
+        let tickets = player_item_service::deduct(
+            tx,
+            logs,
+            player_id,
+            player_item_service::TRAINING_TICKET_ITEM_ID,
+            cost,
+            ItemReason::SetPachimonStatPoints,
+        )
+        .await?
+        .ok_or(PartyError::InsufficientTrainingTickets)?;
+        diff.record_item(tickets);
+    }
+
+    sqlx::query("UPDATE player_pachimon SET effort_values = ? WHERE player_pachimon_id = ?")
+        .bind(Json(stat_points))
+        .bind(player_pachimon_id)
+        .execute(&mut **tx)
+        .await?;
+
+    logs.record_stat_points(player_id, player_pachimon_id, before, stat_points);
+    diff.record_pachimon(PlayerPachimon {
+        player_pachimon_id: player_pachimon_id.to_string(),
+        player_id: player_id.to_string(),
+        pachimon_id,
+        obtained_at,
+        stat_points,
+    });
     Ok(())
 }

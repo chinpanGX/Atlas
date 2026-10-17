@@ -4,7 +4,7 @@ status: current
 area: conventions
 related: [server/structure, client/error-dialog]
 code: [Shared/errors.toml, Server/src/grpc/context.rs, Server/src/error.rs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Common/ErrorMessages.cs]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # 業務エラー
@@ -26,12 +26,17 @@ updated: 2026-10-11
 |---|---|---|
 | `PLAYER_NOT_FOUND` | 認証が要る全 API(サインアップを除く) | プレイヤーがまだ作られていない。サインインで返ったらサインアップする |
 | `INVALID_PARTY` | `SetParty` | 人数が1〜6体でない、枠が1〜6でない、枠か個体が重複している |
-| `PACHIMON_NOT_OWNED` | `SetParty`・`SetPachimonMove` | 指定した個体が自分の所持個体でない |
+| `PACHIMON_NOT_OWNED` | `SetParty`・`SetPachimonMove`・`SetPachimonStatPoints` | 指定した個体が自分の所持個体でない |
 | `INVALID_MOVE_SLOT` | `SetPachimonMove` | 技の枠が1〜4でない |
 | `MOVE_NOT_LEARNABLE` | `SetPachimonMove` | 技がその個体の技グループの候補技でない |
+| `MOVE_UNCHANGED` | `SetPachimonMove` | その枠に今と同じ技が入っている |
+| `MOVE_ALREADY_LEARNED` | `SetPachimonMove` | 別の枠でその技を覚えている |
+| `INVALID_STAT_POINTS` | `SetPachimonStatPoints` | 負の値がある、または合計が64を超えている |
+| `INSUFFICIENT_TRAINING_TICKETS` | `SetPachimonMove`・`SetPachimonStatPoints` | 育成チケットが足りない |
 | `SCOUT_BANNER_NOT_FOUND` | `Roll` | バナーが無い |
 | `SCOUT_BANNER_CLOSED` | `Roll` | バナーが開催期間外 |
-| `INSUFFICIENT_GEMS` | `Roll` | ジェムが足りない |
+| `INSUFFICIENT_GEMS` | `Roll`・`Purchase` | ジェムが足りない |
+| `SHOP_PRODUCT_NOT_FOUND` | `Purchase` | 商品が無い |
 | `SCOUT_ROLL_NOT_FOUND` | `Select` | ロールが無い、または自分のものでない |
 | `SCOUT_CANDIDATE_OUT_OF_RANGE` | `Select` | 候補の番号が範囲外 |
 | `SCOUT_ROLL_ALREADY_SELECTED` | `Select` | 選択済み(1つのロールでは1回しか選べない) |

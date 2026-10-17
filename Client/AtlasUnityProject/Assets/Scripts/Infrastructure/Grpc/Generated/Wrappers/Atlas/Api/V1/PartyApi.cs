@@ -15,16 +15,19 @@ namespace Atlas.Api.V1
     {
         public const string SetParty = "/atlas.v1.PartyService/SetParty";
         public const string SetPachimonMove = "/atlas.v1.PartyService/SetPachimonMove";
+        public const string SetPachimonStatPoints = "/atlas.v1.PartyService/SetPachimonStatPoints";
     }
 
     /// <summary>
     /// PartyService を ApiCore を通して呼ぶ。
-    /// パーティの編成と、所持パチモンの技の付け替え。
+    /// パーティの編成と、所持パチモンの育成(技の付け替え・ステータスポイントの割り振り)。
+    /// 育成には育成チケット(items マスタの item_id = 2)を使う。
     /// </summary>
     public sealed class PartyApi
     {
         private static readonly RpcSettings setPartySettings = new(PartyServiceMethods.SetParty, isIdempotencyTarget: true, requiresAuth: true);
         private static readonly RpcSettings setPachimonMoveSettings = new(PartyServiceMethods.SetPachimonMove, isIdempotencyTarget: true, requiresAuth: true);
+        private static readonly RpcSettings setPachimonStatPointsSettings = new(PartyServiceMethods.SetPachimonStatPoints, isIdempotencyTarget: true, requiresAuth: true);
 
         private readonly ApiCore core;
         private readonly PartyService.PartyServiceClient client;
@@ -57,10 +60,12 @@ namespace Atlas.Api.V1
         }
 
         /// <summary>
-        /// 所持パチモンの技の枠に、技グループの候補技を入れる(付け替え)。何度でも付け替えられる。
-        /// 既にある枠を付け替えても、割当の ID(player_pachimon_move_id)は変わらない。
-        /// 枠が1〜4でないときは INVALID_MOVE_SLOT、候補技でないときは MOVE_NOT_LEARNABLE、
-        /// 自分の所持個体でないときは PACHIMON_NOT_OWNED を、FAILED_PRECONDITION で返し、何も変えない。
+        /// 所持パチモンの技の枠に、技グループの候補技を入れる(付け替え)。1回につき育成チケットを5枚使う。
+        /// 候補は技グループのすべての技(最初から覚えていた技も含む)。既にある枠を付け替えても、割当の ID(player_pachimon_move_id)は変わらない。
+        /// 次の順に確かめ、当てはまれば FAILED_PRECONDITION で返して何も変えない(チケットも使わない)。
+        /// 枠が1〜4でない → INVALID_MOVE_SLOT、自分の所持個体でない → PACHIMON_NOT_OWNED、候補技でない → MOVE_NOT_LEARNABLE、
+        /// その枠に今と同じ技が入っている → MOVE_UNCHANGED、別の枠でその技を覚えている → MOVE_ALREADY_LEARNED、
+        /// 育成チケットが5枚に足りない → INSUFFICIENT_TRAINING_TICKETS。
         /// </summary>
         public UniTask<ApiResult<global::Atlas.Api.V1.SetPachimonMoveResponse>> SetPachimonMoveAsync(
             global::Atlas.Api.V1.SetPachimonMoveRequest request,
@@ -73,6 +78,26 @@ namespace Atlas.Api.V1
                 handledCodes,
                 static (c, r, options) => c.SetPachimonMoveAsync(r, options));
         }
+
+        /// <summary>
+        /// 所持パチモンのステータスポイントの割り振りを、送った値に変える(割り振りの後の値を送る。64を使い切らなくてよい)。
+        /// 増やしたポイントの合計(能力ごとの max(0, 新しい値 - 今の値) の和)の数だけ育成チケットを使う。減らすのは無料。
+        /// 今と同じ割り振りを送ったときは、チケットを使わず何も変えない(player_diff は無い)。
+        /// 次の順に確かめ、当てはまれば FAILED_PRECONDITION で返して何も変えない。
+        /// 負の値がある・合計が64を超える → INVALID_STAT_POINTS、自分の所持個体でない → PACHIMON_NOT_OWNED、
+        /// 育成チケットが足りない → INSUFFICIENT_TRAINING_TICKETS。
+        /// </summary>
+        public UniTask<ApiResult<global::Atlas.Api.V1.SetPachimonStatPointsResponse>> SetPachimonStatPointsAsync(
+            global::Atlas.Api.V1.SetPachimonStatPointsRequest request,
+            IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null)
+        {
+            return core.InvokeAsync(
+                setPachimonStatPointsSettings,
+                client,
+                request,
+                handledCodes,
+                static (c, r, options) => c.SetPachimonStatPointsAsync(r, options));
+        }
     }
 
     public partial class SetPartyResponse : IHasPlayerDiff
@@ -80,6 +105,10 @@ namespace Atlas.Api.V1
     }
 
     public partial class SetPachimonMoveResponse : IHasPlayerDiff
+    {
+    }
+
+    public partial class SetPachimonStatPointsResponse : IHasPlayerDiff
     {
     }
 }

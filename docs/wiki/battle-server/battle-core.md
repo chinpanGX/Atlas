@@ -4,7 +4,7 @@ status: current
 area: battle-server
 related: [game/battle-rules, battle-server/battle-flow, master-data/tables, client/testing]
 code: [Shared/BattleCore/Runtime, BattleServer/Battle/LoadoutBuilder.cs, Client/AtlasUnityProject/Assets/Scripts/MasterData/PachimonStatCalculator.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Mock/TestPartyFactory.cs]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # バトルの計算(Atlas.BattleCore)
@@ -42,8 +42,8 @@ Section が発火するイベントに反応するハンドラとして足す(Se
 ```
 命中:     1〜100 の乱数 <= 技の命中率
 ダメージ: floor(floor(floor(2 * 50 / 5 + 2) * 威力 * A / D) / 50 + 2) * タイプ一致 * タイプ相性 * 急所 * 乱数
-能力:     HP     = floor((2 * 種族値 + floor(努力値 / 4)) * 50 / 100) + 50 + 10
-          HP 以外 = floor((2 * 種族値 + floor(努力値 / 4)) * 50 / 100) + 5
+能力:     HP     = floor(2 * 種族値 * 50 / 100) + 50 + 10 + ステータスポイント
+          HP 以外 = floor(2 * 種族値 * 50 / 100) + 5 + ステータスポイント
 ```
 
 - A/D は、物理技ならこうげき/ぼうぎょ、特殊技ならとくこう/とくぼう
@@ -52,9 +52,10 @@ Section が発火するイベントに反応するハンドラとして足す(Se
 - PP: 技を選んだ時点で1減る(外れても減る)。PP が0の技を渡されると `ArgumentException` にする(呼び出し側が送らせない前提。Client は押せなくし、
   バトルサーバーは受け付けない)
 - 変化技は現状効果なし
-- レベル50の固定値と能力の式は、バトルサーバーの `LoadoutBuilder` と、Client の `PachimonStatCalculator`(画面表示・Mock 用、努力値なし)の2か所にある
-- 能力の式の `floor(努力値 / 4)` は本家の努力値(最大252)を前提にしたもの。ステータスポイント(64ポイントを能力にそのまま足す)に
-  合わせて変える予定([パーティ編成・育成](../game/party-training.md))
+- レベル50の固定値と能力の式は、バトルサーバーの `LoadoutBuilder` と、Client の `PachimonStatCalculator`(画面表示・Mock 用。ポイントは省略でき、
+  今の呼び出し元は渡していない)の2か所にある
+- ステータスポイント(合計64)は、種族値から計算した値にそのまま足す([パーティ編成・育成](../game/party-training.md))。本家の努力値の
+  `floor(努力値 / 4)` の項は、最大252を前提にした式なので外した。内部 API の型名(`EffortValues`)は努力値のころのまま
 
 ## テスト
 

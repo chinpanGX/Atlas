@@ -8,7 +8,7 @@ reason = "PLAYER_NOT_FOUND"
 action = "title"
 description = "プレイヤーがまだ作られていない。サインインで返ったら SignUp で作る。"
 
-# パーティ編成・技の付け替え
+# パーティ編成・育成(技の付け替え・ステータスポイントの割り振り)
 
 [[errors]]
 reason = "INVALID_PARTY"
@@ -30,6 +30,26 @@ reason = "MOVE_NOT_LEARNABLE"
 action = "stay"
 description = "指定した技が、その個体の技グループの候補技でない。"
 
+[[errors]]
+reason = "MOVE_UNCHANGED"
+action = "stay"
+description = "技の枠に、今と同じ技を入れようとした。育成チケットは使わない。"
+
+[[errors]]
+reason = "MOVE_ALREADY_LEARNED"
+action = "stay"
+description = "指定した技を、その個体が別の枠で覚えている。同じ技を2つは覚えられない。育成チケットは使わない。"
+
+[[errors]]
+reason = "INVALID_STAT_POINTS"
+action = "stay"
+description = "ステータスポイントの割り振りに負の値がある、または合計が64を超えている。"
+
+[[errors]]
+reason = "INSUFFICIENT_TRAINING_TICKETS"
+action = "stay"
+description = "技の付け替え・ステータスポイントの割り振りに使う育成チケットが足りない。"
+
 # スカウト
 
 [[errors]]
@@ -45,7 +65,7 @@ description = "指定したバナーが開催期間外。"
 [[errors]]
 reason = "INSUFFICIENT_GEMS"
 action = "stay"
-description = "ロールに使うジェムが足りない。"
+description = "スカウトのロール・ショップの購入に使うジェムが足りない。"
 
 [[errors]]
 reason = "SCOUT_ROLL_NOT_FOUND"
@@ -61,6 +81,13 @@ description = "選んだ候補の番号が、ロールの候補の範囲外。"
 reason = "SCOUT_ROLL_ALREADY_SELECTED"
 action = "stay"
 description = "ロールの候補を選択済み。1つのロールでは1回しか選べない。"
+
+# ショップ
+
+[[errors]]
+reason = "SHOP_PRODUCT_NOT_FOUND"
+action = "stay"
+description = "指定した商品が無い。"
 
 # マッチング
 

@@ -30,8 +30,8 @@ MySQL。唯一のデータストアで、書き込むのは APIサーバーだ�
 | `last_responses` | 冪等性の対象の RPC の直前のレスポンス(基盤。1プレイヤー1行) | 冪等性の対象の RPC・サインアップ | 同上 |
 | `game_logs` | ゲームログ(所持データの変化の履歴。基盤。[ゲームログ](../server/game-log.md)) | 所持データを変える RPC・内部 API の `ReportResult` | 同上 |
 | `players` | プレイヤー | `SignUp` | 同上 |
-| `player_items` | 所持アイテム(ジェム等)の数 | サインアップ・スカウト・対戦の結果・開発用 | 同上 |
-| `player_pachimon` | 所持しているパチモンの個体 | サインアップ・スカウト・開発用 | 同上 |
+| `player_items` | 所持アイテム(ジェム・育成チケット)の数 | サインアップ・スカウト・ショップ・育成・対戦の結果・開発用 | 同上 |
+| `player_pachimon` | 所持しているパチモンの個体 | サインアップ・スカウト・ステータスポイントの割り振り・開発用 | 同上 |
 | `player_pachimon_moves` | 個体が覚えている技(1個体4行まで) | サインアップ・スカウト・技の付け替え・開発用 | 同上 |
 | `player_party_slots` | パーティの編成(1プレイヤー6行まで) | サインアップ・パーティ編成・開発用 | 同上 |
 | `scout_banners` | スカウトのバナー(値段・期間) | `seed_master_data` | [スカウト](scout-tables.md) |
@@ -39,7 +39,7 @@ MySQL。唯一のデータストアで、書き込むのは APIサーバーだ�
 | `scout_rolls` | スカウトの紹介と選択の記録 | `Roll`・`Select` | 同上 |
 | `battle_matches` | 対戦 | マッチ成立・結果報告・後始末 | [対戦](battle-tables.md) |
 | `battle_turns` | 対戦の行動ログ | 結果報告 | 同上 |
-| `pachimon`・`moves`・`move_groups`・`move_group_moves`・`starter_party_slots`・`items` | マスタ | `seed_master_data` | [マスターデータのテーブル](../master-data/tables.md) |
+| `pachimon`・`moves`・`move_groups`・`move_group_moves`・`starter_party_slots`・`items`・`shop_products` | マスタ | `seed_master_data` | [マスターデータのテーブル](../master-data/tables.md) |
 
 ## 基盤のテーブル
 

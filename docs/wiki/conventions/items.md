@@ -4,7 +4,7 @@ status: current
 area: conventions
 related: [game/gems, db/player-tables, master-data/tables, conventions/player-diff]
 code: [Server/src/service/player_item_service.rs, Shared/master-data/csv/items_master.csv]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # 所持リソース(アイテム)
@@ -19,7 +19,7 @@ updated: 2026-10-11
 | `item_id` | アイテム | 状態 |
 |---|---|---|
 | 1 | ジェム | 使っている(サーバーの定数 `GEM_ITEM_ID`) |
-| 2 | 育成チケット | マスタだけ。増減の処理は追加予定([ショップ](../game/shop.md)) |
+| 2 | 育成チケット | 使っている(サーバーの定数 `TRAINING_TICKET_ITEM_ID`) |
 
 ## 増減する場所
 
@@ -28,6 +28,9 @@ updated: 2026-10-11
 | プレイヤー作成 | +300 | `PlayerService/SignUp`(`player_service::STARTER_GEMS`) |
 | 対戦の勝利 | +50 | `BattleInternalService/ReportResult`(`battle_service::BATTLE_WIN_REWARD_GEMS`) |
 | 開発用の付与 | +450 | `DebugService/GrantGems` |
+| ショップの購入 | ジェム −50・−450・−800、育成チケット +10・+100・+200 | `ShopService/Purchase`(値段と数は `shop_products`) |
+| 技の付け替え | 育成チケット −5 | `PartyService/SetPachimonMove`(`player_pachimon_service::MOVE_CHANGE_TICKET_COST`) |
+| ステータスポイントの割り振り | 育成チケット −(増やしたポイントの合計) | `PartyService/SetPachimonStatPoints` |
 | スカウトの紹介 | −(バナーの `cost_per_roll`) | `ScoutService/Roll` |
 
 - 増やすときは `INSERT ... ON DUPLICATE KEY UPDATE quantity = quantity + ?` で行が無くても作る

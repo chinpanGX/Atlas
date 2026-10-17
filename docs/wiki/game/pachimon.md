@@ -4,7 +4,7 @@ status: current
 area: game
 related: [master-data/tables, game/party-training, battle-server/battle-core]
 code: [Shared/master-data/csv/pachimon_master.csv, Shared/master-data/csv/moves_master.csv, Shared/master-data/csv/move_group_moves_master.csv]
-updated: 2026-10-11
+updated: 2026-10-17
 ---
 
 # パチモン
@@ -21,7 +21,7 @@ updated: 2026-10-11
 
 - レベルは全員50で固定(経験値で成長する要素は無い)
 - 個体値(同じ種族での能力のばらつき)は無い
-- ステータスポイント64を能力に割り振れる([パーティ編成・育成](party-training.md))。割り振る機能は追加予定で、現状は全員0
+- ステータスポイント64を能力に割り振れる([パーティ編成・育成](party-training.md))。入手したときは全能力0(割り振りの画面は未実装)
 
 ## 技
 

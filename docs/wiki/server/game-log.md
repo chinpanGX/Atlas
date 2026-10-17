@@ -4,7 +4,7 @@ status: current
 area: server
 related: [server/structure, server/internal-api, db/index, game/gems, conventions/items]
 proto: []
-code: [Server/src/service/game_log.rs, Server/src/service/player_item_service.rs, Server/src/service/player_pachimon_service.rs, Server/src/service/player_service.rs, Server/src/service/scout_service.rs, Server/src/service/battle_service.rs, Server/src/grpc/internal_battle.rs, Server/src/config.rs]
+code: [Server/src/service/game_log.rs, Server/src/service/player_item_service.rs, Server/src/service/player_pachimon_service.rs, Server/src/service/player_service.rs, Server/src/service/scout_service.rs, Server/src/service/shop_service.rs, Server/src/service/battle_service.rs, Server/src/grpc/internal_battle.rs, Server/src/config.rs]
 updated: 2026-10-17
 ---
 
@@ -32,10 +32,11 @@ updated: 2026-10-17
 
 | 種別(`kind`) | 対象の ID | 値 | 理由(`reason`) |
 |---|---|---|---|
-| `item`(アイテムの増減) | アイテムの ID | 増減(取得は正、消費は負)・更新後の所持数 | `sign_up`(初期の付与)・`scout_roll`・`battle_reward`(対戦の勝利の報酬)・`debug`(開発用の API) |
+| `item`(アイテムの増減) | アイテムの ID | 増減(取得は正、消費は負)・更新後の所持数 | `sign_up`(初期の付与)・`scout_roll`・`shop_purchase`(払ったジェムと受け取ったアイテムの2件)・`set_pachimon_move`・`set_pachimon_stat_points`(使った育成チケット)・`battle_reward`(対戦の勝利の報酬)・`debug`(開発用の API) |
 | `pachimon`(パチモンの入手) | 個体の ID | `pachimon_id`(種族)・`move_ids`(入手した時点の技。枠の順) | `sign_up`(初期パーティ)・`scout_select`・`debug`(ランダム編成) |
 | `party`(パーティの変更) | なし | `slots`(変更後の全ての枠の `slot`・`player_pachimon_id`) | `sign_up`(初期パーティ)・`set_party`・`debug`(ランダム編成) |
 | `pachimon_move`(技の付け替え) | 個体の ID | `slot`・`before_move_id`(空いていた枠なら `null`)・`after_move_id` | `set_pachimon_move` |
+| `pachimon_stat_points`(ステータスポイントの割り振り) | 個体の ID | `before_stat_points`・`after_stat_points`(どちらも6能力のポイント) | `set_pachimon_stat_points` |
 | `battle`(対戦の結果) | 対戦の ID | `opponent_id`・`result`(`win`・`lose`・`no_winner`) | `battle_result` |
 
 - 所持データを変えるサービス層の関数が `GameLogCollector` に記録する。サービス層の関数は普通のトランザクションを受け取るので、
@@ -51,4 +52,6 @@ updated: 2026-10-17
 - サインアップの初期の付与は、プレイヤーを作ったとき(作成済みでないとき)だけ残る
 - [後始末](stale-match-cleanup.md)で打ち切った対戦は所持データを変えないので残さない
 
-ショップ・技の付け替え・ステータスポイントでの育成チケットの消費は、機能を作るときに `ItemReason` を足して残す(アイテムの増減の形に合う)。
+- 育成チケットを使う操作は、チケットの増減(`item`)と、何を変えたか(`pachimon_move`・`pachimon_stat_points`)の2件を残す
+- 値の名前に `before`・`after` だけは使えない(`after` は基盤の数量の項目と同じ名前)ので、`before_stat_points` のように何の値かを付ける
+- 今と同じ割り振りを送ったときは何も変えないので残さない

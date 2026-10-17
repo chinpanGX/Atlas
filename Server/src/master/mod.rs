@@ -7,7 +7,7 @@ pub mod scout_banner;
 pub use cache::MasterData;
 pub use generated::{
     Items, MoveGroupMoves, MoveGroups, Moves, Pachimon, PachimonType, Rarity, ScoutBannerRates,
-    ScoutBanners, StarterPartySlots,
+    ScoutBanners, ShopProducts, StarterPartySlots,
 };
 pub use scout_banner::{ScoutBanner, ScoutBannerRate};
 
@@ -27,6 +27,7 @@ const STARTER_PARTY_SLOTS_JSON: &str = include_str!("../../master_data/starter_p
 const ITEMS_JSON: &str = include_str!("../../master_data/items.json");
 const SCOUT_BANNERS_JSON: &str = include_str!("../../master_data/scout_banners.json");
 const SCOUT_BANNER_RATES_JSON: &str = include_str!("../../master_data/scout_banner_rates.json");
+const SHOP_PRODUCTS_JSON: &str = include_str!("../../master_data/shop_products.json");
 
 /// パチモンマスタのJSON文字列をパースする。
 ///
@@ -159,6 +160,47 @@ pub fn seed_scout_banners_data() -> Vec<ScoutBanners> {
 pub fn seed_scout_banner_rates_data() -> Vec<ScoutBannerRates> {
     parse_scout_banner_rates(SCOUT_BANNER_RATES_JSON)
         .expect("master_data/scout_banner_rates.json のパースに失敗しました")
+}
+
+/// ショップの商品マスタのJSON文字列をパースする。
+///
+/// # Errors
+/// JSONの形式が不正な場合に`serde_json::Error`を返す。
+pub fn parse_shop_products(json: &str) -> Result<Vec<ShopProducts>, serde_json::Error> {
+    serde_json::from_str(json)
+}
+
+/// `seed_master_data`コマンドが参照する、埋め込み済みショップの商品マスタのシードデータ。
+///
+/// # Panics
+/// 埋め込み済みJSONのパースに失敗した場合(ビルド成果物の不整合)にpanicする。
+pub fn seed_shop_products_data() -> Vec<ShopProducts> {
+    parse_shop_products(SHOP_PRODUCTS_JSON)
+        .expect("master_data/shop_products.json のパースに失敗しました")
+}
+
+/// ショップの商品マスタの、パイプラインのvalidateで確かめられない決まりを確かめる。
+/// 受け取る数・払う数が1以上で、払うアイテムがジェムであること(購入の失敗をジェム不足の業務エラーで返すため)。
+///
+/// # Errors
+/// 決まりに合わない商品があれば、その`shop_product_id`と理由を返す。
+pub fn validate_shop_products(products: &[ShopProducts]) -> Result<(), String> {
+    for product in products {
+        if product.amount <= 0 || product.cost_amount <= 0 {
+            return Err(format!(
+                "shop_product_id={}: amountとcost_amountは1以上にする",
+                product.shop_product_id
+            ));
+        }
+        if product.cost_item_id != crate::service::player_item_service::GEM_ITEM_ID {
+            return Err(format!(
+                "shop_product_id={}: cost_item_idはジェム(item_id={})にする",
+                product.shop_product_id,
+                crate::service::player_item_service::GEM_ITEM_ID
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -337,6 +379,30 @@ mod tests {
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), items.len());
+    }
+
+    /// 埋め込み済みのショップの商品マスタがパースでき、seed_master_dataの検証を通ることを確認する。
+    #[test]
+    fn test_shop_products_master_data_is_valid() {
+        let products = parse_shop_products(SHOP_PRODUCTS_JSON).expect("パースに成功するはず");
+        assert_eq!(products.len(), 3);
+        validate_shop_products(&products).expect("検証を通るはず");
+    }
+
+    /// 払うアイテムがジェムでない商品・数が0の商品は、検証で弾く。
+    #[test]
+    fn test_validate_shop_products_rejects_invalid_products() {
+        let product = |amount, cost_item_id, cost_amount| ShopProducts {
+            shop_product_id: 1,
+            item_id: 2,
+            amount,
+            cost_item_id,
+            cost_amount,
+        };
+        assert!(validate_shop_products(&[product(10, 1, 50)]).is_ok());
+        assert!(validate_shop_products(&[product(0, 1, 50)]).is_err());
+        assert!(validate_shop_products(&[product(10, 1, 0)]).is_err());
+        assert!(validate_shop_products(&[product(10, 2, 50)]).is_err());
     }
 
     /// 埋め込み済みのスカウトのバナーマスタが、seed_master_dataの検証(日時・期間・重みの合計)を通ることを確認する。

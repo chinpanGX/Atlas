@@ -75,9 +75,9 @@ flowchart LR
 |---|---|---|
 | [遊びの流れとアカウント](game/flow.md) | `current` | コアループ、用語、画面の流れ、ゲストアカウント |
 | [パチモン](game/pachimon.md) | `current` | 種族・タイプ・能力・個体・技 |
-| [パーティ編成・育成](game/party-training.md) | `current` | 編成、技の付け替え、ステータスポイント(追加予定) |
+| [パーティ編成・育成](game/party-training.md) | `current` | 編成、技の付け替え、ステータスポイント(どちらも画面は未実装) |
 | [スカウト](game/scout.md) | `current` | 候補10体から1体を選ぶ抽選 |
-| [ショップ(追加予定)](game/shop.md) | `planned` | ジェムで育成チケットを買う |
+| [ショップ(画面は未実装)](game/shop.md) | `current` | ジェムで育成チケットを買う |
 | [対戦のルール](game/battle-rules.md) | `current` | マッチング・選出・ターン・ダメージ・勝敗 |
 | [ジェム](game/gems.md) | `current` | 増減のきっかけと量 |
 | [対象外にしたもの](game/out-of-scope.md) | `current` | 小さなルールにするために入れていないもの |
@@ -100,8 +100,9 @@ flowchart LR
 | [ゲームログ](server/game-log.md) | `current` | 所持データの変化の履歴(何を、どの形で残すか) |
 | [認証](server/auth.md) | `current` | デバイス認証、`battle_token`、内部 API のシークレット |
 | [プレイヤー](server/player.md) | `current` | サインアップ・サインイン |
-| [パーティ編成・技の付け替え](server/party.md) | `current` | `SetParty`・`SetPachimonMove` |
+| [パーティ編成・育成](server/party.md) | `current` | `SetParty`・`SetPachimonMove`・`SetPachimonStatPoints` |
 | [スカウト(API)](server/scout.md) | `current` | `ListBanners`・`Roll`・`Select` |
+| [ショップ(API)](server/shop.md) | `current` | `ListProducts`・`Purchase` |
 | [マッチング](server/matchmaking.md) | `current` | メモリの待機列とポーリング |
 | [内部API](server/internal-api.md) | `current` | バトルサーバー向けの3つの RPC |
 | [結果報告が届かない対戦の後始末](server/stale-match-cleanup.md) | `current` | 定期的な打ち切り |

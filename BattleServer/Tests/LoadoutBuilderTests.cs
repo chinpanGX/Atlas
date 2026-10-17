@@ -30,14 +30,16 @@ namespace Atlas.BattleServer.Tests
         }
 
         [Fact]
-        public void Build_AppliesEffortValues()
+        public void Build_AddsStatPointsToStats()
         {
-            // floor((2*98 + floor(252/4)) * 50 / 100) + 5 = floor(259 * 0.5) + 5 = 134
-            var loadout = LoadoutBuilder.Build(Database, new OwnedPachimon(1031, NoEffort with { Speed = 252, Hp = 4 }, [33]));
+            // ステータスポイントは能力の値にそのまま足す
+            // すばやさ: floor(2*98 * 50 / 100) + 5 + 32 = 98 + 5 + 32 = 135
+            // HP: floor(2*92 * 50 / 100) + 50 + 10 + 1 = 92 + 60 + 1 = 153
+            var loadout = LoadoutBuilder.Build(Database, new OwnedPachimon(1031, NoEffort with { Speed = 32, Hp = 1 }, [33]));
 
-            Assert.Equal(134, loadout.Stats.Speed);
-            // floor((2*92 + 1) * 50 / 100) + 50 + 10 = 92 + 60 = 152(EV4は切り捨てで変わらない)
-            Assert.Equal(152, loadout.Stats.Hp);
+            Assert.Equal(135, loadout.Stats.Speed);
+            Assert.Equal(153, loadout.Stats.Hp);
+            Assert.Equal(110, loadout.Stats.Atk);
         }
 
         [Fact]
