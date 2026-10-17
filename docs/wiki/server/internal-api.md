@@ -5,7 +5,7 @@ area: server
 related: [server/auth, server/stale-match-cleanup, battle-server/api-integration, db/battle-tables]
 proto: [Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/grpc/internal_battle.rs, Server/src/service/battle_service.rs, Server/src/service/player_pachimon_service.rs, Server/src/grpc.rs]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # 内部API(バトルサーバー向け)
@@ -22,7 +22,7 @@ updated: 2026-10-17
 `player_id` → `pachimon`(`player_pachimon_id`・`pachimon_id`)
 
 - バトルサーバーが参加を受け付けたときに呼ぶ。パーティの枠番号の順(未編成の枠は含まないため0〜6件)
-- 選出画面で見せるのはどのパチモンかだけなので、努力値・技は返さない
+- 選出画面で見せるのはどのパチモンかだけなので、ステータスポイント・技は返さない
 
 ## GetLoadouts
 

@@ -4,7 +4,7 @@ status: current
 area: battle-server
 related: [game/battle-rules, battle-server/contracts, battle-server/api-integration, server/auth, client/battle-screen]
 code: [BattleServer/Battle/BattleCoordinator.cs, BattleServer/Battle/BattleSession.cs, BattleServer/Battle/BattleTimingOptions.cs, BattleServer/Hubs/BattleHub.cs, BattleServer/Auth/BattleTokenValidator.cs]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # 対戦の進行
@@ -88,7 +88,10 @@ stateDiagram-v2
 - 猶予中に同じトークンで `JoinAsync` し直せば再開する。トークンの有効期限(30秒)は猶予より短いため、再接続に限り期限切れ(署名は正当)の
   トークンを受け付ける。新規の参加では期限切れを受け付けない
 - 専用の再同期のメソッドは設けず、再接続した人にだけ現在の状態を送り直す(選出中なら `OnSelectionStart`、対戦中なら `OnMatchStart`)。
-  Client は受け取った内容で初期化するため、そのまま復元になる。ターンのタイマーは30秒からやり直す
+  Client は受け取った内容で初期化するため、そのまま復元になる。ターンのタイマーは、両者がそろっていれば30秒からやり直す
+- 盤面だけではターンの途中の状態が戻らないため、`OnMatchStart` には次の3つも入れる(対戦開始時は空・false)
+  - 強制交代を求められている側(強制交代ターンなら)。無いと、強制交代ターンの途中で戻った側が交代先の選択や相手の交代待ちを出せない
+  - このターンの行動を送信済みか。送信済みの側にもう一度行動を選ばせると、サーバーが「送信済み」で弾くため
+  - 相手が切断して猶予中か。両者とも切断し、先に戻った側には `OnOpponentDisconnected` が届かないため
 - 猶予中に戻らなければ、切断した側の負け
-- Client の再接続(切断を検知して参加し直す処理)は未実装。強制交代ターンの途中で再接続したときの状態の伝え方も未確定
-  (`OnMatchStart` に強制交代の状態が無い。[未確定・保留](../open-questions.md))
+- Client は接続の切断を検知して、同じトークンで参加し直す([バトル画面](../client/battle-screen.md))

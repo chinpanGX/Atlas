@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/navigation, client/assemblies, client/battle-screen, client/services-and-player-data]
 code: [Client/AtlasUnityProject/Assets/Scripts/Presentation]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # 画面の構成(View / Presenter)
@@ -40,8 +40,8 @@ updated: 2026-10-17
 ## 画面をまたぐ通知
 
 - 同じ画面の中の通知は、R3 の `Observable` を直接購読するだけにする(pub/sub は使わない)
-- どの画面から・どの画面へと決まらない通知(トースト等)だけ、Supplement の `IMessageBroker` を使う。実装(`GlobalMessageBroker`)は型ごとの
-  静的なチャンネルに委譲するだけなので、どのスコープで解決しても同じチャンネルにつながる。登録は Root で1回。メッセージは `struct` で、
+- どの画面から・どの画面へと決まらない通知(トースト等)だけ、Supplement の `IMessageBroker` を使う。Root で `RegisterMessageBroker()` により
+  アプリ全体で共有する `MessageBroker.Default` を登録するので、どのスコープで解決しても同じチャンネルにつながる。メッセージは `struct` で、
   通知の内容を表す名前にする(画面名は付けない)
 - いま使っているメッセージは `ItemQuantityChanged`(所持アイテムの数が変わった)だけ。`ItemRepository` が送り、グローバルヘッダーと育成画面が受けて所持数を出し直す
 - Push した画面から結果を受け取るのは `WaitForPopAsync` で行い、`IMessageBroker` は使わない

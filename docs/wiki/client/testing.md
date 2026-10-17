@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/services-and-player-data, battle-server/testing-and-bot, battle-server/battle-core]
 code: [Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Mock, Client/AtlasUnityProject/Assets/Scripts/Tests, Client/AtlasUnityProject/Assets/Scripts/DI/RootLifetimeScope.cs]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # テストとサーバー無しでの動作
@@ -23,7 +23,7 @@ updated: 2026-10-17
   `RootLifetimeScope` の Inspector(`Use Battle Server`)で切り替える。オンで実サーバー、オフで Mock
 - `MockBattleConnection` は BattleCore をクライアントの中で動かし、相手は簡易 AI にする(技はランダム、自分から交代しない、強制交代は先頭の控え)。
   プレイヤーの強制交代ターンでは行動せず、自分の強制交代はプレイヤーを待たずに処理する
-- Mock のパーティは `TestPartyFactory` がマスタから作る(努力値なし)
+- Mock のパーティは `TestPartyFactory` がマスタから作る(ステータスポイントは割り振っていない扱い)
 - `TestRootLifetimeScope` は、`Use Battle Server` に関わらず常に Mock にする
 
 ## テスト

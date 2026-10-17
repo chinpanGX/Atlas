@@ -3,7 +3,7 @@ title: "未確定・保留"
 status: open
 area: root
 related: [game/party-training, game/shop, client/error-dialog, battle-server/battle-flow, master-data/pipeline]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # 未確定・保留
@@ -23,7 +23,6 @@ updated: 2026-10-17
 | 論点 | 関係するページ |
 |---|---|
 | 通信中の Loading をすべての通信で自動にするか。捕まえ漏れの例外の通知 | [通信エラーのダイアログ](client/error-dialog.md) |
-| Client の再接続と、強制交代ターンの途中で再接続したときの状態の伝え方(`OnMatchStart` に強制交代の状態が無い) | [対戦の進行](battle-server/battle-flow.md) |
 | 対戦結果(勝敗・報酬)を Home へ戻ったときにどう見せるか | [バトル画面](client/battle-screen.md) |
 | マスターデータの Client への配布を CDN 経由にするか(バージョン管理・差分検知を決めていない) | [マスターデータの生成・配布・運用](master-data/pipeline.md) |
 | 能力の計算式が Client(`PachimonStatCalculator`)とバトルサーバー(`LoadoutBuilder`)の2か所にある | [バトルの計算](battle-server/battle-core.md) |

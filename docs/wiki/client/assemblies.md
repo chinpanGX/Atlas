@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/services-and-player-data, client/scenes-and-scopes, client/screens]
 code: [Client/AtlasUnityProject/Assets/Scripts]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # アセンブリとレイヤー
@@ -38,7 +38,7 @@ flowchart TD
 | `Atlas.Navigation` | `TransitionAwareSceneNavigator`、`ErrorNavigator`(通信エラーの後の画面遷移) | USN, Application, VolTech.Client |
 | `Atlas.Presentation` | View・Presenter・ViewDto(画面単位の型だけ)、`ErrorDialog` | Domain, Application, MasterData, USN, VContainer, R3, LitMotion |
 | `Atlas.DI` | `RootLifetimeScope`/`HomeLifetimeScope`/`BattleLifetimeScope`(構成ルート) | すべて |
-| `Atlas.MasterData` | マスターデータの生成物とローダー、能力の計算(`PachimonStatCalculator`) | (なし) |
+| `Atlas.MasterData` | マスターデータの生成物とローダー、能力の計算(`PachimonStatCalculator`)、技グループから技を引くクエリ(`PachimonMoveLookup`) | (なし) |
 | `Atlas.BattleCore` / `Atlas.BattleContracts` | リポジトリの `Shared/` をローカルパッケージとして参照する | |
 
 - `Atlas.DI` だけが全レイヤーに依存してよい最上位のアセンブリ。シーン単位の `LifetimeScope` はすべてここに置く。
@@ -49,11 +49,17 @@ flowchart TD
 
 ```
 Presentation/
-├── Common/        機能に属さない共通の型(PaletteColor、PachimonTypeNames、ErrorDialog 等)
+├── Common/        機能に属さない共通の型(PaletteColor、PachimonTypeNames、PachimonTypeBadgeView、ErrorDialog 等)
+├── GlobalHeader/  アウトゲームに共通のヘッダー(GlobalHeaderView・GlobalHeaderPresenter)
 ├── Title/
 ├── Home/          HomePage・HomePresenter・HomeViewDto
 │   └── Matchmaking/       Modal(1 Modal = 1フォルダ)
-├── Party/         パーティ編成。ほかの機能でも使う部品(PachimonInfoView 等)もここ
+├── Party/         パーティ編成。ほかの機能でも使う部品(PachimonInfoView・PachimonListView 等)もここ
+├── Training/      育成。TrainingPage・TrainingPresenter・TrainingStatAllocation(割り振りの調整)
+│   ├── Views/     TrainingPage の部品(技・ステータスのタブ)
+│   └── MoveReplace/ DiscardAdjustment/ TicketShortage/
+├── Shop/
+│   └── Confirm/
 ├── Scout/
 │   └── Confirm/
 └── Battle/        BattlePage・BattlePresenter
@@ -63,7 +69,8 @@ Presentation/
 
 - Page は機能名の直下、Modal は機能名の下に Modal ごとのフォルダを切る(namespace は機能名のまま)。Page の部品が多ければ `Views/` にまとめる
 - 他の機能と共用する部品は、最初に作った機能のフォルダに置いたまま参照する
-- prefab は Modal も含めて `Assets/Addressables/Views/{機能名}/` の直下に置く(prefab は1画面1ファイル、C# は1画面4〜5ファイルになるため、C# だけフォルダを切る)
+- prefab は Modal も含めて `Assets/Addressables/Views/{機能名}/` の直下に置く(prefab は1画面1ファイル、C# は1画面4〜5ファイルになるため、C# だけフォルダを切る)。
+  機能をまたぐ部品(`GlobalHeader` 等)の prefab は `Views/Parts/` に置く
 
 ## 採用しなかった案
 

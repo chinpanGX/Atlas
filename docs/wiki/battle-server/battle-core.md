@@ -4,7 +4,7 @@ status: current
 area: battle-server
 related: [game/battle-rules, battle-server/battle-flow, master-data/tables, client/testing]
 code: [Shared/BattleCore/Runtime, BattleServer/Battle/LoadoutBuilder.cs, Client/AtlasUnityProject/Assets/Scripts/MasterData/PachimonStatCalculator.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Mock/TestPartyFactory.cs]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # バトルの計算(Atlas.BattleCore)
@@ -13,7 +13,7 @@ Client の Mock 対戦とバトルサーバーの両方で、同じダメージ�
 
 - `UnityEngine`・MagicOnion・通信の型・マスターデータの生成型のどれにも依存しない。自前の最小の型(`ElementType`、`MoveCategory`、
   `ParticipantStats`、`MoveData` 等)だけを持つ
-- マスタ + 所持データ(努力値)から BattleCore の型への変換は、呼び出し側が持つ(バトルサーバーは `LoadoutBuilder`、Client の Mock は `TestPartyFactory`)
+- マスタ + 所持データ(ステータスポイント)から BattleCore の型への変換は、呼び出し側が持つ(バトルサーバーは `LoadoutBuilder`、Client の Mock は `TestPartyFactory`)
 - 乱数は `IRandomSource`、タイプ相性は `ITypeChart` で外から渡す(テストで固定値に差し替えるため)
 - 入口は `BattleEngine.ProcessTurn(state, player1 の行動, player2 の行動, typeChart, random)` だけ。行動が無い(時間切れ等)側は `null` を渡す
 

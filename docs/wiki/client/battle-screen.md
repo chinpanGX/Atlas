@@ -4,7 +4,7 @@ status: current
 area: client
 related: [game/battle-rules, battle-server/contracts, battle-server/battle-flow, client/screens]
 code: [Client/AtlasUnityProject/Assets/Scripts/Presentation/Battle, Client/AtlasUnityProject/Assets/Scripts/Domain/IBattleConnection.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Realtime]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # バトル画面
@@ -15,7 +15,7 @@ updated: 2026-10-11
 
 ## 流れ
 
-1. Battle シーンで `BattlePage` を開き、画面を先に出してからバトルサーバーに参加する(`JoinAsync`)。参加に失敗したら Home へ戻る
+1. Battle シーンで `BattlePage` を開き、画面を先に出してからバトルサーバーに参加する(`JoinAsync`)。参加に失敗したら、ダイアログで知らせて Home へ戻る
 2. `OnSelectionStart` で選出画面(`SelectionModal`)を開く
 3. 「けってい」で `SubmitSelectionAsync` を送り、「相手の 選出を 待っています…」を出して選出画面のまま待つ。送信に失敗したら、
    選んだ内容を残したまま押し直せるようにする。選ばずに閉じられたら開き直す
@@ -41,6 +41,8 @@ updated: 2026-10-11
 - 相手の枠は、場に出て公開されるまで種族が分からない。一度公開された枠に交代で戻ったときは `RevealedPachimon` が送られないため、
   枠ごとに覚えておき `NewActiveIndex` で引き直す
 - 技の表示・送信は、手元の所持データではなく `OnMatchStart` の `SelfMoves`(バトルサーバーが判定に使う技)を使う
+- 自分の個体の能力(最大 HP・詳細の能力値)は、ステータスポイントが `OnMatchStart` に含まれないため、手元の所持データ(`IPachimonService`)の
+  割り振りを足して計算する。対戦中は育成できないため、バトルサーバーが判定に使う値と食い違わない。手元に無い個体(Mock 対戦)は割り振り0として扱う
 - 残り PP は `SelfMoves` の値から、自分が技を使うたびにローカルで減らす(命中・外れに関わらず1減る)。PP が0の技のボタンは押せなくする
 
 ## 入力と演出
@@ -73,7 +75,36 @@ updated: 2026-10-11
 - 投了は確認の Modal(`ForfeitConfirmModal`)を経て `ForfeitAsync`。決着は `OnBattleEnd` で届くので、結果の表示は投了と共通
 - Modal は演出を流し終えてから出す(強制交代・相手の交代待ち・結果)
 
+## ターンの残り時間
+
+- 画面の上にターンの残り秒数を出す。`OnMatchStart` の `TurnTimeLimitSeconds` から1秒ずつ減らして表示するだけで、時間切れの判定は
+  バトルサーバーが行う
+- サーバーがターンの制限時間を張り直す時点に合わせて数え始める: 対戦の開始・再送(`OnMatchStart`)、ターン結果が届いたとき、
+  相手が戻ったとき(`OnOpponentReconnected`)。ターン結果は演出を流し終えてからではなく、届いた時点から数える(サーバーはその時点から数えているため)
+- どちらかが切断している間はサーバーがターンを止めるため、残り時間も隠す
+
+## 切断と再接続
+
+- 相手の切断中(`OnOpponentDisconnected` 〜 `OnOpponentReconnected`)は、画面上部の帯に「相手の 接続を 待っています…」を出し、
+  入力を止める(猶予中はサーバーがどちらの行動も受け付けないため)
+- 自分の接続が切れたら、`RealtimeBattleConnection` が同じ `battleToken`/`matchId` で接続と参加をやり直す(1・2・4・8秒…の間隔で、
+  サーバーの猶予60秒より短い50秒まで)。その間は「再接続しています…」を出して入力を止める
+  - 黙って途切れた通信にも気付けるよう、MagicOnion のクライアントのハートビート(5秒ごと、10秒で切断扱い)を使う
+  - `AlreadyJoined` はサーバーがまだ前の接続の切断に気付いていないだけなので、待って送り直す。`MatchNotFound`・`InvalidToken` は諦める
+- 参加し直すと、サーバーが今の状態を `OnSelectionStart`/`OnMatchStart` で送り直す。対戦中は、流している演出の後ろに並べてから、盤面と
+  ターンの途中の状態(強制交代を求められているか・行動を送信済みか・相手が切断中か)を置き換え、開いていた交代先の選択は閉じて選び直させる。
+  再送が届くまでは、手元の状態が古い可能性があるため入力を止めたままにする
+- 諦めたら、ダイアログ(「通信が 切れました」)を出して Home へ戻る。決着後は参加し直さない
+
+## 失敗の知らせ方
+
+- バトルサーバーとの通信(MagicOnion)は、APIサーバーの通信の共通処理(`ApiCore`)を通らないため、`BattlePresenter` が自分で扱う。
+  知らせるのは、Bootstrap に常駐する通信エラーのダイアログを `ISystemDialog` として使って出す([通信エラーのダイアログ](error-dialog.md))
+  - 参加の失敗: 理由(トークンの期限切れ・対戦が終わっている・接続できない)を出して Home へ戻る
+  - 選出・行動・投了の送信の失敗: 知らせて画面に留まり、選び直させる(強制交代は交代先の選択を開き直す)。自分の接続が切れたための失敗は、
+    参加し直した後の再送で戻すため出さない
+- マッチングの失敗は API の通信なので、通信の共通処理がダイアログを出す
+
 ## まだ無いもの
 
-- 切断を検知して参加し直す処理(サーバーは再接続に対応済み)
 - 対戦結果(勝敗・報酬)を Home へ戻ったときにどう見せるか([未確定・保留](../open-questions.md))

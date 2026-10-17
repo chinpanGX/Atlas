@@ -5,7 +5,7 @@ area: battle-server
 related: [server/internal-api, server/stale-match-cleanup, battle-server/battle-flow, master-data/pipeline]
 proto: [Shared/proto/atlas/internal/v1/battle.proto]
 code: [BattleServer/Internal/ApiParticipantDataSource.cs, BattleServer/Internal/BattleResultReporter.cs, BattleServer/Program.cs, BattleServer/BattleServer.csproj, BattleServer/Battle/MasterDatabaseFactory.cs]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # APIサーバーとの連携
@@ -20,7 +20,7 @@ updated: 2026-10-11
 | 呼ぶとき | RPC | 使い方 |
 |---|---|---|
 | 参加 | `GetParty` | 選出画面で見せるパーティ |
-| 選出 | `GetLoadouts` | 選出個体の努力値と技。`NOT_FOUND` は「所持していない個体がある」として選出を拒否する |
+| 選出 | `GetLoadouts` | 選出個体のステータスポイントと技。`NOT_FOUND` は「所持していない個体がある」として選出を拒否する |
 | 決着 | `ReportResult` | 結果と行動ログ |
 
 ## 結果報告(`BattleResultReporter`)

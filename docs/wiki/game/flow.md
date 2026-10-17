@@ -4,7 +4,7 @@ status: current
 area: game
 related: [game/scout, game/party-training, game/battle-rules, server/player, client/sign-in]
 code: [Server/src/service/player_service.rs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Home]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # 遊びの流れとアカウント
@@ -37,7 +37,7 @@ updated: 2026-10-17
 | スカウト | ジェムを使ってパチモンを入手する抽選(ガチャ) |
 | パーティ | 対戦に連れていく最大6体 |
 | 育成 | 個体の技を付け替えたり、ステータスポイントを割り振ったりして、対戦向けに調整すること |
-| ステータスポイント | 個体ごとに持つ64ポイント。6つの能力に自由に割り振って能力を上げる(画面は未実装) |
+| ステータスポイント | 個体ごとに持つ64ポイント。6つの能力に自由に割り振って能力を上げる |
 | 育成チケット | ショップでジェムと交換するアイテム。技の付け替え1回で5枚、ステータスポイントは増やした1ポイントにつき1枚使う |
 | ショップ | ジェムでアイテムを購入する場所 |
 | 選出 | 対戦の直前に、パーティから実際に戦わせる3体を選ぶこと |

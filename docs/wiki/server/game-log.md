@@ -5,7 +5,7 @@ area: server
 related: [server/structure, server/internal-api, db/index, game/gems, conventions/items]
 proto: []
 code: [Server/src/service/game_log.rs, Server/src/service/player_item_service.rs, Server/src/service/player_pachimon_service.rs, Server/src/service/player_service.rs, Server/src/service/scout_service.rs, Server/src/service/shop_service.rs, Server/src/service/battle_service.rs, Server/src/grpc/internal_battle.rs, Server/src/config.rs]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # ゲームログ
@@ -51,7 +51,6 @@ updated: 2026-10-17
   `request_id` はリクエストに `x-request-id` があれば付く(今のバトルサーバーは送らない)
 - サインアップの初期の付与は、プレイヤーを作ったとき(作成済みでないとき)だけ残る
 - [後始末](stale-match-cleanup.md)で打ち切った対戦は所持データを変えないので残さない
-
 - 育成チケットを使う操作は、チケットの増減(`item`)と、何を変えたか(`pachimon_move`・`pachimon_stat_points`)の2件を残す
 - 値の名前に `before`・`after` だけは使えない(`after` は基盤の数量の項目と同じ名前)ので、`before_stat_points` のように何の値かを付ける
 - 今と同じ割り振りを送ったときは何も変えないので残さない

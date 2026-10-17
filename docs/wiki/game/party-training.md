@@ -4,7 +4,7 @@ status: current
 area: game
 related: [server/party, client/screens, game/shop, game/flow, open-questions]
 code: [Server/src/service/player_pachimon_service.rs, BattleServer/Battle/LoadoutBuilder.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Party, Client/AtlasUnityProject/Assets/Scripts/Presentation/Training]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # パーティ編成・育成
@@ -50,8 +50,8 @@ updated: 2026-10-17
   - 最初の割り振りも振り直しも同じルールで数えられるようにするため
 - 画面で複数の能力のポイントをまとめて調整してから確定し、そのとき必要な枚数を一度に使う。チケットが足りなければ何も変わらない
 - 64ポイントを使い切らずに確定してよい(残りは後で足せる)。チケットが少ないうちから少しずつ育てられるようにするため
-- 割り振りの API と、バトルサーバーの能力の計算への反映はある([バトルの計算](../battle-server/battle-core.md))。
-  育成画面のステータスのタブで割り振れる。編成画面の能力の表示には、割り振りをまだ足していない
+- 割り振りは育成画面のステータスのタブで行う。割り振った値は、バトルサーバーの能力の計算([バトルの計算](../battle-server/battle-core.md))と、
+  編成画面・対戦画面の能力の表示に反映する
 
 ## 育成画面のワイヤー(案)
 

@@ -3,8 +3,8 @@ title: "通信エラーのダイアログ"
 status: current
 area: client
 related: [conventions/errors, client/sign-in, client/services-and-player-data]
-code: [Client/AtlasUnityProject/Assets/Scripts/Presentation/Common/ErrorDialog.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Common/ErrorMessages.cs, Client/AtlasUnityProject/Assets/Scripts/Navigation/ErrorNavigator.cs, Client/AtlasUnityProject/Assets/Prefabs/ErrorDialog.prefab]
-updated: 2026-10-11
+code: [Client/AtlasUnityProject/Assets/Scripts/Presentation/Common/ErrorDialog.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Common/ISystemDialog.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Common/ErrorMessages.cs, Client/AtlasUnityProject/Assets/Scripts/Navigation/ErrorNavigator.cs, Client/AtlasUnityProject/Assets/Prefabs/ErrorDialog.prefab]
+updated: 2026-10-18
 ---
 
 # 通信エラーのダイアログ
@@ -35,7 +35,9 @@ APIサーバーとの通信のエラーの扱いは gRPC 基盤の `ApiCore` と
   シーンの切り替え中やシーンのスコープが無いときにも出せるようにするため
 - 文言は `ErrorMessages` の表で引き、知らないエラーは「予期しないエラー」として出す。メンテナンスは終了予定を端末の時刻で添える
 - 業務エラーを足したら、`ErrorMessages` に文言を足す
-- 対戦(MagicOnion)の参加失敗・切断は対象外で、`BattlePresenter` が扱う([バトル画面](battle-screen.md))
+- 対戦(MagicOnion)の参加失敗・切断は `ApiCore` を通らないため、`BattlePresenter` が扱う([バトル画面](battle-screen.md))。
+  そのとき出すダイアログもこれを使う。`ErrorDialog` は `ISystemDialog`(タイトル・本文・ボタン1つ)も実装し、`ApiCore` からの呼び出しと
+  重ならないよう、1つずつ順番に出す。別のダイアログを作らないのは、シーンの切り替え中にも出せる置き場所がここだけのため
 
 ## まだ無いもの
 

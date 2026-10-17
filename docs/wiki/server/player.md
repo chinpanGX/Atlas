@@ -2,10 +2,10 @@
 title: "プレイヤー(サインアップ・サインイン)"
 status: current
 area: server
-related: [game/flow, client/sign-in, conventions/player-diff, db/player-tables]
+related: [game/flow, client/sign-in, conventions/player-diff, db/player-tables, server/game-log]
 proto: [Shared/proto/atlas/v1/player.proto, Shared/proto/atlas/v1/player_data.proto]
 code: [Server/src/grpc/player.rs, Server/src/service/player_service.rs, Server/src/service/player_pachimon_service.rs]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # プレイヤー(サインアップ・サインイン)
@@ -23,13 +23,14 @@ updated: 2026-10-11
     `player_party_slots` を作る(全員共通の固定編成)
   - ジェム 300(`player_items`。スカウト2回分で、初回起動の時点でスカウトを試せるようにする)
   - 基盤の冪等性のためにロックする行(`last_responses`)
+- 付与したもの(パチモン・パーティ・ジェム)は理由 `sign_up` で[ゲームログ](game-log.md)に残す
 - 作成したデータは返さない。クライアントは続けて `SignIn` を呼ぶ
 
 ## PlayerService/SignIn
 
 本文なし → `player_id`・`nickname`・`snapshot`(所持データの全件)
 
-- タイトル画面で毎回呼び、所持データの全件(アイテム・個体・技・パーティ)を返す
+- タイトル画面で毎回呼び、所持データの全件(アイテム・個体(ステータスポイントの割り振りを含む)・技・パーティ)を返す
 - クライアントは差分としてではなく、手元のデータを置き換える。そのため `player_diff` ではなく `snapshot` という名前で返す
   ([所持データの差分](../conventions/player-diff.md))
 - プレイヤーが未作成なら `FAILED_PRECONDITION` + `PLAYER_NOT_FOUND`。クライアントはこのときだけ `SignUp` を呼んでから、

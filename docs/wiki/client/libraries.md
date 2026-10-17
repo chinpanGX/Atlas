@@ -4,7 +4,7 @@ status: current
 area: client
 related: [client/assemblies, client/navigation, client/services-and-player-data]
 code: [Client/AtlasUnityProject/Packages/manifest.json, Client/AtlasUnityProject/Assets/packages.config]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # 採用ライブラリ
@@ -23,7 +23,7 @@ updated: 2026-10-17
 | 画面遷移 | UnityScreenNavigator(USN)のフォーク | submodule(`file:`) |
 | 共通ユーティリティ(ローダー、`IMessageBroker` 等) | Supplement(自作) | Git(タグ) |
 | セーブデータ(アカウント情報) | Supplement.MessagePack(自作。MessagePack + LZ4 を AES で暗号化し、HMAC で改ざんを検知) | Git(タグ) |
-| 画面をまたぐ通知 | ZeroMessenger(Supplement の `IMessageBroker` 経由でだけ使う) | NuGetForUnity |
+| 画面をまたぐ通知 | Supplement の `IMessageBroker`(実装 `MessageBroker` は外部のライブラリに依存しない) | Git(タグ) |
 | マスターデータ | MasterMemory + MessagePack | NuGetForUnity |
 | シリアライズ(マスターデータ・対戦の通信・セーブデータ) | MessagePack(本体と Source Generator `MessagePackAnalyzer`) | NuGetForUnity |
 | 対戦の通信 | MagicOnion.Client + YetAnotherHttpHandler + Grpc.Net.Client | OpenUPM + NuGetForUnity + UnityNuGet |

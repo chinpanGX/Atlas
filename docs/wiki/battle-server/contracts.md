@@ -4,7 +4,7 @@ status: current
 area: battle-server
 related: [battle-server/battle-flow, client/battle-screen, game/battle-rules]
 code: [Shared/BattleContracts/Runtime/IBattleHub.cs, Shared/BattleContracts/Runtime/BattlePayloads.cs, Client/AtlasUnityProject/Assets/Scripts/Domain/IBattleConnection.cs]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # 通信契約(Atlas.BattleContracts)
@@ -27,7 +27,7 @@ Client 側の `IBattleConnection` はこれと対になる形で、`RealtimeBatt
 | メソッド | 内容 |
 |---|---|
 | `OnSelectionStart` | 選出の開始。自分のパーティ(個体 ID・種族)、相手のパーティ(種族だけ)、選出数、残り秒数、送信済みか |
-| `OnMatchStart` | 対戦の開始(再接続時の盤面の再送も兼ねる)。自分・相手の選出各枠、場の枠、ターンの制限時間、自分の技と残り PP |
+| `OnMatchStart` | 対戦の開始(再接続時の盤面の再送も兼ねる)。自分・相手の選出各枠、場の枠、ターンの制限時間、自分の技と残り PP。再送用に、強制交代を求められている側・行動を送信済みか・相手が切断中か |
 | `OnTurnResult` | ターンの結果。行動順の各行動(`Move`/`Switch`/`Skip`)と、次のターンで強制交代が要るプレイヤー |
 | `OnBattleEnd` | 決着。勝者の ID(勝者なしは空文字)と理由(`AllFainted`/`Forfeit`/`DisconnectTimeout`) |
 | `OnOpponentDisconnected` / `OnOpponentReconnected` | 相手の切断・再接続 |
@@ -40,7 +40,7 @@ Client 側の `IBattleConnection` はこれと対になる形で、`RealtimeBatt
 - 相手の選出は、場に出るまで種族を送らない(枠の数と瀕死の数は分かる)。一度公開した枠は公開のまま。初めて場に出た枠は、
   交代の結果に `RevealedPachimon` として入れる
 - 技は自分の分だけ送る。Client は手元の所持データではなくこれを表示・送信し、サーバーが判定に使う技と常に一致させる
-- 選出画面で見せる相手のパーティは種族だけ(個体 ID・技・努力値は送らない)
+- 選出画面で見せる相手のパーティは種族だけ(個体 ID・技・ステータスポイントは送らない)
 
 ## 変えるとき
 
