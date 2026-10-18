@@ -24,6 +24,11 @@ jobs:
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git submodule update --init --depth 1 UnityScreenNavigator
+      # Docker のサービスが止まっているイメージがあるので、起動しておく
+      - name: docker
+        run: |
+          if ((Get-Service docker).Status -ne 'Running') { Start-Service docker }
+          docker version
       - uses: actions/cache@v4
         with:
           path: Client/AtlasUnityProject/Library
