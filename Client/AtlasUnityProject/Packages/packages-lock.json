@@ -26,7 +26,7 @@
       "dependencies": {}
     },
     "com.chinpangx.supplement": {
-      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement#v1.5.0",
+      "version": "https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement#v1.5.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
@@ -37,7 +37,7 @@
       "hash": "e69448be2bbc4f936127c0abb1273c0e9e02cf31"
     },
     "com.chinpangx.supplement.messagepack": {
-      "version": "git@github.com:chinpanGX/Supplement.git?path=Assets/Supplement.MessagePack#v1.5.0",
+      "version": "https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement.MessagePack#v1.5.0",
       "depth": 0,
       "source": "git",
       "dependencies": {

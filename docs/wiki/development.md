@@ -344,6 +344,18 @@ make errors-gen   # errors.toml → Unity向けのC#のエラーコード(AtlasE
 | `server.yml` | `make fmt-check`・`cargo clippy --all-targets`・`cargo test`。MySQLはActionsの`services`で起動し、シークレットはダミーの値を渡す |
 | `battle-server.yml` | `dotnet test BattleServer.slnx` |
 | `proto.yml` | `buf lint`。PRではマージ先と比べる`buf breaking`も行う |
+| `client-windows.yml` | ClientのWindowsビルド(IL2CPP)。時間がかかるので、手で実行したとき(Actionsの画面の`Run workflow`。ワークフローが`main`に入ってから出る)と、このワークフロー自体を変えたときだけ走る。できたビルドはArtifact(`Atlas-Windows`、7日で消える)に置く |
+
+`client-windows.yml`は[GameCI](https://game.ci/)の`game-ci/unity-builder`で、Unityのバージョンに合うDockerイメージ
+(`unityci/editor`の`windows-<バージョン>-windows-il2cpp`)を使ってビルドする。IL2CPPのWindowsビルドはWindowsの上でしか
+作れないため、ランナーは`windows-latest`にしている。
+
+- Unityのライセンスを、リポジトリのSecretsに`UNITY_LICENSE`(Hubでアクティベートしたときにできる`C:\ProgramData\Unity\Unity_lic.ulf`の中身)・
+  `UNITY_EMAIL`・`UNITY_PASSWORD`で入れておく。Personalでもアクティベートが要る
+- Unityのバージョンを上げたら、そのバージョンのイメージがあるかを確かめる(新しいバージョンはイメージが出るまで時間がかかる)
+- Addressablesは、プレイヤーのビルドと一緒にビルドされる(Addressablesの設定が「Preferencesに従う」で、その既定値が「一緒にビルドする」)
+- Unityのパッケージとサブモジュールは、CIで鍵なしで取れるようにHTTPSで取る(`manifest.json`のgit URLはHTTPSで書く)
+- ビルドのClientの接続先はコードの`GrpcAddress`のまま(`127.0.0.1`)。手元で動かすサーバーにつながる
 
 ## 8. トラブルシューティング
 
