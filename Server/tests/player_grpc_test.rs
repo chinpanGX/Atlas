@@ -92,6 +92,45 @@ async fn sign_up_twice_returns_existing_player_without_changes(pool: MySqlPool) 
     );
 }
 
+/// 別々のプレイヤーのサインアップが同時に届いても、どれもデッドロックせずに作られる
+/// (player_id は ULID で増える順なので、新しいプレイヤーは表の同じ位置に入る)。
+#[sqlx::test(migrations = false)]
+async fn concurrent_sign_ups_of_different_players_all_succeed(pool: MySqlPool) {
+    prepare_db(&pool).await;
+    let server = TestServer::start(pool).await;
+    let (_, token_a) = server.register_and_issue_token().await;
+    let (_, token_b) = server.register_and_issue_token().await;
+    let (_, token_c) = server.register_and_issue_token().await;
+    let (_, token_d) = server.register_and_issue_token().await;
+
+    let (a, b, c, d) = tokio::join!(
+        server.sign_up(&token_a, "A"),
+        server.sign_up(&token_b, "B"),
+        server.sign_up(&token_c, "C"),
+        server.sign_up(&token_d, "D"),
+    );
+    for result in [a, b, c, d] {
+        result.unwrap();
+    }
+}
+
+/// 同じプレイヤーのサインアップが同時に届いても、作られるのは1回だけ。
+#[sqlx::test(migrations = false)]
+async fn concurrent_sign_ups_of_same_player_create_once(pool: MySqlPool) {
+    prepare_db(&pool).await;
+    let server = TestServer::start(pool).await;
+    let (player_id, token) = server.register_and_issue_token().await;
+
+    let (first, second) = tokio::join!(server.sign_up(&token, "A"), server.sign_up(&token, "B"));
+    let (first, second) = (first.unwrap(), second.unwrap());
+    assert_eq!(first.player_id, player_id);
+    assert_eq!(first.nickname, second.nickname);
+
+    let snapshot = server.sign_in(&token).await.unwrap().snapshot.unwrap();
+    assert_eq!(snapshot.pachimon.len(), 1);
+    assert_eq!(snapshot.items[0].quantity, 300);
+}
+
 #[sqlx::test(migrations = false)]
 async fn sign_up_rejects_invalid_nickname(pool: MySqlPool) {
     prepare_db(&pool).await;

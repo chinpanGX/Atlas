@@ -29,26 +29,35 @@ pub async fn create(
     player_id: &str,
     nickname: &str,
 ) -> Result<Player, AppError> {
-    // 同じプレイヤーのサインアップが同時に届いても、片方だけが作るように行をロックして確かめる
-    let existing: Option<(String, String, chrono::NaiveDateTime)> = sqlx::query_as(
-        "SELECT player_id, nickname, created_at FROM players WHERE player_id = ? FOR UPDATE",
-    )
-    .bind(player_id)
-    .fetch_optional(&mut **tx)
-    .await?;
-    if let Some((player_id, nickname, created_at)) = existing {
-        return Ok(Player {
-            player_id,
-            nickname,
-            created_at,
-        });
-    }
-
-    sqlx::query("INSERT INTO players (player_id, nickname) VALUES (?, ?)")
+    // 先に作ってみて、作れたときだけ初期の付与をする。主キーが重複したら作成済みとみなし、何も変えない
+    // (同じプレイヤーのサインアップが同時に届いても、後の方はその行のロックを待ってから重複になる)。
+    // 「無いことを SELECT ... FOR UPDATE で確かめてから INSERT」にすると、行の無い範囲のロック(ギャップロック)を
+    // 別のプレイヤーのサインアップと取り合ってデッドロックする。player_id は増える順の ULID なので、
+    // 新しいプレイヤーはいつも表の末尾の同じ範囲に入り、同時のサインアップで起きやすい。
+    // ON DUPLICATE KEY UPDATE は、sqlx が CLIENT_FOUND_ROWS で接続するため、作れたかを影響行数で見分けられない。
+    let inserted = sqlx::query("INSERT INTO players (player_id, nickname) VALUES (?, ?)")
         .bind(player_id)
         .bind(nickname)
         .execute(&mut **tx)
-        .await?;
+        .await;
+    match inserted {
+        Ok(_) => {}
+        Err(sqlx::Error::Database(e)) if e.is_unique_violation() => {
+            let (player_id, nickname, created_at): (String, String, chrono::NaiveDateTime) =
+                sqlx::query_as(
+                    "SELECT player_id, nickname, created_at FROM players WHERE player_id = ?",
+                )
+                .bind(player_id)
+                .fetch_one(&mut **tx)
+                .await?;
+            return Ok(Player {
+                player_id,
+                nickname,
+                created_at,
+            });
+        }
+        Err(e) => return Err(e.into()),
+    }
 
     grant_starter_party(tx, logs, master, player_id).await?;
 
