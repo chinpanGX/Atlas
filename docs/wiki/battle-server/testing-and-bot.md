@@ -24,10 +24,10 @@ updated: 2026-10-18
 
 ## 自動対戦のクライアント(BattleBot)
 
-サーバー全体(gRPC・マッチング・BattleServer・結果記録)を、本物のクライアントと同じ経路で通しで確かめるための、自動で対戦するクライアント(`make bot`)。
+サーバー全体(gRPC・マッチング・BattleServer・結果記録)を、本物のクライアントと同じ経路で通しで確かめるための、自動で対戦するクライアント(`BattleServer/`で`dotnet run --project BattleBot`)。
 
 - マッチングで相手がいないときは、10秒待てばサーバーの中のボット(`BattleBotPlayer`)が相手になる([対戦の進行](battle-flow.md))。
-  Unity で1人で対戦を確かめるだけなら、`make bot` は要らない
+  Unity で1人で対戦を確かめるだけなら、BattleBot は要らない
 - `BattleBotPlayer` はこのクライアントを使わない。本番で使えない開発用 API に頼っており、別のプロセスとして起動しておく必要もあるため
 
 - gRPC(Unity と同じ順番でデバイス登録 〜 サインイン)と MagicOnion で自動対戦する

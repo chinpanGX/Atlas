@@ -1,12 +1,15 @@
+# syntax=docker/dockerfile:1
 # バトルサーバー(.NET / MagicOnion)のイメージ。リポジトリのルートを起点にビルドする
 # (Shared/BattleCore・Shared/BattleContracts のソースと、内部APIの .proto(Shared/proto)を使うため)。
-#   docker build -f BattleServer/Dockerfile -t atlas-battle .
+#   docker build -f BattleServer/Dockerfile -t atlas-battle .   (make images・make dev も同じことをする)
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY Shared Shared
 COPY BattleServer BattleServer
-RUN dotnet publish BattleServer/BattleServer.csproj -c Release -o /app
+# NuGet のパッケージをキャッシュに残し、2回目からはダウンロードし直さない
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet publish BattleServer/BattleServer.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app

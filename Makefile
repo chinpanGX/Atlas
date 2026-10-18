@@ -1,4 +1,4 @@
-.PHONY: dev db server battle bot seed stop proto-gen errors-gen
+.PHONY: dev db server battle images seed stop proto-gen errors-gen
 
 # BattleServerはnet10.0。Git BashのPATHではUnity付属の.NET 8 SDKが先に見つかるため、.NET 10 SDKを明示する
 # (別の場所にある場合は `make dev DOTNET=<dotnetのパス>` で上書き)
@@ -33,9 +33,10 @@ errors-gen: voltech-tools
 
 # MySQL起動+マイグレーション → マスタデータの投入 → APIサーバーとBattleServerを並列起動(Ctrl+Cで両方停止)
 # 投入はUPSERTなので毎回流してよい。生成し直したマスタを投入し忘れたまま起動しないようにする
+# クラウドに置くコンテナのイメージも、サーバーの起動を待たせないよう並行してビルドする
 dev: db
 	@$(MAKE) --no-print-directory seed
-	@$(MAKE) --no-print-directory -j2 server battle
+	@$(MAKE) --no-print-directory -j3 server battle images
 
 # MySQLコンテナ起動 + DB起動待ち + マイグレーション(適用済みなら何もしない)
 db:
@@ -55,10 +56,11 @@ battle:
 	INTERNAL_API_SECRET="$(call env_value,INTERNAL_API_SECRET)" \
 	"$(DOTNET)" run --project BattleServer/BattleServer.csproj
 
-# 自動対戦のクライアント(Server・BattleServer起動後に別ターミナルで実行)。相手がいなければサーバーのボットと対戦するので、
-# 普段の確認には要らない。本物のクライアントと同じ経路でサーバー全体を通しで確かめるときに使う
-bot:
-	cd BattleServer && "$(DOTNET)" run --project BattleBot -- --loop
+# クラウドに置くコンテナのイメージ(deploy/compose.yml が使う atlas-api・atlas-battle)をビルドする。
+# 2回目からはキャッシュが効き、変えたところだけをビルドし直す
+images:
+	docker build -f Server/Dockerfile -t atlas-api .
+	docker build -f BattleServer/Dockerfile -t atlas-battle .
 
 # マスタデータをDBへ投入(投入後はServerを再起動する)
 seed:

@@ -28,6 +28,7 @@ services:
     build:
       context: ..
       dockerfile: Server/Dockerfile
+    image: atlas-api
     restart: unless-stopped
     depends_on:
       mysql:
@@ -48,6 +49,7 @@ services:
     build:
       context: ..
       dockerfile: BattleServer/Dockerfile
+    image: atlas-battle
     restart: unless-stopped
     depends_on:
       - api

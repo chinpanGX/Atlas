@@ -61,5 +61,5 @@ C#/MagicOnionのバトルサーバーと、ClientとBattleServerで共有する`
 ### ビルド
 
 - .NET 10 SDKを使う。Git BashのPATHではUnity付属の.NET 8 SDKが先に見つかり、`.slnx`が読めない・`NETSDK1045`になるため、
-  `"C:/Program Files/dotnet/dotnet.exe"`を明示する(`make dev`・`make bot`はそうしている)
+  `"C:/Program Files/dotnet/dotnet.exe"`を明示する(`make dev`はそうしている)
 - BattleServerを起動したままビルドすると、DLLがロックされてコピーに失敗する(MSB3021)。止めてからビルドする

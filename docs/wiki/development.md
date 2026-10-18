@@ -3,7 +3,7 @@ title: "開発環境ガイド"
 status: current
 area: root
 related: [overview, index]
-code: [Makefile, Server/Makefile, Server/docker-compose.yml]
+code: [Makefile, Server/Makefile, Server/docker-compose.yml, Server/Dockerfile, BattleServer/Dockerfile, deploy]
 updated: 2026-10-18
 ---
 
@@ -151,10 +151,10 @@ user-secretsは`dotnet run`(launchSettingsの`http`プロファイル、Developm
 リポジトリ直下の`Makefile`で、下記1)〜3)(MySQL起動+マイグレーション+マスタデータの投入、Server、BattleServer)を1コマンドで行える。
 
 ```bash
-make dev    # MySQL起動+マイグレーション → マスタデータの投入 → Server・BattleServerを並列起動(Ctrl+Cで停止)
+make dev    # MySQL起動+マイグレーション → マスタデータの投入 → Server・BattleServerを並列起動(Ctrl+Cで停止)。コンテナのイメージも並行してビルドする
 make stop   # Ctrl+Cで止まりきらなかったServer・BattleServerのプロセスを強制終了
 make seed   # マスタデータをDBへ投入だけする(make devも毎回行う。起動中のServerには再起動するまで反映されない)
-make bot    # 自動対戦のクライアント(別ターミナル。相手がいなくてもサーバーのボットと対戦できるので、普段は要らない)
+make images # コンテナのイメージ(atlas-api・atlas-battle)をビルドするだけ
 ```
 
 - BattleServerの共有シークレット(`BATTLE_TOKEN_SECRET`・`INTERNAL_API_SECRET`)は`Server/.env`の値を環境変数で渡すため、
@@ -182,6 +182,34 @@ dotnet run                          # http://127.0.0.1:5000
 
 Serverはマスタを起動時に1回だけ読み込む。`seed_master_data`の後はServerを再起動する。
 
+### コンテナ(クラウドに置くもの)
+
+普段の開発は`make dev`(Serverは`cargo run`、BattleServerは`dotnet run`)で行い、コンテナはテスト用のクラウドのVMで動かすためだけに使う。
+`cargo run`・`dotnet run`のほうがビルドが速く、デバッガもつなげるため。
+
+| ファイル | 内容 |
+|---|---|
+| `Server/Dockerfile` | APIサーバーのイメージ(`atlas-api`)。マスタの投入(`seed_master_data`)も同じイメージに入れる(マスタのJSONはバイナリに埋め込み済み) |
+| `BattleServer/Dockerfile` | バトルサーバーのイメージ(`atlas-battle`) |
+| `deploy/compose.yml` | VM 1台で、MySQL・APIサーバー・バトルサーバーと、TLSを受け持つCaddyを動かす。外に開けるのはCaddyの80・443だけ |
+| `deploy/Caddyfile` | ドメインごとに、APIサーバー・バトルサーバーへ渡す(TLSをここで終わらせ、中はTLS無しのHTTP/2) |
+| `deploy/.env.example` | ドメイン・シークレットの見本 |
+
+- イメージは`make dev`が並行してビルドする(`make images`だけでもよい)。どちらのDockerfileも、リポジトリのルートを起点にビルドする
+  (`Shared/proto`などをServerとBattleServerの両方が使うため)。キャッシュが効くので、2回目からは変えたところだけをビルドし直す
+- イメージのビルドに失敗しても、`make dev`のServer・BattleServerはそのまま動き続ける(エラーはターミナルに出る)
+- VMでの起動:
+
+```bash
+cd deploy
+cp .env.example .env                       # ドメイン・シークレットを埋める(.envはgitに入れない)
+cp ../Server/config/server_status.toml .   # メンテナンス・最低バージョンの設定(gitに入れない)。先にコピーしないと、Dockerが同名のフォルダを作ってしまう
+docker compose up -d --build
+docker compose run --rm api seed_master_data   # マスタの投入。マスタを変えたら流し、docker compose restart api で読み直させる
+```
+
+- 開発用API(`DebugService`)は無効にしてある。BattleBotは開発用APIでパーティを組むため、VMのサーバーには使えない
+
 ### 対戦(実サーバー)の確認方法
 
 ClientはマッチングをServer、対戦をBattleServerへ接続して行う(サーバー無しで対戦する仕組みは無い)。
@@ -190,13 +218,13 @@ ClientはマッチングをServer、対戦をBattleServerへ接続して行う(�
 | 方法 | 手順 | 向いている用途 |
 |---|---|---|
 | A. サーバーのボット | UnityでBattleボタンを押して10秒待つ(相手が来なければ、BattleServerの中のボットが相手になる) | 普段の動作確認(Editor 1つでよく、何も起動し足さなくてよい) |
-| B. 自動対戦のクライアント | リポジトリ直下で `make bot`(別ターミナル)を起動しておき、UnityでBattleボタンを押す | 本物のクライアントと同じ経路の相手で確かめたいとき |
+| B. 自動対戦のクライアント | 別ターミナルで BattleBot を起動しておき(下記)、UnityでBattleボタンを押す | 本物のクライアントと同じ経路の相手で確かめたいとき |
 | C. Multiplayer Play Mode | Window > Multiplayer > Multiplayer Play Mode で追加のEditorインスタンス(Player 2)を有効にし、両方でBattleボタンを押す | 両方の画面を見ながら確認したいとき |
 | D. ビルド+Editor | スタンドアロンビルドを起動し、EditorとそれぞれでBattleボタンを押す(ビルドを複数起動するなら `-saveSlot 2` 等を付ける) | 最終確認 |
 
 - B〜Dで人どうし(またはBattleBot)を組ませたいときは、両方が10秒以内に並ぶ。遅れるとサーバーのボットと組まれる
 
-- `make bot`は`make dev`と同じく.NET 10 SDKを明示して`dotnet run --project BattleBot -- --loop`を実行する
+- BattleBotは`BattleServer/`で、.NET 10 SDKを明示して起動する: `"C:/Program Files/dotnet/dotnet.exe" run --project BattleBot -- --loop`
   (素の`dotnet`はGit BashのPATHでUnity付属の.NET 8 SDKが先に見つかり、`NETSDK1045`で失敗することがある)
 - ボットの引数: `--loop`(対戦が終わるたびに再びマッチングに並ぶ)、`--count N`(N体同時に動かす。`--count 2`でボット同士が
   対戦し、Unity無しでマッチング・BattleServer・結果記録を通しで確認できる)、`--api <URL>`(APIサーバーのgRPC。既定`http://127.0.0.1:50052`)。
