@@ -2,19 +2,19 @@
 title: "概要(ゲームとシステムの全体像)"
 status: current
 area: root
-related: [game/index, conventions/index, server/structure, client/index, battle-server/index]
+related: [index, features/index, conventions/index, server/structure, client/index, battle-server/index]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/main.rs, Server/src/grpc.rs, BattleServer/Program.cs, Client/AtlasUnityProject/Assets/Scripts/DI/RootLifetimeScope.cs]
 updated: 2026-10-18
 ---
-
+o
 # 概要(ゲームとシステムの全体像)
 
 ## ゲーム
 
 「パチモン」と呼ぶモンスターを集めてパーティを組み、ほかのプレイヤーとリアルタイムで1対1の対戦をするゲーム。
 会員登録は無く、初回起動時に端末ごとのゲストアカウントで始まる。本家ポケモンの対戦ルールから、天候・フィールド・持ち物・
-特性・技の追加効果などを外した、小さなルールで遊ぶ。ルールの詳細は [ゲームの仕様](game/index.md)。
+特性・技の追加効果などを外した、小さなルールで遊ぶ。画面とルールは [ゲーム紹介](features/index.md)。
 
 ## システム構成
 
@@ -47,6 +47,18 @@ APIサーバー(Rust/tonic)        バトルサーバー(C#/MagicOnion)
 | Client ⇔ バトルサーバー | MagicOnion StreamingHub(HTTP/2) | `battle_token`(JWT) | 対戦(選出・行動・結果の受信) | [通信契約](battle-server/contracts.md) |
 | バトルサーバー → APIサーバー | gRPC(`atlas.internal.v1.BattleInternalService`)。クライアント向けとは別のポート | メタデータ `x-internal-secret` | パーティ・選出個体の取得、結果報告 | [内部API](server/internal-api.md) |
 
+## 技術の見どころ
+
+| テーマ | 内容 | 読むページ |
+|---|---|---|
+| サーバー権威のリアルタイム対戦 | 判定はバトルサーバーだけが持ち、HP は%で、相手の選出は場に出るまで送らない。切断から60秒以内なら自動でつなぎ直して続きから再開できる | [対戦](features/battle.md)・[対戦の進行](battle-server/battle-flow.md)・[通信契約](battle-server/contracts.md) |
+| 計算ロジックの共有 | ダメージ計算・ターン処理を Unity とサーバーで同じソースにする。技の効果はイベントのハンドラで足せる構造 | [バトルの計算](battle-server/battle-core.md) |
+| 自作の gRPC 基盤 | デバイス認証・エラーのダイアログ・再送しても一度だけ処理する仕組みを基盤に寄せ、アプリは `.proto` と業務処理だけを書く | [APIサーバーの構成](server/structure.md)・[サービスと所持データ](client/services-and-player-data.md) |
+| 所持データの差分の共通化 | 所持データを変える API は同じ形の差分(`player_diff`)を返し、クライアントは種別ごとに反映する | [所持データの差分](conventions/player-diff.md) |
+| DB の書き込みを1か所に | バトルサーバーは DB を持たず、内部 API で取得・報告する。報告の二重実行・届かない報告の後始末まで扱う | [内部API](server/internal-api.md)・[後始末](server/stale-match-cleanup.md) |
+| オニオンアーキテクチャの Unity クライアント | asmdef で依存の向きを強制し、Presenter は実装を知らない。テストは送り先だけを偽のサーバーに差し替える | [アセンブリとレイヤー](client/assemblies.md) |
+| マスターデータの生成パイプライン | スキーマと CSV を正本に、Rust・C# の型とデータを自作ツールで生成する | [マスターデータの生成・配布・運用](master-data/pipeline.md) |
+
 ## リポジトリ構成
 
 | パス | 内容 |
@@ -61,7 +73,7 @@ APIサーバー(Rust/tonic)        バトルサーバー(C#/MagicOnion)
 | `Shared/errors.toml` | APIサーバーの業務エラー(domain `atlas`。正本)([業務エラー](conventions/errors.md)) |
 | `master-data-pipeline/`(submodule) | マスターデータの生成ツール(自作) |
 | `UnityScreenNavigator/`(submodule) | 画面遷移ライブラリ(USN)のフォーク |
-| `docs/` | この wiki と、元になった仕様概要書・設計書・構想・メモ |
+| `docs/` | この wiki(機能ページ・技術資料・画面の画像)と、元になった仕様概要書・設計書・構想・メモ |
 
 ### 生成物とその正本
 

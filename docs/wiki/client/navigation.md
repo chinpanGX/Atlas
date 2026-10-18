@@ -2,9 +2,9 @@
 title: "画面遷移"
 status: current
 area: client
-related: [client/screens, client/scenes-and-scopes, client/libraries]
+related: [client/screens, client/scenes-and-scopes, tech-stack]
 code: [Client/AtlasUnityProject/Assets/Scripts/Navigation, UnityScreenNavigator]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # 画面遷移

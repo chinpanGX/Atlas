@@ -2,10 +2,10 @@
 title: "マッチング"
 status: current
 area: server
-related: [game/battle-rules, server/auth, server/internal-api, client/services-and-player-data, db/battle-tables, battle-server/battle-flow]
+related: [features/battle, server/auth, server/internal-api, client/services-and-player-data, db/index, battle-server/battle-flow]
 proto: [Shared/proto/atlas/v1/matchmaking.proto]
 code: [Server/src/grpc/matchmaking.rs, Server/src/service/matchmaking_service.rs, Server/src/service/bot_player_service.rs, Server/src/service/battle_service.rs, Server/src/main.rs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/BattleMatchMaker.cs]
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # マッチング
@@ -68,14 +68,15 @@ DB に置かず、`AppState` のメモリに `Mutex<MatchmakingQueue>` で持つ
 
 ### ボットのプレイヤー
 
-- ボットは `players` に行を持つ普通のプレイヤーで、`bot_players` に載せて区別する([対戦のテーブル](../db/battle-tables.md))。
+- ボットは `players` に行を持つ普通のプレイヤーで、`bot_players` に載せて区別する([DB](../db/index.md#bot_players))。
   普通のプレイヤーにしたのは、`battle_matches` の外部キー・内部 API の `GetParty`・`GetLoadouts`・`ReportResult`・勝利報酬を、
   人との対戦と同じに使えるため
 - デバイスを紐付けないので、クライアントからボットとしてサインインすることはできない
 - `bot_players` が10人に届くまでは対戦のたびに新しく作り(`bot_player_service::pick`)、届いた後は10人からランダムに選ぶ。
   毎回作ると、対戦のたびにプレイヤーと所持データの行が増えていくため
 - パーティは作ったときにマスタからランダムに組み(開発用 API の `RandomizeParty` と同じ処理)、その後は組み直さない。
-  ボットの所持データの差分・ゲームログは残さない(返す先が無く、プレイヤーの行動でもないため)
+  作るときの所持データの差分・ゲームログは残さない(返す先が無く、プレイヤーの行動でもないため)。対戦の結果と勝利報酬のゲームログは、
+  `ReportResult` が人と同じにボットにも残す([ゲームログ](game-log.md))
 - 勝利報酬は人との対戦と同じに付く(ボットが勝てばボットにも付く)
 
 ## 通知はポーリング

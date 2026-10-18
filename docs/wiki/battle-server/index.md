@@ -13,9 +13,9 @@ ASP.NET Core + MagicOnion(C#)。対戦の進行だけを受け持ち、状態は
 
 ## ページ
 
-- [構成](structure.md) — プロジェクト、クラスの役割、共有ソースの持ち方
-- [バトルの計算(Atlas.BattleCore)](battle-core.md) — Section とイベントの構造、ダメージ・能力の式
+- [構成](structure.md) — プロジェクト、クラスの役割、実装の決まり(Gate・エラーの使い分け)、共有ソースの持ち方
+- [バトルの計算(Atlas.BattleCore)](battle-core.md) — 依存と入口、Section とイベントの構造、ダメージ・能力・技の扱い
 - [通信契約(Atlas.BattleContracts)](contracts.md) — Hub と Receiver、情報の見せ方
-- [対戦の進行](battle-flow.md) — フェーズ、参加・選出・ターン・強制交代、決着と時間切れ、切断と再接続、ボットとの対戦
+- [対戦の進行](battle-flow.md) — 制限時間、参加・選出・ターン・強制交代、決着、切断と再接続、ボットとの対戦
 - [APIサーバーとの連携](api-integration.md) — 内部 API の呼び出し、結果報告の再送、マスターデータ
-- [テストとボット](testing-and-bot.md) — xUnit の結合テスト、自動対戦のクライアント
+- [テストとボット](testing-and-bot.md) — BattleCore の NUnit、バトルサーバーの xUnit、自動対戦のクライアント(BattleBot)

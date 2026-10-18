@@ -2,7 +2,7 @@
 title: "プレイヤー(サインアップ・サインイン)"
 status: current
 area: server
-related: [game/flow, client/sign-in, conventions/player-diff, db/player-tables, server/game-log]
+related: [features/account, client/sign-in, conventions/player-diff, db/index, server/game-log]
 proto: [Shared/proto/atlas/v1/player.proto, Shared/proto/atlas/v1/player_data.proto]
 code: [Server/src/grpc/player.rs, Server/src/service/player_service.rs, Server/src/service/player_pachimon_service.rs]
 updated: 2026-10-18

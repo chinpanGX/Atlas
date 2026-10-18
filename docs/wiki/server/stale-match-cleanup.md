@@ -2,7 +2,7 @@
 title: "結果報告が届かない対戦の後始末"
 status: current
 area: server
-related: [server/internal-api, battle-server/api-integration, db/battle-tables]
+related: [server/internal-api, battle-server/api-integration, db/index]
 code: [Server/src/service/battle_service.rs, Server/src/main.rs]
 updated: 2026-10-11
 ---

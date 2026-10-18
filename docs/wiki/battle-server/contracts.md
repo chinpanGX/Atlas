@@ -2,7 +2,7 @@
 title: "通信契約(Atlas.BattleContracts)"
 status: current
 area: battle-server
-related: [battle-server/battle-flow, client/battle-screen, game/battle-rules]
+related: [battle-server/battle-flow, client/battle-screen, features/battle]
 code: [Shared/BattleContracts/Runtime/IBattleHub.cs, Shared/BattleContracts/Runtime/BattlePayloads.cs, Client/AtlasUnityProject/Assets/Scripts/Domain/IBattleConnection.cs]
 updated: 2026-10-18
 ---

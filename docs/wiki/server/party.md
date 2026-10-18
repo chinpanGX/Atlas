@@ -2,10 +2,10 @@
 title: "パーティ編成・育成"
 status: current
 area: server
-related: [game/party-training, db/player-tables, conventions/player-diff, conventions/items, server/game-log]
+related: [features/party-training, db/index, conventions/player-diff, conventions/items, server/game-log]
 proto: [Shared/proto/atlas/v1/party.proto]
 code: [Server/src/grpc/party.rs, Server/src/service/player_pachimon_service.rs, Server/src/model/player_pachimon.rs]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # パーティ編成・育成
@@ -41,7 +41,7 @@ updated: 2026-10-17
 - `INSERT ... AS new ON DUPLICATE KEY UPDATE move_id = new.move_id` で更新する。更新の対象に `player_pachimon_move_id` を含めないため、
   既にある枠の付け替えでは割当の ID が変わらない
 - `player_diff` の `pachimon_move_map` に付け替えた1件、`items` に使った後のチケットが入る
-- クライアントには呼び出す処理(`IPachimonMoveEditService`)だけがあり、画面は無い
+- クライアントでは育成画面の技のタブから呼ぶ(`IPachimonMoveEditService`)
 
 ## PartyService/SetPachimonStatPoints
 

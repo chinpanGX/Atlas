@@ -2,7 +2,7 @@
 title: "バトルの計算(Atlas.BattleCore)"
 status: current
 area: battle-server
-related: [game/battle-rules, battle-server/battle-flow, master-data/tables, client/testing]
+related: [features/battle, battle-server/battle-flow, battle-server/testing-and-bot, master-data/tables]
 code: [Shared/BattleCore/Runtime, BattleServer/Battle/LoadoutBuilder.cs, Client/AtlasUnityProject/Assets/Scripts/MasterData/PachimonStatCalculator.cs]
 updated: 2026-10-18
 ---
@@ -11,11 +11,13 @@ updated: 2026-10-18
 
 バトルサーバーのダメージ計算・ターン処理。Client も、通信契約(`Atlas.BattleContracts`)が使う型(`EffectivenessResult`・`BattleEndReason`)のために同じソースをコンパイルする。
 
+## 依存と入口
+
 - `UnityEngine`・MagicOnion・通信の型・マスターデータの生成型のどれにも依存しない。自前の最小の型(`ElementType`、`MoveCategory`、
   `ParticipantStats`、`MoveData` 等)だけを持つ
 - マスタ + 所持データ(ステータスポイント)から BattleCore の型への変換は、呼び出し側が持つ(バトルサーバーの `LoadoutBuilder`)
-- 乱数は `IRandomSource`、タイプ相性は `ITypeChart` で外から渡す(テストで固定値に差し替えるため)
-- 入口は `BattleEngine.ProcessTurn(state, player1 の行動, player2 の行動, typeChart, random)` だけ。行動が無い(時間切れ等)側は `null` を渡す
+- 乱数は `IRandomSource`、タイプ相性は `ITypeChart` で外から渡す(テストで固定値に差し替えるため。[テストとボット](testing-and-bot.md))
+- 入口は `BattleEngine.ProcessTurn(state, player1 の行動, player2 の行動, typeChart, random)` だけ。行動が無い(時間切れ・強制交代を待つ側)側は `null` を渡す
 
 ## 内部の構造
 
@@ -46,19 +48,22 @@ Section が発火するイベントに反応するハンドラとして足す(Se
           HP 以外 = floor(2 * 種族値 * 50 / 100) + 5 + ステータスポイント
 ```
 
+### ダメージ
+
 - A/D は、物理技ならこうげき/ぼうぎょ、特殊技ならとくこう/とくぼう
 - タイプ一致1.5倍、タイプ相性0/0.5/1/2倍(2タイプなら2回かけ合わせる)、急所は1/16で1.5倍、乱数は0.85〜1.00
+
+### 能力
+
+- レベルは50で固定
+- ステータスポイント(合計64)は、種族値から計算した値にそのまま足す([パーティ編成・育成](../features/party-training.md))。本家の努力値の
+  `floor(努力値 / 4)` の項は、最大252を前提にした式なので外した。内部 API の型名(`EffortValues`)は努力値のころのまま
 - 性格の補正は無い(マスタに性格が無いため)
+- レベル50の固定値と能力の式は、バトルサーバーの `LoadoutBuilder` と、Client の `PachimonStatCalculator`(画面表示用。ポイントは省略でき、
+  今の呼び出し元は渡していない)の2か所にある([#42](https://github.com/chinpanGX/Atlas/issues/42))
+
+### 技
+
 - PP: 技を選んだ時点で1減る(外れても減る)。PP が0の技を渡されると `ArgumentException` にする(呼び出し側が送らせない前提。Client は押せなくし、
   バトルサーバーは受け付けない)
 - 変化技は現状効果なし
-- レベル50の固定値と能力の式は、バトルサーバーの `LoadoutBuilder` と、Client の `PachimonStatCalculator`(画面表示用。ポイントは省略でき、
-  今の呼び出し元は渡していない)の2か所にある
-- ステータスポイント(合計64)は、種族値から計算した値にそのまま足す([パーティ編成・育成](../game/party-training.md))。本家の努力値の
-  `floor(努力値 / 4)` の項は、最大252を前提にした式なので外した。内部 API の型名(`EffortValues`)は努力値のころのまま
-
-## テスト
-
-NUnit のテスト(`BattleServer/BattleCore.Tests/`。`dotnet test BattleServer.slnx` で回る)で、乱数(`FixedRandomSource`)とタイプ相性(`StaticTypeChart`)を固定して、
-ダメージ計算・行動順・ターン処理を確かめる。BattleCore を実際に動かすのはバトルサーバーだけなので、Unity ではなく .NET で回す
-(CI でも Unity 無しで回せる)。テストのソースは Unity のパッケージ(`Shared/BattleCore`)の外に置き、Unity にはコンパイルさせない。

@@ -5,7 +5,7 @@ area: server
 related: [server/auth, server/internal-api, conventions/errors, conventions/player-diff, db/index]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/main.rs, Server/src/grpc.rs, Server/src/config.rs, Server/src/state.rs, Server/src/error.rs, Server/src/db.rs, Server/build.rs, Server/config/server_status.toml]
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # APIサーバーの構成
@@ -30,7 +30,7 @@ updated: 2026-10-18
 3. MySQL に接続し、マイグレーションを流す(`db::migrate`。基盤の `voltech_grpc_auth`・`voltech_grpc_transaction` → Atlas の `migrations/`)
 4. `AppState` を作る。マスターデータを DB から全件読み込み、`BATTLE_TOKEN_SECRET`・`INTERNAL_API_SECRET`(どちらも無ければ起動しない)・
    `BATTLE_SERVER_URL` を読む
-5. [結果報告が届かない対戦の後始末](stale-match-cleanup.md) の定期処理を起動する
+5. [結果報告が届かない対戦の後始末](stale-match-cleanup.md) の定期処理と、待ち時間を過ぎた人をボットと組ませる定期処理([マッチング](matchmaking.md))を起動する
 6. 2つのポートで待ち受ける
 
 `config/server_status.toml` はメンテナンス・最低バージョン・ゲーム内の日付が変わる時刻を持つ(基盤の `ServerStatus`)。
@@ -61,18 +61,18 @@ RpcLogLayer                   RPC ごとの span とアクセスログ(メンテ
 - 内部 API はプレイヤーをリクエストの本文で受け取るので、`GetParty`・`GetLoadouts` はハンドラが span に `player_id` を書く。
   `x-internal-secret` が合わなかったときは warn を出す
 - 内部エラーは、原因(DB のエラーなど)をたどった連なりと発生した場所を error で出す。クライアント・バトルサーバーには詳細を返さない
-- 業務の出来事を info で出す: マッチ成立(`battle match formed`)、対戦結果の記録(`battle result recorded`)、古い対戦の打ち切り(失敗したときは原因を error で)
+- 業務の出来事を info で出す: マッチ成立(`battle match formed`)、ボットとのマッチ成立(`battle match with bot formed`)、ボットの作成(`bot player created`)、
+  対戦結果の記録(`battle result recorded`)、古い対戦の打ち切り。ボットとのマッチングと古い対戦の打ち切りは、失敗したときに原因を error で出す
 
-## 技術スタック
+## 使っているもの
 
-| 用途 | 使うもの |
-|---|---|
-| 言語・ランタイム | Rust(edition 2024)、tokio |
-| 通信 | tonic(gRPC)。クライアント向けは VolTech gRPC のクレート(認証・冪等性・トランザクション・メンテナンスの判定)を Layer として付け、内部 API は付けずに共有シークレットで認証する |
-| DB | MySQL、sqlx(生 SQL。コンパイル時に DB を要する `query!` マクロは使わず、実行時に組み立てる `sqlx::query` を使う) |
-| 設定 | `.env`(dotenvy)。DB の接続先・共有シークレット等 |
-| ローカルの DB | Docker Compose の MySQL コンテナ(`Server/docker-compose.yml`)。APIサーバー自体はコンテナにしない |
-| テスト | `cargo test`。DB を使うテストは `sqlx::test`(テストごとに DB を作る)、API の結合テストはテストごとに gRPC サーバーを起動して tonic のクライアントで呼ぶ |
+ライブラリと用途は [利用技術](../tech-stack.md)。
+
+- クライアント向けの gRPC には VolTech gRPC のクレート(認証・冪等性・トランザクション・メンテナンスの判定)を Layer として付ける。
+  内部 API には付けず、共有シークレットで認証する
+- 設定は `.env`(DB の接続先・共有シークレット等)から読む
+- テストは `cargo test`。DB を使うテストは `sqlx::test`(テストごとに DB を作る)、API の結合テストはテストごとに gRPC サーバーを起動して
+  tonic のクライアントで呼ぶ
 
 ## ディレクトリ
 

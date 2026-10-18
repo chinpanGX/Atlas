@@ -4,7 +4,7 @@ status: current
 area: master-data
 related: [master-data/tables, server/structure, client/scenes-and-scopes, battle-server/structure]
 code: [Shared/master-data, master-data-pipeline, Server/src/master, Server/src/bin/seed_master_data.rs, Client/AtlasUnityProject/Assets/Scripts/MasterData, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/MasterData, BattleServer/MasterData, BattleServer/Battle/MasterDatabaseFactory.cs]
-updated: 2026-10-17
+updated: 2026-10-19
 ---
 
 # マスターデータの生成・配布・運用
@@ -23,7 +23,7 @@ updated: 2026-10-17
   MasterMemory・MessagePack の Source Generator が同じアセンブリの中でしか働かないため
 - 生成される型は「テーブル名の PascalCase + `Data`」(`pachimon` → `PachimonData`)で、`partial`。ゲームロジックはこの型を
   直接使わず、BattleCore の型(`ParticipantStats`/`MoveData`)に変換して使う([バトルの計算](../battle-server/battle-core.md))
-- APIサーバーが読み込むのは `pachimon`・`move_group_moves`・`starter_party_slots`・`items` だけ。`moves`・`move_groups` は技の ID しか
+- APIサーバーが読み込むのは `pachimon`・`move_group_moves`・`starter_party_slots`・`items`・`scout_banners`・`scout_banner_rates`・`shop_products` だけ。`moves`・`move_groups` は技の ID しか
   扱わないロジックからは参照しないので、DB にあれば足りる。JSON はバイナリに埋め込み、`seed_master_data` だけが使う
 
 ## 配布先の絞り込み(targets)
@@ -59,6 +59,6 @@ updated: 2026-10-17
 | Client・バトルサーバー | パイプラインで生成して配置し、再起動する(Client はビルドし直す) |
 
 - 生成と配置の手順は `master-data-pipeline` スキル、テーブル・Enum の追加は `master-data-schema-add` スキル
-- `seed_master_data` は外部キーを満たす順(`move_groups` → `moves` → `move_group_moves` → `pachimon` → `starter_party_slots` → `items` → `scout_banners`・`scout_banner_rates`)に投入する
+- `seed_master_data` は外部キーを満たす順(`move_groups` → `moves` → `move_group_moves` → `pachimon` → `starter_party_slots` → `items` → `scout_banners`・`scout_banner_rates` → `shop_products`)に投入する
 - 無停止での反映は、1台構成の規模では過剰なため入れない
-- Client への配布を CDN 経由にする案は保留([未確定・保留](../open-questions.md))
+- Client への配布を CDN 経由にする案は保留([#41](https://github.com/chinpanGX/Atlas/issues/41))

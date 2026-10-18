@@ -4,7 +4,7 @@ status: current
 area: conventions
 related: [db/index, conventions/player-diff]
 code: [.editorconfig, BattleServer/Directory.Build.props]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # 命名とID
@@ -29,7 +29,7 @@ updated: 2026-10-11
 |---|---|---|
 | プレイヤーの操作で生成するデータ | ULID(26文字、生成順に並ぶ)。DB は `CHAR(26)`。Rust は `ulid` クレートで生成 | `player_pachimon_id`・`roll_id`・`match_id` |
 | 所持データの「割当」 | 行ごとに ULID を持つ独立したエンティティ | パーティの枠(`party_slot_id`)・覚えている技(`player_pachimon_move_id`) |
-| マスタ | 整数 | `pachimon_id` は1001〜の4桁 |
+| マスタ | 整数。スカウトのバナーだけは26文字の文字列(DB は `CHAR(26)`) | `pachimon_id` は1001〜の4桁、`banner_id` は `SCOUT000000000000000000001` |
 | `player_id` | gRPC 基盤のデバイス登録が発行する ULID | 基盤のテーブルでは `BINARY(16)`、Atlas のテーブルでは `CHAR(26)` |
 
 - 割当にも ID を持たせるのは、[所持データの差分](player-diff.md) の `removed` で行を ID で指せるようにするため

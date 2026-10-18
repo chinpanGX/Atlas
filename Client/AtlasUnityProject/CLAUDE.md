@@ -12,7 +12,6 @@ Unity 6(IL2CPP前提)のクライアント。プロジェクト全体の共通�
 | asmdefの構成とフォルダ | [アセンブリとレイヤー](../../docs/wiki/client/assemblies.md) |
 | バトル画面の流れ・状態・演出 | [バトル画面](../../docs/wiki/client/battle-screen.md) |
 | 通信エラーのダイアログ | [通信エラーのダイアログ](../../docs/wiki/client/error-dialog.md) |
-| テスト | [テスト](../../docs/wiki/client/testing.md) |
 
 ## 構成の上で守ること
 

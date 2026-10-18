@@ -4,7 +4,7 @@ status: current
 area: conventions
 related: [conventions/player-diff, db/index, server/matchmaking]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # 値なしの表し方(nullable)
@@ -24,7 +24,7 @@ updated: 2026-10-11
 - `player_diff` の種別ごとのフィールドは、変化が無ければ `null`([所持データの差分](player-diff.md))
 - マスタでは、2つ目のタイプが無いパチモンの `secondary_type` を `NONE`、変化技の `base_power` を0にする
   (マスターデータのパイプラインが nullable を持てないため)
-- 状態によって中身が決まる列だけ、例外として DB で `NULL` を許す(`scout_rolls.selected_index`、`battle_matches` の選出・勝者・日時)
+- 状態によって中身が決まる列だけ、例外として DB で `NULL` を許す(`scout_rolls` の `selected_index`・`selected_at`、`battle_matches` の選出・勝者・日時)
 
 ## 理由
 

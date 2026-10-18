@@ -2,7 +2,7 @@
 title: "バトル画面"
 status: current
 area: client
-related: [game/battle-rules, battle-server/contracts, battle-server/battle-flow, client/screens]
+related: [features/battle, battle-server/contracts, battle-server/battle-flow, client/screens]
 code: [Client/AtlasUnityProject/Assets/Scripts/Presentation/Battle, Client/AtlasUnityProject/Assets/Scripts/Domain/IBattleConnection.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Realtime]
 updated: 2026-10-18
 ---
@@ -117,7 +117,3 @@ updated: 2026-10-18
   - 選出・行動・投了の送信の失敗: 知らせて画面に留まり、選び直させる(強制交代は交代先の選択を開き直す)。自分の接続が切れたための失敗は、
     参加し直した後の再送で戻すため出さない
 - マッチングの失敗は API の通信なので、通信の共通処理がダイアログを出す
-
-## まだ無いもの
-
-- 対戦結果(勝敗・報酬)を Home へ戻ったときにどう見せるか([未確定・保留](../open-questions.md))

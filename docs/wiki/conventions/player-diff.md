@@ -5,7 +5,7 @@ area: conventions
 related: [client/services-and-player-data, server/structure, conventions/items]
 proto: [Shared/proto/atlas/v1/player_data.proto]
 code: [Server/src/service/player_diff.rs, Server/src/grpc/player_data.rs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Grpc/PlayerDiff]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # 所持データの差分(player_diff)
@@ -47,9 +47,11 @@ PlayerDiff
 | API | `player_diff` の中身 |
 |---|---|
 | `PartyService/SetParty` | `party_slots`(以前の割当をすべて `removed`、新しい割当を `upserted`) |
-| `PartyService/SetPachimonMove` | `pachimon_move_map`(付け替えた1件) |
+| `PartyService/SetPachimonMove` | `items`(消費後の育成チケット)と `pachimon_move_map`(付け替えた1件) |
+| `PartyService/SetPachimonStatPoints` | `pachimon`(割り振った後の1体)と、ポイントを増やしたときだけ `items`(消費後の育成チケット)。今と同じ値なら空 |
 | `ScoutService/Roll` | `items`(消費後のジェム) |
 | `ScoutService/Select` | `pachimon`(入手した1体)と `pachimon_move_map`(その技) |
+| `ShopService/Purchase` | `items`(支払った後のジェムと、受け取った後のアイテム) |
 | `DebugService/GrantGems` | `items`(付与後のジェム) |
 | `DebugService/RandomizeParty` | `pachimon`・`pachimon_move_map`(新しく付与した6体)と `party_slots` |
 

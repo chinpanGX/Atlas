@@ -2,7 +2,7 @@
 title: "内部API(バトルサーバー向け)"
 status: current
 area: server
-related: [server/auth, server/stale-match-cleanup, battle-server/api-integration, db/battle-tables]
+related: [server/auth, server/stale-match-cleanup, battle-server/api-integration, db/index]
 proto: [Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/grpc/internal_battle.rs, Server/src/service/battle_service.rs, Server/src/service/player_pachimon_service.rs, Server/src/grpc.rs]
 updated: 2026-10-18

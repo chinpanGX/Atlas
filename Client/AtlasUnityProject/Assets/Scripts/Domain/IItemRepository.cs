@@ -4,7 +4,8 @@ namespace Atlas.Domain
     // 同じ方針でそれぞれ専用のリポジトリを持つ(複数リソースをまとめた汎用Diff型は作らない)。
     public interface IItemRepository
     {
-        // 未所持のアイテムはplayer_itemsに行が存在しない(=Repositoryにも無い)ためfalseを返す。
+        // 一度も手に入れていないアイテムはplayer_itemsに行が無い(=Repositoryにも無い)ためfalseを返す。
+        // 使って0になったアイテムはサーバーが行を消さないので、所持数0でtrueを返す。
         bool TryGet(long itemId, out ItemEntity itemEntity);
 
         void Upsert(ItemEntity itemEntity);

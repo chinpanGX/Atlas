@@ -2,7 +2,7 @@
 title: "ゲームログ"
 status: current
 area: server
-related: [server/structure, server/internal-api, db/index, game/gems, conventions/items]
+related: [server/structure, server/internal-api, db/index, features/index, conventions/items]
 proto: []
 code: [Server/src/service/game_log.rs, Server/src/service/player_item_service.rs, Server/src/service/player_pachimon_service.rs, Server/src/service/player_service.rs, Server/src/service/scout_service.rs, Server/src/service/shop_service.rs, Server/src/service/battle_service.rs, Server/src/grpc/internal_battle.rs, Server/src/config.rs]
 updated: 2026-10-18

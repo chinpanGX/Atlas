@@ -2,7 +2,7 @@
 title: "ショップ"
 status: current
 area: server
-related: [game/shop, conventions/items, conventions/player-diff, master-data/tables, server/game-log]
+related: [features/shop, conventions/items, conventions/player-diff, master-data/tables, server/game-log]
 proto: [Shared/proto/atlas/v1/shop.proto]
 code: [Server/src/grpc/shop.rs, Server/src/service/shop_service.rs, Server/src/master/mod.rs, Server/src/bin/seed_master_data.rs]
 updated: 2026-10-17
@@ -25,7 +25,7 @@ updated: 2026-10-17
 `shop_product_id` → `player_diff`
 
 - 商品を1つ購入する。`cost_item_id` を `cost_amount` 個払い、`item_id` を `amount` 個受け取る。1回の購入で買うのは1つだけ
-  (一度に複数個買えるかは[未確定](../open-questions.md))
+  (一度に複数個買えるかは未確定。[#36](https://github.com/chinpanGX/Atlas/issues/36))
 - 検証(どれかに当たれば何も変えない)
   1. 商品が無い → `SHOP_PRODUCT_NOT_FOUND`
   2. ジェムが足りない → `INSUFFICIENT_GEMS`(スカウトと同じ reason)

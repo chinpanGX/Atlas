@@ -44,7 +44,7 @@ Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトル�
 
 | 層 | 技術 | 詳しく |
 | --- | --- | --- |
-| クライアント | Unity 6.6(IL2CPP)、VContainer、UniTask、R3、LitMotion、ZLinq、Addressables、UnityScreenNavigator(フォーク)、MasterMemory、MessagePack、MagicOnion.Client | [採用ライブラリ](docs/wiki/client/libraries.md)・[アセンブリとレイヤー](docs/wiki/client/assemblies.md) |
+| クライアント | Unity 6.6(IL2CPP)、VContainer、UniTask、R3、LitMotion、ZLinq、Addressables、UnityScreenNavigator(フォーク)、MasterMemory、MessagePack、MagicOnion.Client | [利用技術](docs/wiki/tech-stack.md)・[アセンブリとレイヤー](docs/wiki/client/assemblies.md) |
 | APIサーバー | Rust、tonic(gRPC)、sqlx、MySQL、jsonwebtoken | [APIサーバーの構成](docs/wiki/server/structure.md) |
 | バトルサーバー | C#(.NET 10)、ASP.NET Core、MagicOnion、xUnit | [バトルサーバーの構成](docs/wiki/battle-server/structure.md) |
 | 共通 | Protocol Buffers、[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)(自作)、[Supplement](https://github.com/chinpanGX/Supplement)(自作)、[master-data-pipeline](https://github.com/chinpanGX/master-data-pipeline)(自作) | [概要](docs/wiki/overview.md)・[マスターデータの生成・配布・運用](docs/wiki/master-data/pipeline.md) |
@@ -56,7 +56,7 @@ Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトル�
 | 知りたいこと | 読む場所 |
 | --- | --- |
 | システム構成・通信の経路・リポジトリ構成 | [概要](docs/wiki/overview.md) |
-| 設計の見どころ | [Atlas wiki](docs/wiki/index.md)の「見どころ」 |
+| 設計の見どころ | [概要](docs/wiki/overview.md)の「技術の見どころ」 |
 | 仕様と設計(実装に合わせて更新) | [Atlas wiki](docs/wiki/index.md) |
 | 環境構築・起動手順 | [開発環境ガイド](docs/wiki/development.md) |
 | 残タスク | [GitHub Issues](https://github.com/chinpanGX/Atlas/issues) |

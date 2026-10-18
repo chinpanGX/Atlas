@@ -1,13 +1,18 @@
 ---
 title: "パーティ編成・育成"
 status: current
-area: game
-related: [server/party, client/screens, game/shop, game/flow, open-questions]
+area: features
+related: [server/party, client/screens, features/shop, features/home, features/pachimon]
 code: [Server/src/service/player_pachimon_service.rs, BattleServer/Battle/LoadoutBuilder.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Party, Client/AtlasUnityProject/Assets/Scripts/Presentation/Training]
 updated: 2026-10-18
 ---
 
 # パーティ編成・育成
+
+集めたパチモンから対戦に連れていく6体を選び、技の付け替えとステータスポイントの割り振りで対戦向けに調整する。
+育成には、ショップでジェムと交換する育成チケットを使う。
+
+![パーティ編成画面](../images/screenshots/party.png)
 
 ## パーティ編成
 
@@ -30,6 +35,8 @@ updated: 2026-10-18
 
 ## 技の付け替え
 
+![育成画面・技](../images/screenshots/training-moves.png)
+
 - 個体が覚えている4つの技のうち1つを、その種族の技の候補の中から選んで入れ替える
 - 候補は、その種族が覚えられる技のすべて(最初から覚えていた技も含む)。最初の技に戻せるようにするため
 - 1回の付け替えで育成チケットを5枚使う。足りなければ付け替えられない
@@ -42,6 +49,8 @@ updated: 2026-10-18
 
 ## ステータスポイントの割り振り
 
+![育成画面・ステータス](../images/screenshots/training-stats.png)
+
 - 個体ごとにステータスポイントを64持ち、6つの能力(HP・こうげき・ぼうぎょ・とくこう・とくぼう・すばやさ)に自由に割り振る
 - 1つの能力に割り振れる上限は無い(64ポイントを1つの能力に全部入れてもよい)
 - 割り振ったポイントは、種族値から計算した能力の値にそのまま足す(ポケモンチャンピオンズ準拠)。入手したときは全能力0
@@ -53,14 +62,14 @@ updated: 2026-10-18
 - 割り振りは育成画面のステータスのタブで行う。割り振った値は、バトルサーバーの能力の計算([バトルの計算](../battle-server/battle-core.md))と、
   編成画面・対戦画面の能力の表示に反映する
 
-## 育成画面のワイヤー(案)
+## 画面の設計
 
-レイアウトと振る舞いの案。見た目(色・アイコン・文言)は仮。ヘッダーはアウトゲームに共通のグローバルヘッダー
-([遊びの流れとアカウント](flow.md))。
+実装の前に描いたワイヤーと、各部分をそうした理由。見た目(色・アイコン・文言)は実際の画面と異なる。ヘッダーはアウトゲームに共通の
+グローバルヘッダー([ホームと画面の流れ](home.md))。
 
 ### 技
 
-![育成画面・技](images/training-moves.svg)
+![育成画面・技(設計時のワイヤー)](../images/wireframes/training-moves.svg)
 
 1. 左に所持している個体の一覧を出し、選んだ個体を右に表示する。パーティに入っている個体には印を付ける。
    パーティの6体に限らないのは、控えの個体を育ててから編成に入れることがあるため。編成画面から来たときは、そこで選んでいた個体を選んだ状態で開く
@@ -71,7 +80,9 @@ updated: 2026-10-18
 
 ### 付け替える技の選択
 
-![付け替える技の選択](images/training-move-select.svg)
+![付け替える技の選択](../images/screenshots/training-move-select.png)
+
+![付け替える技の選択(設計時のワイヤー)](../images/wireframes/training-move-select.svg)
 
 1. 付け替えられない技(別の枠で覚えている技、いまの技)は、候補には並べたまま灰色にして理由を出す。消すと「なぜこの技が無いのか」が分からないため
 2. 候補は、その種族が覚えられる技すべてを、タイプ・分類・威力・命中・PPと一緒に並べる
@@ -81,7 +92,7 @@ updated: 2026-10-18
 
 ### ステータス
 
-![育成画面・ステータス](images/training-stats.svg)
+![育成画面・ステータス(設計時のワイヤー)](../images/wireframes/training-stats.svg)
 
 1. 残りのポイント(64から割り振った分を引いた数)を出す。残りが0のときは「＋」を押せなくする
 2. 能力ごとに「−」「＋」でポイントを調整する。確定するまではサーバーに送らず、画面の中だけで変える
@@ -93,6 +104,16 @@ updated: 2026-10-18
 
 - 確定していない調整があるときに、別の個体を選ぶ・タブを切り替える・画面を離れると、調整を捨てるかを確認する。黙って捨てると、
   まとめて調整した内容を失うため
+
+## 作りの要点
+
+| 層 | していること | 詳しく |
+|---|---|---|
+| APIサーバー | 編成・技の付け替え・割り振りの3つの API。検証に当たれば何も変えず、チケットの消費と変更を1つのトランザクションで行う。同じ個体への同時の操作は行をロックして、二重にチケットを数えない | [パーティ編成・育成(API)](../server/party.md) |
+| APIサーバー | 編成は割当(枠)ごとに ULID を持つ行にし、全置き換えで作り直す。再送で二重に実行しないよう冪等性の対象にする | [パーティ編成・育成(API)](../server/party.md)・[命名とID](../conventions/naming-and-ids.md) |
+| 共通 | 変わった所持データ(枠・技・個体・チケット)は、どの API も同じ形の差分(`player_diff`)で返し、クライアントは種別ごとに反映する | [所持データの差分](../conventions/player-diff.md) |
+| クライアント | 割り振りの調整(`TrainingStatAllocation`)と編成の編集(`PartyEditor`)を View から切り出したクラスにし、EditMode テストで確かめる | [画面の構成](../client/screens.md) |
+| バトルサーバー | 対戦では、選出の時点で所持データを1回だけ取得して能力を計算する。対戦中に育成しても影響させない | [対戦の進行](../battle-server/battle-flow.md) |
 
 ## 採用しなかった案
 

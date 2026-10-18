@@ -2,9 +2,9 @@
 title: "所持リソース(アイテム)"
 status: current
 area: conventions
-related: [game/gems, db/player-tables, master-data/tables, conventions/player-diff]
+related: [features/index, db/index, master-data/tables, conventions/player-diff]
 code: [Server/src/service/player_item_service.rs, Shared/master-data/csv/items_master.csv]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # 所持リソース(アイテム)
@@ -33,7 +33,7 @@ updated: 2026-10-17
 | ステータスポイントの割り振り | 育成チケット −(増やしたポイントの合計) | `PartyService/SetPachimonStatPoints` |
 | スカウトの紹介 | −(バナーの `cost_per_roll`) | `ScoutService/Roll` |
 
-- 増やすときは `INSERT ... ON DUPLICATE KEY UPDATE quantity = quantity + ?` で行が無くても作る
+- 増やすときは `INSERT ... AS new ON DUPLICATE KEY UPDATE quantity = player_items.quantity + new.quantity` で行が無くても作る
 - 減らすときは `UPDATE ... SET quantity = quantity - ? WHERE quantity >= ?` の1文で、足りるかの判定と減算を同時に行う。
   更新した行が無ければ不足(行が無い場合を含む)として何も変えない
 - 勝利報酬の額はマスタにせず定数で持つ。運用中に調整する想定が無いため

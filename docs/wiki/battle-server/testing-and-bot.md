@@ -2,7 +2,7 @@
 title: "テストとボット"
 status: current
 area: battle-server
-related: [battle-server/battle-flow, server/debug-api, client/testing]
+related: [battle-server/battle-flow, battle-server/battle-core, server/debug-api]
 code: [BattleServer/Tests, BattleServer/BattleBot, BattleServer/Battle/BattleBotPlayer.cs, BattleServer/BattleCore.Tests]
 updated: 2026-10-18
 ---
@@ -11,8 +11,16 @@ updated: 2026-10-18
 
 ## テスト
 
-- `Atlas.BattleCore` のロジックは、NUnit のテスト(`BattleServer/BattleCore.Tests/`)で乱数を固定して確かめる([バトルの計算](battle-core.md))
-- バトルサーバーは xUnit。どちらも `dotnet test BattleServer.slnx` で一緒に回り、MySQL・APIサーバーを起動しなくても動く
+`Atlas.BattleCore` は NUnit(`BattleServer/BattleCore.Tests/`)、バトルサーバーは xUnit(`BattleServer/Tests/`)。どちらも `dotnet test BattleServer.slnx`
+で一緒に回り、MySQL・APIサーバーを起動しなくても動く。
+
+### BattleCore のテスト
+
+- 乱数(`FixedRandomSource`)とタイプ相性(`StaticTypeChart`)を固定して、ダメージ計算・行動順・ターン処理を確かめる([バトルの計算](battle-core.md))
+- BattleCore を実際に動かすのはバトルサーバーだけなので、Unity ではなく .NET で回す(CI でも Unity 無しで回せる)
+- テストのソースは Unity のパッケージ(`Shared/BattleCore`)の外に置き、Unity にはコンパイルさせない
+
+### バトルサーバーのテスト
 
 | テスト | 内容 |
 |---|---|
@@ -24,17 +32,26 @@ updated: 2026-10-18
 
 ## 自動対戦のクライアント(BattleBot)
 
-サーバー全体(gRPC・マッチング・BattleServer・結果記録)を、本物のクライアントと同じ経路で通しで確かめるための、自動で対戦するクライアント(`BattleServer/`で`dotnet run --project BattleBot`)。
+サーバー全体(gRPC・マッチング・BattleServer・結果記録)を、本物のクライアントと同じ経路で通しで確かめるための、自動で対戦するクライアント
+(`BattleServer/` で `dotnet run --project BattleBot`)。
 
-- マッチングで相手がいないときは、10秒待てばサーバーの中のボット(`BattleBotPlayer`)が相手になる([対戦の進行](battle-flow.md))。
-  Unity で1人で対戦を確かめるだけなら、BattleBot は要らない
+### 使い方
+
+- `--loop` で対戦のたびにマッチングに並び直す(Unity の相手として常駐させる)
+- `--count 2` でボット同士を対戦させる(サーバー全体を通しで確かめる)
+- Unity で1人で対戦を確かめるだけなら要らない。マッチングで相手がいないときは、10秒待てばサーバーの中のボット(`BattleBotPlayer`)が相手になる
+  ([対戦の進行](battle-flow.md))
 - `BattleBotPlayer` はこのクライアントを使わない。本番で使えない開発用 API に頼っており、別のプロセスとして起動しておく必要もあるため
 
-- gRPC(Unity と同じ順番でデバイス登録 〜 サインイン)と MagicOnion で自動対戦する
-- Unity 以外の .NET のクライアントなので基盤の `ApiCore` は使えず、`.proto` から `Grpc.Tools` で生成した素のクライアントに、
-  `authorization`・`x-request-id` のヘッダーを自分で付ける(再認証・再送はしない)
-- 基盤のデバイス登録の `.proto` は基盤のリポジトリにしか無いので、ビルドのときに基盤のタグの版を取ってくる
+### 動き
+
 - 起動のたびに新しいプレイヤーを作り、`DebugService/RandomizeParty` でパーティをランダムにする([開発用API](../server/debug-api.md))
+- gRPC(Unity と同じ順番でデバイス登録 〜 サインイン)と MagicOnion で自動対戦する
 - 選出はパーティからランダム、技は使えるものからランダム、強制交代は生存している先頭の控え
 - 演出が無いので、対戦の開始・ターン結果を受けたらすぐに準備(`ReadyForTurnAsync`)を送る。送らないと、相手が準備を送るたびに上限(15秒)まで待たせてしまう
-- `--loop` で対戦のたびにマッチングに並び直し(Unity の相手として常駐させる)、`--count 2` でボット同士を対戦させる(サーバー全体を通しで確かめる)
+
+### 作り
+
+- Unity 以外の .NET のクライアントなので基盤の `ApiCore` は使えず、`.proto` から `Grpc.Tools` で生成した素のクライアントに、
+  `authorization`・`x-request-id` のヘッダーを自分で付ける(再認証・再送はしない)
+- 基盤のデバイス登録の `.proto` は基盤のリポジトリにしか無いので、ビルドのときに基盤のタグのバージョンを取ってくる

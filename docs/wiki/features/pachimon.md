@@ -1,18 +1,23 @@
 ---
 title: "パチモン"
 status: current
-area: game
-related: [master-data/tables, game/party-training, battle-server/battle-core]
+area: features
+related: [master-data/tables, features/party-training, battle-server/battle-core]
 code: [Shared/master-data/csv/pachimon_master.csv, Shared/master-data/csv/moves_master.csv, Shared/master-data/csv/move_group_moves_master.csv]
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # パチモン
 
+集めて戦わせるモンスター。136種・技261種・18タイプを、スキーマと CSV のマスターデータで持つ。
+「ポケモン」にあたる語は、商標と混同しないよう「パチモン」(コードでは `pachimon`)で統一している。
+
+画像は今は仮のもので、主タイプの色の円に `pachimon_id` を書いたサムネイルを、マスタからスクリプトで作って Addressables に登録している。
+
 ## 種族
 
 - 136種(レア度 S: 23種、A: 34種、B: 56種、C: 23種)
-- レア度は合計種族値で決めている(580以上が S、520以上が A、460以上が B、それ未満が C)
+- レア度は、最初の36種は S が18種、A・B・C が6種ずつ。あとから足した100種は合計種族値で決めている(580以上が S、520以上が A、460以上が B、それ未満が C)
 - タイプは18種類(ノーマル・ほのお・みず・でんき・くさ・こおり・かくとう・どく・じめん・ひこう・エスパー・むし・いわ・
   ゴースト・ドラゴン・あく・はがね・フェアリー)。1体につき1つか2つ
 - 能力は6種類(HP・こうげき・ぼうぎょ・とくこう・とくぼう・すばやさ)。種族ごとの基本値(種族値)で決まる
@@ -31,3 +36,10 @@ updated: 2026-10-18
   - 初期技は物理技・特殊技だけ
 - 技は261種。技には、タイプ、物理/特殊/変化の分類、威力、命中率、PP(使える回数)がある
 - 技の追加効果(状態異常・能力変化など)は無い。変化技は定義できるが、現状は使っても効果が無い
+
+## 作りの要点
+
+| 層 | していること | 詳しく |
+|---|---|---|
+| マスターデータ | 種族・技・タイプ相性などをスキーマと CSV で持ち、自作の master-data-pipeline で Rust・C# の型とデータを生成して各プロジェクトに配る | [生成・配布・運用](../master-data/pipeline.md)・[テーブル](../master-data/tables.md) |
+| バトルの計算 | 種族値とステータスポイントから能力を計算し、タイプ相性とダメージの式に使う | [バトルの計算](../battle-server/battle-core.md) |

@@ -2,9 +2,9 @@
 title: "マスターデータのテーブル"
 status: current
 area: master-data
-related: [master-data/pipeline, game/pachimon, battle-server/battle-core]
+related: [master-data/pipeline, features/pachimon, battle-server/battle-core]
 code: [Shared/master-data/schema, Shared/master-data/csv]
-updated: 2026-10-17
+updated: 2026-10-19
 ---
 
 # マスターデータのテーブル
@@ -20,7 +20,7 @@ updated: 2026-10-17
 | `name` | |
 | `primary_type` / `secondary_type` | `pachimon_type`。2つ目が無い場合は `NONE` |
 | `base_hp` / `base_atk` / `base_def` / `base_spatk` / `base_spdef` / `base_speed` | 種族値 |
-| `rarity` | `rarity`(S/A/B/C)。スカウトの抽選に使う。合計種族値で決める(580以上 S・520以上 A・460以上 B・それ未満 C) |
+| `rarity` | `rarity`(S/A/B/C)。スカウトの抽選に使う。1001〜1018 は S、1019〜1036 は A・B・C を6体ずつ。1037〜1136 は合計種族値で決める(580以上 S・520以上 A・460以上 B・それ未満 C) |
 | `move_group_id` | FK → `move_groups` |
 
 ## move_groups
@@ -123,7 +123,8 @@ updated: 2026-10-17
 | `weight` | 1万分率の整数(3% = 300)。バナーごとの合計は10000 |
 
 - レギュラースカウトは S 300・A 1200・B 3500・C 5000
-- 日時の形・前後関係・重みの合計・同じレア度の重複は、パイプラインの `validate` では確かめられないので `seed_master_data` が確かめる
+- 日時の形・前後関係・重みの合計・負の重み・同じレア度の重複は、パイプラインの `validate` では確かめられないので `seed_master_data` が確かめる
+- `seed_master_data` は、マスタから消した行が残って合計が崩れないように、全件を消してから入れ直す
 
 ## Enum
 

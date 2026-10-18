@@ -5,84 +5,72 @@ area: root
 updated: 2026-10-18
 ---
 
-# Atlas wiki
+# Atlas
 
-**Atlas** は、モンスター(「パチモン」)を集めてパーティを組み、ほかのプレイヤーとリアルタイムで1対1の対戦をするゲーム。
-Unity クライアント・Rust の APIサーバー・C#/MagicOnion のバトルサーバーの3つで構成している。
+**モンスターを集めて育て、ほかのプレイヤーとリアルタイムで1対1の対戦をするゲーム。**
+Unity クライアント・Rust の APIサーバー・C#/MagicOnion のバトルサーバーを、gRPC 基盤やマスターデータの生成ツールまで含めて1人で作っている。
 
-この wiki は、ゲームの仕様と、各プログラムが「何を・なぜそうしたか」を、`develop` の実装に合わせてまとめたもの。
+![Atlas のキービジュアル](images/screenshots/hero.png)
 
-```mermaid
-flowchart LR
-    Client["Unity Client<br/>VContainer · UniTask · R3 · USN"]
-    API["APIサーバー<br/>Rust · tonic · sqlx"]
-    Battle["バトルサーバー<br/>C# · ASP.NET Core · MagicOnion"]
-    DB[("MySQL")]
-    Core["Atlas.BattleCore<br/>Atlas.BattleContracts<br/>(共有ソース)"]
+| 項目       | 内容                                                                    |
+| -------- | --------------------------------------------------------------------- |
+| ジャンル     | モンスター収集 × リアルタイム対戦(1対1)                                               |
+| プラットフォーム | Windows(Unity 6.6、IL2CPP)                                             |
+| 開発       | 個人開発(2026年9月〜)。クライアント・サーバー・基盤・ツールのすべて                                 |
+| 規模       | クライアント 約11,000行(C#)、APIサーバー 約5,800行(Rust)、バトルサーバーと共有のロジック 約5,200行(C#) |
 
-    Client -- "gRPC(VolTech gRPC)<br/>認証・編成・スカウト・マッチング" --> API
-    Client <-- "StreamingHub<br/>選出・行動・ターン結果" --> Battle
-    Battle -- "内部 gRPC<br/>パーティ取得・結果報告" --> API
-    API -- "唯一の書き込み元" --> DB
-    Core -. "同じソースをコンパイル" .- Client
-    Core -. "同じソースをコンパイル" .- Battle
-```
+## プレイの流れ
 
-## 見どころ
+![プレイ動画(マッチング → 選出 → 対戦)](images/screenshots/battle-demo.gif)
 
-| テーマ | 内容 | 読むページ |
-|---|---|---|
-| サーバー権威のリアルタイム対戦 | 判定はバトルサーバーだけが持ち、HP は%で、相手の選出は場に出るまで送らない。切断から60秒以内なら続きから再開できる | [対戦の進行](battle-server/battle-flow.md)・[通信契約](battle-server/contracts.md) |
-| 計算ロジックの共有 | ダメージ計算・ターン処理を Unity とサーバーで同じソースにし、クライアントのオフライン対戦にも使う。技の効果はイベントのハンドラで足せる構造 | [バトルの計算](battle-server/battle-core.md) |
-| 自作の gRPC 基盤 | デバイス認証・エラーのダイアログ・再送しても一度だけ処理する仕組みを基盤に寄せ、アプリは `.proto` と業務処理だけを書く | [APIサーバーの構成](server/structure.md)・[サービスと所持データ](client/services-and-player-data.md) |
-| 所持データの差分の共通化 | 所持データを変える API は同じ形の差分(`player_diff`)を返し、クライアントは種別ごとに反映する | [所持データの差分](conventions/player-diff.md) |
-| DB の書き込みを1か所に | バトルサーバーは DB を持たず、内部 API で取得・報告する。報告の二重実行・届かない報告の後始末まで扱う | [内部API](server/internal-api.md)・[後始末](server/stale-match-cleanup.md) |
-| オニオンアーキテクチャの Unity クライアント | asmdef で依存の向きを強制し、Presenter は実装を知らない。テストは送り先だけを偽のサーバーに差し替える | [アセンブリとレイヤー](client/assemblies.md)・[テスト](client/testing.md) |
-| マスターデータの生成パイプライン | スキーマと CSV を正本に、Rust・C# の型とデータを自作ツールで生成する | [マスターデータの生成・配布・運用](master-data/pipeline.md) |
+|                                                                                                                                     |                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![スカウト](images/screenshots/scout-candidates.png)](features/scout.md)<br>**① [スカウト](features/scout.md)** — 候補10体から1体を選んで仲間にする       | [![育成](images/screenshots/training-stats.png)](features/party-training.md)<br>**② [育成](features/party-training.md)** — 技の付け替えとステータスポイントの割り振り |
+| [![パーティ編成](images/screenshots/party.png)](features/party-training.md)<br>**③ [パーティ編成](features/party-training.md)** — 対戦に連れていく6体を選ぶ | [![選出](images/screenshots/battle-selection.png)](features/battle.md)<br>**④ [マッチングと選出](features/battle.md)** — パーティを見せ合って3体を選ぶ               |
+| [![対戦](images/screenshots/battle-turn.png)](features/battle.md)<br>**⑤ [対戦](features/battle.md)** — 毎ターン技か交代を選ぶ。勝つとジェムを獲得できる        | [![ショップ](images/screenshots/shop.png)](features/shop.md)<br>**[ショップ](features/shop.md)** — ジェムで育成チケットを買う                                     |
 
-## 技術スタック
+ゲームの全体とルールは [ゲーム紹介](features/index.md)。
 
-| 層 | 技術 |
-|---|---|
-| クライアント | Unity 6.6(IL2CPP)、VContainer、UniTask、R3、LitMotion、ZLinq、Addressables、UnityScreenNavigator(フォーク)、MasterMemory、MessagePack、MagicOnion.Client |
-| APIサーバー | Rust、tonic(gRPC)、sqlx、MySQL、jsonwebtoken |
-| バトルサーバー | C#(.NET 10)、ASP.NET Core、MagicOnion、xUnit |
-| 共通 | Protocol Buffers、[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)(自作)、[Supplement](https://github.com/chinpanGX/Supplement)(自作)、master-data-pipeline(自作) |
+## 技術
+
+設計の見どころは [概要](overview.md)、使っているライブラリ・ツールは [利用技術](tech-stack.md)。
 
 ## 読み方
 
-- まず全体をつかむ: [概要](overview.md) → [ゲームの仕様](game/index.md)
-- サーバーを見る: [APIサーバー](server/index.md) → [DB](db/index.md) → [バトルサーバー](battle-server/index.md)
-- クライアントを見る: [クライアント](client/index.md)
+- 遊べるものを見る: [ゲーム紹介](features/index.md) → 各機能のページ(スクリーンショット・ルール・作りの要点)
+- 全体の構成と設計の見どころ: [概要](overview.md)
+- 作りを詳しく見る: 下の「技術資料」(APIサーバー → DB → バトルサーバー → クライアント)
 - 環境を作って動かす: [開発環境ガイド](development.md)
 - コーディング規約: [共通](../../CLAUDE.md)・[APIサーバー](../../Server/CLAUDE.md)・[バトルサーバー](../../BattleServer/CLAUDE.md)・[クライアント](../../Client/AtlasUnityProject/CLAUDE.md)(各プロジェクトの `CLAUDE.md`)
 
 ## ページ一覧
 
-状態: `current` 実装済み(当面の方針)/ `planned` 追加予定 / `open` 未確定 / `confirmed` 確定
+状態: `current` 実装済み(当面の方針)/ `planned` 追加予定 / `confirmed` 確定。決まっていないことは [GitHub Issues](https://github.com/chinpanGX/Atlas/issues)
+
+### [機能](features/index.md)
+
+| ページ | 状態 | 内容 |
+|---|---|---|
+| [ゲーム紹介](features/index.md) | `index` | 機能の一覧、コアループ、用語、ジェムの増減、対象外にしたもの |
+| [タイトルとアカウント](features/account.md) | `current` | ゲストアカウント、初回に受け取るもの |
+| [ホームと画面の流れ](features/home.md) | `current` | 画面の流れ、グローバルヘッダー |
+| [パチモン](features/pachimon.md) | `current` | 種族・タイプ・能力・個体・技 |
+| [パーティ編成・育成](features/party-training.md) | `current` | 編成、技の付け替え、ステータスポイント |
+| [スカウト](features/scout.md) | `current` | 候補10体から1体を選ぶ抽選 |
+| [ショップ](features/shop.md) | `current` | ジェムで育成チケットを買う |
+| [対戦](features/battle.md) | `current` | マッチング・選出・ターン・ダメージ・勝敗、作りの要点 |
 
 ### 全体
 
 | ページ | 状態 | 内容 |
 |---|---|---|
-| [概要](overview.md) | `current` | ゲームとシステムの全体像、通信の一覧、リポジトリ構成、生成物 |
+| [概要](overview.md) | `current` | システムの全体像、通信の一覧、リポジトリ構成、生成物 |
+| [利用技術](tech-stack.md) | `current` | 各層の言語・ランタイムと、ライブラリ・ツールの用途・ライセンス・導入経路 |
 | [開発環境ガイド](development.md) | `current` | 環境構築、共通の設定(環境変数・シークレット)、起動手順、よく使うコマンド、トラブルシューティング |
-| [未確定・保留](open-questions.md) | `open` | 決まっていないこと |
 
-### [ゲームの仕様](game/index.md)
+### 技術資料
 
-| ページ | 状態 | 内容 |
-|---|---|---|
-| [遊びの流れとアカウント](game/flow.md) | `current` | コアループ、用語、画面の流れ、ゲストアカウント |
-| [パチモン](game/pachimon.md) | `current` | 種族・タイプ・能力・個体・技 |
-| [パーティ編成・育成](game/party-training.md) | `current` | 編成、技の付け替え、ステータスポイント |
-| [スカウト](game/scout.md) | `current` | 候補10体から1体を選ぶ抽選 |
-| [ショップ](game/shop.md) | `current` | ジェムで育成チケットを買う |
-| [対戦のルール](game/battle-rules.md) | `current` | マッチング・選出・ターン・ダメージ・勝敗 |
-| [ジェム](game/gems.md) | `current` | 増減のきっかけと量 |
-| [対象外にしたもの](game/out-of-scope.md) | `current` | 小さなルールにするために入れていないもの |
-
-### [共通の決まり](conventions/index.md)
+#### [共通の決まり](conventions/index.md)
 
 | ページ | 状態 | 内容 |
 |---|---|---|
@@ -92,7 +80,7 @@ flowchart LR
 | [所持リソース(アイテム)](conventions/items.md) | `current` | ジェムを `items`/`player_items` で持つ |
 | [業務エラー](conventions/errors.md) | `current` | reason と action、返し方 |
 
-### [APIサーバー](server/index.md)
+#### [APIサーバー](server/index.md)
 
 | ページ | 状態 | 内容 |
 |---|---|---|
@@ -108,27 +96,23 @@ flowchart LR
 | [結果報告が届かない対戦の後始末](server/stale-match-cleanup.md) | `current` | 定期的な打ち切り |
 | [開発用API](server/debug-api.md) | `current` | `DebugService` |
 
-### [DB](db/index.md)
+#### [DB](db/index.md)
 
 | ページ | 状態 | 内容 |
 |---|---|---|
-| [DB(方針と一覧)](db/index.md) | `current` | 方針とテーブル一覧 |
-| [プレイヤーと所持データのテーブル](db/player-tables.md) | `current` | `players`・`player_*` |
-| [スカウトのテーブル](db/scout-tables.md) | `current` | `scout_banners`・`scout_banner_rates`・`scout_rolls` |
-| [対戦のテーブル](db/battle-tables.md) | `current` | `battle_matches`・`battle_turns`・`bot_players` |
+| [DB](db/index.md) | `current` | 方針と、全テーブルの列・つながり |
 
-### [マスターデータ](master-data/index.md)
+#### [マスターデータ](master-data/index.md)
 
 | ページ | 状態 | 内容 |
 |---|---|---|
 | [生成・配布・運用](master-data/pipeline.md) | `current` | 配布先、パイプラインの制約、更新の手順 |
 | [テーブル](master-data/tables.md) | `current` | 各マスタの列と件数 |
 
-### [クライアント](client/index.md)
+#### [クライアント](client/index.md)
 
 | ページ | 状態 | 内容 |
 |---|---|---|
-| [採用ライブラリ](client/libraries.md) | `current` | ライブラリと導入経路 |
 | [アセンブリとレイヤー](client/assemblies.md) | `current` | オニオンアーキテクチャと asmdef |
 | [シーンとスコープ](client/scenes-and-scopes.md) | `current` | 3シーンと VContainer のスコープ |
 | [画面の構成](client/screens.md) | `current` | View / Presenter、命名、画面一覧 |
@@ -137,9 +121,8 @@ flowchart LR
 | [サインイン](client/sign-in.md) | `current` | タイトルからのサインイン、アカウント情報 |
 | [バトル画面](client/battle-screen.md) | `current` | 選出・開始の繰り出し・状態・演出・交代 |
 | [通信エラーのダイアログ](client/error-dialog.md) | `current` | ボタンと遷移、文言 |
-| [テスト](client/testing.md) | `current` | EditMode テスト、APIサーバーの代わりにするとき |
 
-### [バトルサーバー](battle-server/index.md)
+#### [バトルサーバー](battle-server/index.md)
 
 | ページ | 状態 | 内容 |
 |---|---|---|
@@ -148,6 +131,6 @@ flowchart LR
 | [通信契約](battle-server/contracts.md) | `current` | Hub と Receiver、情報の見せ方 |
 | [対戦の進行](battle-server/battle-flow.md) | `current` | フェーズ、時間切れ、切断と再接続、ボットとの対戦 |
 | [APIサーバーとの連携](battle-server/api-integration.md) | `current` | 内部 API、結果報告の再送 |
-| [テストとボット](battle-server/testing-and-bot.md) | `current` | xUnit、自動対戦のクライアント |
+| [テストとボット](battle-server/testing-and-bot.md) | `current` | NUnit・xUnit、自動対戦のクライアント |
 
 wiki の書き方と更新のルールは [CLAUDE.md](CLAUDE.md)。

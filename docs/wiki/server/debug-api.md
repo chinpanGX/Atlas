@@ -2,7 +2,7 @@
 title: "開発用API"
 status: current
 area: server
-related: [battle-server/testing-and-bot, game/gems]
+related: [battle-server/testing-and-bot, features/index]
 proto: [Shared/proto/atlas/v1/debug.proto]
 code: [Server/src/grpc/debug.rs, Server/src/main.rs, Server/src/service/player_pachimon_service.rs]
 updated: 2026-10-18

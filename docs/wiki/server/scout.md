@@ -2,10 +2,10 @@
 title: "スカウト(API)"
 status: current
 area: server
-related: [game/scout, db/scout-tables, conventions/items, client/screens]
+related: [features/scout, db/index, conventions/items, client/screens]
 proto: [Shared/proto/atlas/v1/scout.proto]
 code: [Server/src/grpc/scout.rs, Server/src/service/scout_service.rs, Server/src/master/scout_banner.rs, Shared/master-data/schema/tables/scout_banners.yaml, Shared/master-data/schema/tables/scout_banner_rates.yaml]
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 
 # スカウト(API)
@@ -51,7 +51,7 @@ updated: 2026-10-16
   開催中かはリクエストのたびに今の時刻と比べるので、開催期間の始まり・終わりで再起動は要らない
 - 常設の「レギュラースカウト」(`SCOUT000000000000000000001`。150ジェム、S 3%・A 12%・B 35%・C 50%、終了日時は2126年)を1件持つ。
   `banner_id` は `scout_rolls` が外部キーで参照するので、一度使った値は変えない
-- パイプラインの `validate` で確かめられない決まり(日時として読めること、`start_at < end_at`、バナーごとの重みの合計が10000)は、
+- パイプラインの `validate` で確かめられない決まり(日時として読めること、`start_at < end_at`、バナーごとの重みの合計が10000、重みが負でないこと、同じバナーに同じレア度の行が2つ無いこと)は、
   `seed_master_data` が何かを投入する前に確かめ、合わなければ投入を止める
 - 候補と選択結果を `scout_rolls` にまとめて記録し、紹介と入手の履歴を兼ねる
 - 紹介を選ばずに放置してもジェムは戻らず、ロールの有効期限も設けない。取り直す API が無いため、クライアントは候補を選ぶまで
