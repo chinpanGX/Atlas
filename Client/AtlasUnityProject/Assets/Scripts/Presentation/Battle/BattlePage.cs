@@ -32,12 +32,41 @@ namespace Atlas.Presentation.Battle
         public Observable<Unit> OnSwitchButtonClicked => commandView.OnSwitchClicked;
         public Observable<Unit> OnForfeitButtonClicked => forfeitButton.OnClickAsObservable();
 
+        // 対戦が始まるまで(選出中)は、HP等の表示とコマンドを隠す。prefabに置いた仮の表示が選出画面の裏に見えないようにするため。
+        // 場のパチモンの姿は、表示を反映するまで透明になっている。
+        public void HideBattlefield()
+        {
+            selfInfoView.gameObject.SetActive(false);
+            opponentInfoView.gameObject.SetActive(false);
+            commandView.SetVisible(false);
+        }
+
         public void Refresh(BattleUIStateDto stateDto)
         {
             stageView.Refresh(stateDto.SelfFigure, stateDto.OpponentFigure);
             selfInfoView.Refresh(stateDto.SelfInfo);
             opponentInfoView.Refresh(stateDto.OpponentInfo);
+            selfInfoView.gameObject.SetActive(true);
+            opponentInfoView.gameObject.SetActive(true);
             commandView.Refresh(stateDto.Commands);
+        }
+
+        // 対戦の開始時の繰り出し。繰り出した側の姿とHP等の表示だけを出し、まだ繰り出していない側は隠したままにする。
+        public UniTask PlayOpeningSendOutAsync(bool isSelf, BattleUIStateDto stateDto, CancellationToken cancellation)
+        {
+            if (isSelf)
+            {
+                selfInfoView.Refresh(stateDto.SelfInfo);
+                selfInfoView.gameObject.SetActive(true);
+            }
+            else
+            {
+                opponentInfoView.Refresh(stateDto.OpponentInfo);
+                opponentInfoView.gameObject.SetActive(true);
+            }
+
+            commandView.Refresh(stateDto.Commands);
+            return stageView.PlayAppearAsync(isSelf, isSelf ? stateDto.SelfFigure : stateDto.OpponentFigure, cancellation);
         }
 
         // HPの変化をゲージが減る(増える)演出で見せ、動き終わるまで待つ。

@@ -60,6 +60,8 @@ namespace Atlas.Presentation.Battle
         private bool opponentSwitching;
         private OpponentSwitchingPresenter openOpponentSwitching;
         private bool pushingOpponentSwitchingModal;
+        // OpponentSwitchingModalを開き終わったら完了する。開いている途中に閉じる側が待つのに使う。
+        private UniTaskCompletionSource opponentSwitchingPushed;
         // ターン結果・決着の演出。届いた順に1つずつ流す(演出中に次の結果が届いても割り込ませない)。
         private UniTask eventPlayback = UniTask.CompletedTask;
         // 流し終えていない演出の数。0になるまで行動を受け付けない。
@@ -131,6 +133,7 @@ namespace Atlas.Presentation.Battle
             connection.OnConnectionLost += HandleConnectionLost;
 
             // OnMatchStartが届くまでは行動できない。
+            view.HideBattlefield();
             RefreshCommandsInteractable();
             view.SetConnectionStatus(null);
             RunTurnTimerAsync(lifetimeCancellation.Token).Forget();
@@ -492,13 +495,19 @@ namespace Atlas.Presentation.Battle
             };
         }
 
+        // 対戦の開始では、選出画面を閉じてから両者の繰り出しを見せ、流し終えてから入力を始める。
         // 対戦中の再送(参加し直した後)は、流している演出の後ろに並べてから戻す。
         private void HandleMatchStart(BattleStartPayload payload)
         {
             if (!matchStarted)
             {
-                CloseSelectionModalAsync().Forget();
-                ApplyMatchStart(payload, lifetimeCancellation.Token);
+                ApplyMatchStart(payload);
+                EnqueuePlayback(async cancellation =>
+                {
+                    await CloseSelectionModalAsync();
+                    await PlayOpeningAsync(cancellation);
+                    BeginTurnInput(cancellation);
+                });
                 return;
             }
 
@@ -506,12 +515,26 @@ namespace Atlas.Presentation.Battle
             {
                 // 交代先の選択は、戻した状態から選び直させる。
                 await CloseSwitchModalAsync();
-                ApplyMatchStart(payload, cancellation);
+                ApplyMatchStart(payload);
+                view.Refresh(BuildUiState());
+                BeginTurnInput(cancellation);
             });
         }
 
+        // 相手、自分の順に、最初のパチモンを繰り出す。
+        private async UniTask PlayOpeningAsync(CancellationToken cancellation)
+        {
+            var state = BuildUiState();
+            foreach (var isSelf in new[] { false, true })
+            {
+                await view.PlayOpeningSendOutAsync(isSelf, state, cancellation);
+                await view.PlayMessageAsync(BattleMessageBuilder.SentOut(isSelf, ActivePachimonName(isSelf)), cancellation);
+            }
+        }
+
         // 盤面と、ターンの途中の状態(強制交代・送信済み・相手の切断中)を、届いた内容に置き換える。
-        private void ApplyMatchStart(BattleStartPayload payload, CancellationToken cancellation)
+        // 画面への反映と入力の開始は呼び出し側で行う(対戦の開始では、繰り出しの演出の後に始めるため)。
+        private void ApplyMatchStart(BattleStartPayload payload)
         {
             selfPlayerId = payload.Self.PlayerId;
             opponentPlayerId = payload.Opponent.PlayerId;
@@ -538,11 +561,9 @@ namespace Atlas.Presentation.Battle
             matchStarted = true;
             resyncPending = false;
 
-            view.Refresh(BuildUiState());
             // サーバーは対戦の開始・参加し直した後、準備がそろうまで数え始めない。
             turnDeadline = null;
             RefreshConnectionStatus();
-            BeginTurnInput(cancellation);
             RefreshCommandsInteractable();
         }
 
@@ -773,6 +794,10 @@ namespace Atlas.Presentation.Battle
         {
             // 選択中にターンが進んだ(制限時間切れ等)交代選択Modalは、演出の前にCanceledで閉じる。
             await CloseSwitchModalAsync();
+            // 相手の交代待ちのModalも、演出の前に閉じる。開いたままだと、相手が繰り出したパチモンがModalの裏で見えてしまう
+            // (ボットのようにすぐ交代する相手では、Modalを開き終わる前に交代のターン結果が届く)。
+            opponentSwitching = false;
+            await CloseOpponentSwitchingModalAsync();
 
             var isForcedSwitchTurn = nextTurnIsForcedSwitch;
             nextTurnIsForcedSwitch = payload.PlayersRequiringForcedSwitch.Length > 0;
@@ -897,13 +922,15 @@ namespace Atlas.Presentation.Battle
             return isSelf ? selfFaintedBySlot[selfActiveIndex] : opponentHpPercentBySlot[opponentActiveIndex] <= 0;
         }
 
-        // opponentSwitchingに合わせてOpponentSwitchingModalを出し入れする。MockBattleConnectionは相手の交代を
-        // 同期的に続けて送ってくるため、Pushの途中で相手の交代が済むことがある。その場合はPushが終わってから閉じる。
+        // opponentSwitchingに合わせてOpponentSwitchingModalを出し入れする。MockBattleConnectionやボットは相手の交代を
+        // すぐに送ってくるため、Pushの途中で相手の交代が済むことがある。その場合はPushが終わってから閉じる。
         private async UniTaskVoid SyncOpponentSwitchingModalAsync()
         {
             if (opponentSwitching && openOpponentSwitching is null && !pushingOpponentSwitchingModal)
             {
                 pushingOpponentSwitchingModal = true;
+                var pushed = new UniTaskCompletionSource();
+                opponentSwitchingPushed = pushed;
                 try
                 {
                     openOpponentSwitching = await screenNavigator.PushModalAsync<OpponentSwitchingPresenter>();
@@ -911,6 +938,7 @@ namespace Atlas.Presentation.Battle
                 finally
                 {
                     pushingOpponentSwitchingModal = false;
+                    pushed.TrySetResult();
                 }
             }
 
@@ -920,8 +948,16 @@ namespace Atlas.Presentation.Battle
             }
         }
 
+        // 開いている途中なら、開き終わってから閉じる。
         private async UniTask CloseOpponentSwitchingModalAsync()
         {
+            // 開く側(SyncOpponentSwitchingModalAsync)と演出の側から同時に待たれるため、複数で待てるUniTaskCompletionSourceで待つ
+            // (async UniTaskのタスクは、終わる前に2か所からawaitすると例外になる)。
+            if (opponentSwitchingPushed is { } pushed)
+            {
+                await pushed.Task;
+            }
+
             if (openOpponentSwitching is null)
             {
                 return;
