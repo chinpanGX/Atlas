@@ -68,7 +68,7 @@ namespace Atlas.BattleServer.Battle
                 bool isReconnect = slot >= 0;
                 if (isReconnect)
                 {
-                    if (session.Participants[slot]!.ConnectionId is not null)
+                    if (session.Participants[slot]!.IsConnected)
                     {
                         return new JoinOutcome(JoinResultStatus.AlreadyJoined, null, -1);
                     }
@@ -90,10 +90,17 @@ namespace Atlas.BattleServer.Battle
                         return new JoinOutcome(JoinResultStatus.InvalidToken, null, -1);
                     }
 
+                    // ボットは接続してこないため、相手の人が参加した時点で一緒に参加させる。
+                    bool withBot = claims.BotPlayerId != "" && session.Participants[1 - slot] is null;
                     IReadOnlyList<PartyPachimon> party;
+                    IReadOnlyList<PartyPachimon>? botParty = null;
                     try
                     {
                         party = await dataSource.GetPartyAsync(claims.PlayerId);
+                        if (withBot)
+                        {
+                            botParty = await dataSource.GetPartyAsync(claims.BotPlayerId);
+                        }
                     }
                     catch (Exception e) when (e is HttpRequestException or TaskCanceledException or InvalidOperationException)
                     {
@@ -103,28 +110,34 @@ namespace Atlas.BattleServer.Battle
                     }
 
                     session.Participants[slot] = new BattleParticipant(claims.PlayerId, party);
+                    if (botParty is not null)
+                    {
+                        AddBot(session, 1 - slot, claims.BotPlayerId, botParty);
+                    }
                 }
 
                 var participant = session.Participants[slot]!;
                 participant.ConnectionId = connectionId;
-                session.Group = await addToGroup(matchId);
+                // グループは空になると作り直されることがあるため、参加のたびに取り直した最新のものから送り先を作る。
+                var group = await addToGroup(matchId);
+                participant.Receiver = group.Single(connectionId);
                 CancelTimer(session.AbsenceTimers[slot]);
                 session.AbsenceTimers[slot] = null;
 
                 if (isReconnect)
                 {
                     logger.LogInformation("Player reconnected. matchId={MatchId} playerId={PlayerId}", matchId, claims.PlayerId);
-                    session.Group.Except(connectionId).OnOpponentReconnected();
+                    session.Participants[1 - slot]?.Receiver?.OnOpponentReconnected();
 
                     // 専用の再同期メソッドは設けず、選出中ならOnSelectionStartを、対戦中なら現在の盤面を
                     // OnMatchStartとして再接続者にだけ再送する。
                     if (session.Phase == BattlePhase.Selecting)
                     {
-                        session.Group.Single(connectionId).OnSelectionStart(BuildSelectionStartPayload(session, slot));
+                        participant.Receiver.OnSelectionStart(BuildSelectionStartPayload(session, slot));
                     }
                     else if (session.Phase == BattlePhase.InProgress)
                     {
-                        session.Group.Single(connectionId).OnMatchStart(BuildStartPayload(session, slot));
+                        participant.Receiver.OnMatchStart(BuildStartPayload(session, slot));
                         // 戻った側は盤面を戻し終えてから準備を送る。待っていた側の準備は、切断前のものを残す。
                         participant.ReadyForTurn = false;
                         if (session.AllConnected)
@@ -315,7 +328,8 @@ namespace Atlas.BattleServer.Battle
 
                 logger.LogInformation("Player disconnected. matchId={MatchId} playerId={PlayerId}", session.MatchId, participant.PlayerId);
                 participant.ConnectionId = null;
-                session.Group?.Except(connectionId).OnOpponentDisconnected();
+                participant.Receiver = null;
+                session.Participants[1 - slot]?.Receiver?.OnOpponentDisconnected();
 
                 // 猶予中は両者とも行動を受け付けない(ターンを進めない)。
                 CancelTurnTimers(session);
@@ -387,10 +401,7 @@ namespace Atlas.BattleServer.Battle
             // Self/Opponentが受信者ごとに異なるため、全体ブロードキャストではなく個別に送る。
             for (int slot = 0; slot < session.Participants.Length; slot++)
             {
-                if (session.Participants[slot]!.ConnectionId is { } connectionId)
-                {
-                    session.Group!.Single(connectionId).OnMatchStart(BuildStartPayload(session, slot));
-                }
+                session.Participants[slot]!.Receiver?.OnMatchStart(BuildStartPayload(session, slot));
             }
 
             if (session.AllConnected)
@@ -441,7 +452,7 @@ namespace Atlas.BattleServer.Battle
                 result.TurnNumber,
                 actions.ToArray(),
                 result.PlayersRequiringForcedSwitch.Select(s => session.Participants[ToSlot(s)]!.PlayerId).ToArray());
-            session.Group?.All.OnTurnResult(payload);
+            Broadcast(session, r => r.OnTurnResult(payload));
 
             if (result.BattleEnd is { } end)
             {
@@ -532,7 +543,8 @@ namespace Atlas.BattleServer.Battle
 
             string winnerId = winnerSlot is { } winner ? session.Participants[winner]!.PlayerId : NoWinnerId;
             logger.LogInformation("Battle finished. matchId={MatchId} winnerId={WinnerId} reason={Reason}", session.MatchId, winnerId, reason);
-            session.Group?.All.OnBattleEnd(new BattleEndPayload(winnerId, reason));
+            var endPayload = new BattleEndPayload(winnerId, reason);
+            Broadcast(session, r => r.OnBattleEnd(endPayload));
 
             var request = new BattleResultRequest(
                 session.MatchId,
@@ -557,10 +569,7 @@ namespace Atlas.BattleServer.Battle
             // SelfParty/OpponentPartyPachimonIdsが受信者ごとに異なるため、個別に送る。
             for (int slot = 0; slot < session.Participants.Length; slot++)
             {
-                if (session.Participants[slot]!.ConnectionId is { } connectionId)
-                {
-                    session.Group!.Single(connectionId).OnSelectionStart(BuildSelectionStartPayload(session, slot));
-                }
+                session.Participants[slot]!.Receiver?.OnSelectionStart(BuildSelectionStartPayload(session, slot));
             }
         }
 
@@ -646,7 +655,8 @@ namespace Atlas.BattleServer.Battle
             CancelTurnTimers(session);
             var cts = new CancellationTokenSource();
             session.TurnTimer = cts;
-            session.Group?.All.OnTurnStart((int)Math.Ceiling(timing.TurnTimeLimit.TotalSeconds));
+            int timeLimitSeconds = (int)Math.Ceiling(timing.TurnTimeLimit.TotalSeconds);
+            Broadcast(session, r => r.OnTurnStart(timeLimitSeconds));
             _ = RunTimerAsync(timing.TurnTimeLimit, cts.Token, async () =>
             {
                 await session.Gate.WaitAsync();
@@ -696,14 +706,14 @@ namespace Atlas.BattleServer.Battle
                     }
 
                     var absent = session.Participants[slot];
-                    if (absent?.ConnectionId is not null)
+                    if (absent?.IsConnected == true)
                     {
                         return;
                     }
 
                     // 対戦開始前に両者とも不在になった場合は勝者を決められない。
                     var other = session.Participants[1 - slot];
-                    bool noWinner = other is null || (session.Phase != BattlePhase.InProgress && other.ConnectionId is null);
+                    bool noWinner = other is null || (session.Phase != BattlePhase.InProgress && !other.IsConnected);
                     Finish(session, noWinner ? null : 1 - slot, BattleEndReason.DisconnectTimeout);
                 }
                 finally
@@ -743,6 +753,28 @@ namespace Atlas.BattleServer.Battle
             }
         }
 
+        // 相手が見つからなかったプレイヤーの相手として、ボットをslotに参加させる。ボットは切断しないので、
+        // 送り先(Receiver)を入れたまま外さず、常に接続中として扱う。
+        private void AddBot(BattleSession session, int slot, string playerId, IReadOnlyList<PartyPachimon> party)
+        {
+            var bot = new BattleBotPlayer(this, session, slot, timing, logger);
+            session.Participants[slot] = new BattleParticipant(playerId, party) { Receiver = bot };
+            _ = bot.RunAsync();
+            logger.LogInformation("Bot joined. matchId={MatchId} playerId={PlayerId} slot={Slot}", session.MatchId, playerId, slot);
+        }
+
+        // 接続中の参加者全員への送信。
+        private static void Broadcast(BattleSession session, Action<IBattleHubReceiver> send)
+        {
+            foreach (var participant in session.Participants)
+            {
+                if (participant?.Receiver is { } receiver)
+                {
+                    send(receiver);
+                }
+            }
+        }
+
         private static void CancelTimer(CancellationTokenSource? timer) => timer?.Cancel();
 
         private static void CancelTurnTimers(BattleSession session)
@@ -772,7 +804,7 @@ namespace Atlas.BattleServer.Battle
                 BuildSelfMoves(self, selfSide),
                 playersRequiringForcedSwitch,
                 ActionSubmitted: self.Pending is not null,
-                OpponentDisconnected: opponent.ConnectionId is null);
+                OpponentDisconnected: !opponent.IsConnected);
         }
 
         // 自分側の選出各枠の技と残りPP。クライアントはこれを表示・送信する(手元の所持データは使わない)。

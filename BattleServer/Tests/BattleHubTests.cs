@@ -179,7 +179,7 @@ namespace Atlas.BattleServer.Tests
             // 決着まで殴り合う。強制交代ターンは、倒れた側だけが生存している枠へ交代する(相手は待つ)
             var active = new Dictionary<string, int> { ["pA"] = 0, ["pB"] = 1 };
             var fainted = new Dictionary<string, bool[]> { ["pA"] = new bool[3], ["pB"] = new bool[3] };
-            while (ra.Ends.Count == 0)
+            while (true)
             {
                 Assert.True(ra.Turns.Count < 200, "battle did not finish");
                 var last = ra.Turns[^1];
@@ -187,6 +187,12 @@ namespace Atlas.BattleServer.Tests
                 {
                     var target = action.PlayerId == "pA" ? "pB" : "pA";
                     fainted[target][active[target]] = true;
+                }
+
+                // 最後のターンの結果の直後は、決着の通知がまだ届いていないことがある。全滅したら送らずに決着を待つ
+                if (fainted["pA"].All(f => f) || fainted["pB"].All(f => f))
+                {
+                    break;
                 }
 
                 bool forcedSwitchTurn = last.PlayersRequiringForcedSwitch.Length > 0;
@@ -223,6 +229,7 @@ namespace Atlas.BattleServer.Tests
                 }
             }
 
+            await ra.WaitForAsync(r => r.Ends.Count == 1);
             await rb.WaitForAsync(r => r.Ends.Count == 1);
             Assert.Equal(BattleEndReason.AllFainted, ra.Ends[0].Reason);
             Assert.Equal(ra.Ends[0], rb.Ends[0]);
@@ -634,6 +641,84 @@ namespace Atlas.BattleServer.Tests
             Assert.Equal(3, ra.Turns.Count);
             Assert.Equal(new BattleEndPayload("", BattleEndReason.Forfeit), ra.Ends[0]);
             await AssertReportedWithoutWinnerAsync(host);
+        }
+
+        [Fact]
+        public async Task BotMatch_BotJoinsWithPlayer_AndPlaysUntilEnd()
+        {
+            await using var host = new BattleServerTestHost();
+            var (a, ra) = await host.ConnectAsync();
+            var token = BattleServerTestHost.Token("m", "pA", botPlayerId: "pBot");
+            Assert.Equal(JoinResultStatus.Success, (await a.JoinAsync(token, "m")).Status);
+
+            // ボットは接続してこないが、人が参加した時点で一緒に参加して選出が始まる
+            await ra.WaitForAsync(r => r.SelectionStarts.Count == 1);
+            Assert.Equal(DummyParticipantDataSource.PartySize, ra.SelectionStarts[0].OpponentPartyPachimonIds.Length);
+            await a.SubmitSelectionAsync(["a1", "a2", "a3"]);
+            await ra.WaitForAsync(r => r.Starts.Count == 1);
+            Assert.Equal("pBot", ra.Starts[0].Opponent.PlayerId);
+
+            // 人は準備を送ってから技を送り、倒れたら生きている控えに交代するだけ。ボットは人の準備がそろって
+            // 制限時間を数え始めてから(OnTurnStart)自分で技・交代を送るので、決着まで進む
+            var fainted = new bool[3];
+            int active = 0;
+            while (ra.Ends.Count == 0)
+            {
+                Assert.True(ra.Turns.Count < 200, "battle did not finish");
+                await a.ReadyForTurnAsync();
+                int before = ra.Turns.Count;
+                var last = before > 0 ? ra.Turns[^1] : null;
+                if (last is not null && last.Actions.Any(x => x.PlayerId == "pBot" && x.Type == ActionType.Move && x.TargetFainted))
+                {
+                    fainted[active] = true;
+                }
+
+                try
+                {
+                    if (last is not null && last.PlayersRequiringForcedSwitch.Contains("pA"))
+                    {
+                        active = Array.FindIndex(fainted, f => !f);
+                        await a.SwitchAsync(active);
+                    }
+                    else if (last is null || last.PlayersRequiringForcedSwitch.Length == 0)
+                    {
+                        await a.SubmitMoveAsync(new MoveRequest("19"));
+                    }
+                }
+                catch (RpcException e) when (e.StatusCode == StatusCode.FailedPrecondition)
+                {
+                    // 最後のターンの結果の直後(決着を受け取る前)に送った場合
+                }
+
+                await ra.WaitForAsync(r => r.Turns.Count > before || r.Ends.Count > 0);
+            }
+
+            Assert.Equal(BattleEndReason.AllFainted, ra.Ends[0].Reason);
+            await host.ApiServer.WaitForCountAsync(1);
+            Assert.True(host.ApiServer.Received.TryPeek(out var received));
+            var report = received.Request;
+            Assert.Equal(ra.Ends[0].WinnerId, report.WinnerId);
+            Assert.Equal("pA", report.Player1Id);
+            Assert.Equal("pBot", report.Player2Id);
+            // ボットはパーティ("t1"〜"t6")から上限の3体を選ぶ
+            Assert.Equal(3, report.Player2SelectedPachimon.Count);
+            Assert.All(report.Player2SelectedPachimon, id => Assert.StartsWith("t", id));
+        }
+
+        [Fact]
+        public async Task BotMatch_PlayerWhoDoesNotReturnLosesToBot()
+        {
+            await using var host = new BattleServerTestHost(o => o.ReconnectGracePeriod = TimeSpan.FromMilliseconds(300));
+            var (a, ra) = await host.ConnectAsync();
+            await a.JoinAsync(BattleServerTestHost.Token("m", "pA", botPlayerId: "pBot"), "m");
+            await a.SubmitSelectionAsync(["a1"]);
+            await ra.WaitForAsync(r => r.Starts.Count == 1);
+
+            await a.DisposeAsync();
+
+            await host.ApiServer.WaitForCountAsync(1);
+            Assert.True(host.ApiServer.Received.TryPeek(out var received));
+            Assert.Equal("pBot", received.Request.WinnerId);
         }
 
         // 勝者なしでもRust側でbattle_matchesを片付けられるよう、winnerIdを空文字にして報告する。

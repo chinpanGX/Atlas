@@ -1,7 +1,6 @@
 using Atlas.BattleCore;
 using Atlas.BattleContracts;
 using Atlas.BattleServer.Internal;
-using MagicOnion.Server.Hubs;
 
 namespace Atlas.BattleServer.Battle
 {
@@ -23,8 +22,14 @@ namespace Atlas.BattleServer.Battle
         // 参加(JoinAsync)時点のパーティ編成(選出候補、枠番号順)。対戦中に編成を変えても影響させない。
         public IReadOnlyList<PartyPachimon> Party { get; } = party;
 
-        // 切断中(または猶予中)はnull。
+        // 人の参加者の今の接続。切断中(または猶予中)とボットはnull。切断の通知が今の接続のものかを見分けるのに使う。
         public Guid? ConnectionId { get; set; }
+
+        // この参加者への通知の送り先。人は接続(Groupの中のその接続)、ボットはBattleBotPlayer。切断中はnull。
+        // 進行のロジックは、相手が人かボットかを区別せずにここへ送る。
+        public IBattleHubReceiver? Receiver { get; set; }
+
+        public bool IsConnected => Receiver is not null;
 
         // 選出(SubmitSelectionAsync)前はnull。インデックスはBattleSide.Partyと一致する。
         public string[]? SelectedIds { get; set; }
@@ -54,9 +59,6 @@ namespace Atlas.BattleServer.Battle
         // インデックス0がBattleSideId.Player1、1がPlayer2(先にJoinAsyncした方がPlayer1)。
         public BattleParticipant?[] Participants { get; } = new BattleParticipant?[2];
 
-        // グループが空になると作り直される可能性があるため、JoinAsyncのたびに最新の参照へ更新する。
-        public IGroup<IBattleHubReceiver>? Group { get; set; }
-
         // InProgressになった時点で生成される。
         public BattleState? Core { get; set; }
 
@@ -74,7 +76,7 @@ namespace Atlas.BattleServer.Battle
         public CancellationTokenSource?[] AbsenceTimers { get; } = new CancellationTokenSource?[2];
         public List<BattleTurnRecord> TurnLog { get; } = [];
 
-        public bool AllConnected => Participants.All(p => p?.ConnectionId is not null);
+        public bool AllConnected => Participants.All(p => p?.IsConnected == true);
 
         public int IndexOf(string playerId) =>
             Array.FindIndex(Participants, p => p?.PlayerId == playerId);

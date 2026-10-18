@@ -24,6 +24,14 @@ namespace Atlas.BattleServer.Battle
         // (battle_tokenの有効期限30秒+ClockSkewより長ければよい)。
         public TimeSpan FinishedSessionRetention { get; set; } = TimeSpan.FromSeconds(60);
 
+        // ボットが選ぶまでに置く間(この範囲からランダム)。すぐに送ると、相手の選出待ち・行動待ち・交代待ちの表示が
+        // 一度も出ないか一瞬で消え、ボットだと気付かれやすいため。技・交代の間は、人が選び始めた時点(OnTurnStart)から数える。
+        // 技・交代の上限はターンの制限時間より十分短くする。
+        public TimeSpan BotSelectionDelayMin { get; set; } = TimeSpan.FromSeconds(5);
+        public TimeSpan BotSelectionDelayMax { get; set; } = TimeSpan.FromSeconds(15);
+        public TimeSpan BotActionDelayMin { get; set; } = TimeSpan.FromSeconds(1);
+        public TimeSpan BotActionDelayMax { get; set; } = TimeSpan.FromSeconds(5);
+
         // /internal/battle/resultへの報告が一時的な失敗(通信エラー・5xx)だった場合の再送間隔。
         // 要素数が再送回数になる。
         public TimeSpan[] ResultReportRetryDelays { get; set; } =

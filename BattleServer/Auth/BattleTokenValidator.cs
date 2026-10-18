@@ -6,7 +6,8 @@ namespace Atlas.BattleServer.Auth
 {
     // Rust側(Server/src/service/matchmaking_service.rs)のBattleTokenClaimsと1:1対応する。
     // expはJsonWebTokenHandlerが検証するため、ここには持たない。
-    public sealed record BattleTokenClaims(string MatchId, string PlayerId);
+    // BotPlayerIdは相手がボットならそのPlayerId、人との対戦なら空文字。
+    public sealed record BattleTokenClaims(string MatchId, string PlayerId, string BotPlayerId);
 
     public enum BattleTokenStatus { Valid, Expired, Invalid }
 
@@ -14,7 +15,7 @@ namespace Atlas.BattleServer.Auth
     public sealed record BattleTokenValidationResult(BattleTokenStatus Status, BattleTokenClaims? Claims);
 
     // battle_token(JWT, HS256)の検証。共有シークレットはRust側と同じBATTLE_TOKEN_SECRETを使う。
-    // claimsはmatch_id・player_id・exp。期限切れ(署名は正当)は再接続にだけ使えるよう、無効とは区別して返す。
+    // claimsはmatch_id・player_id・bot_player_id・exp。期限切れ(署名は正当)は再接続にだけ使えるよう、無効とは区別して返す。
     public sealed class BattleTokenValidator
     {
         public const string SecretConfigKey = "BATTLE_TOKEN_SECRET";
@@ -27,6 +28,7 @@ namespace Atlas.BattleServer.Auth
 
         private const string MatchIdClaim = "match_id";
         private const string PlayerIdClaim = "player_id";
+        private const string BotPlayerIdClaim = "bot_player_id";
 
         private readonly JsonWebTokenHandler handler = new();
         private readonly TokenValidationParameters parameters;
@@ -96,7 +98,13 @@ namespace Atlas.BattleServer.Auth
                 return new BattleTokenValidationResult(BattleTokenStatus.Invalid, null);
             }
 
-            return new BattleTokenValidationResult(status, new BattleTokenClaims(matchId, playerId));
+            // ボットのclaimより前に発行されたトークンには無いため、無ければ人との対戦として扱う。
+            if (!jwt.TryGetPayloadValue<string>(BotPlayerIdClaim, out var botPlayerId))
+            {
+                botPlayerId = "";
+            }
+
+            return new BattleTokenValidationResult(status, new BattleTokenClaims(matchId, playerId, botPlayerId));
         }
     }
 }

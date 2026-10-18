@@ -39,6 +39,10 @@ namespace Atlas.BattleServer.Tests
                     services.Configure<BattleTimingOptions>(options =>
                     {
                         options.ResultReportRetryDelays = [TimeSpan.FromMilliseconds(10)];
+                        options.BotSelectionDelayMin = TimeSpan.Zero;
+                        options.BotSelectionDelayMax = TimeSpan.Zero;
+                        options.BotActionDelayMin = TimeSpan.Zero;
+                        options.BotActionDelayMax = TimeSpan.Zero;
                         configureTiming?.Invoke(options);
                     });
                     if (configureMagicOnion is not null)
@@ -82,14 +86,17 @@ namespace Atlas.BattleServer.Tests
             return new BattlePair(a, ra, b, rb);
         }
 
-        // Rust側(jsonwebtoken, Header::default())と同じ形式のHS256 JWTを作る。
-        public static string Token(string matchId, string playerId, long expOffsetSeconds = 30, string secret = TokenSecret)
+        // Rust側(jsonwebtoken, Header::default())と同じ形式のHS256 JWTを作る。botPlayerIdを渡すとボットとの対戦のトークンになる
+        // (渡さなければ、ボットのclaimが無い形で作る)。
+        public static string Token(
+            string matchId, string playerId, long expOffsetSeconds = 30, string secret = TokenSecret, string? botPlayerId = null)
         {
             static string B64(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
             var header = B64(Encoding.UTF8.GetBytes("{\"typ\":\"JWT\",\"alg\":\"HS256\"}"));
             var exp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + expOffsetSeconds;
-            var payload = B64(Encoding.UTF8.GetBytes($"{{\"match_id\":\"{matchId}\",\"player_id\":\"{playerId}\",\"exp\":{exp}}}"));
+            var bot = botPlayerId is null ? "" : $",\"bot_player_id\":\"{botPlayerId}\"";
+            var payload = B64(Encoding.UTF8.GetBytes($"{{\"match_id\":\"{matchId}\",\"player_id\":\"{playerId}\"{bot},\"exp\":{exp}}}"));
             var signature = B64(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes($"{header}.{payload}")));
             return $"{header}.{payload}.{signature}";
         }
