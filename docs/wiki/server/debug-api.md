@@ -5,7 +5,7 @@ area: server
 related: [battle-server/testing-and-bot, game/gems]
 proto: [Shared/proto/atlas/v1/debug.proto]
 code: [Server/src/grpc/debug.rs, Server/src/main.rs, Server/src/service/player_pachimon_service.rs]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # 開発用API
@@ -26,4 +26,4 @@ Unity のショップ画面の開発用のジェム付与から呼ぶ(開発ビ�
 
 - マスタから重複なしで6体を選んで新しく付与し、技は技グループの候補から重複なしでランダムに最大4つ選ぶ
 - 既存の編成をすべて解除し、付与した6体で枠1〜6を編成し直す。以前の所持個体は残る
-- 対戦相手ボット(`BattleBot`)が毎回違うパーティで対戦するために使う
+- 自動対戦のクライアント(`BattleBot`)が毎回違うパーティで対戦するために使う(サーバーのボットのパーティを作るときも同じ処理を使う)

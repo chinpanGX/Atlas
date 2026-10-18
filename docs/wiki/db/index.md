@@ -4,7 +4,7 @@ status: current
 area: db
 related: [conventions/naming-and-ids, conventions/nullable, master-data/tables]
 code: [Server/migrations, Server/src/db.rs]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # DB
@@ -39,6 +39,7 @@ MySQL。唯一のデータストアで、書き込むのは APIサーバーだ�
 | `scout_rolls` | スカウトの紹介と選択の記録 | `Roll`・`Select` | 同上 |
 | `battle_matches` | 対戦 | マッチ成立・結果報告・後始末 | [対戦](battle-tables.md) |
 | `battle_turns` | 対戦の行動ログ | 結果報告 | 同上 |
+| `bot_players` | 対戦相手のボットのプレイヤー | ボットとのマッチ成立 | 同上 |
 | `pachimon`・`moves`・`move_groups`・`move_group_moves`・`starter_party_slots`・`items`・`shop_products` | マスタ | `seed_master_data` | [マスターデータのテーブル](../master-data/tables.md) |
 
 ## 基盤のテーブル

@@ -3,11 +3,21 @@ title: "対戦のテーブル"
 status: current
 area: db
 related: [db/index, server/matchmaking, server/internal-api, server/stale-match-cleanup]
-code: [Server/migrations, Server/src/service/battle_service.rs, BattleServer/Internal/BattleResultReporter.cs]
-updated: 2026-10-11
+code: [Server/migrations, Server/src/service/battle_service.rs, Server/src/service/bot_player_service.rs, BattleServer/Internal/BattleResultReporter.cs]
+updated: 2026-10-18
 ---
 
 # 対戦のテーブル
+
+## bot_players
+
+| 列 | 型 | 制約 | 説明 |
+|---|---|---|---|
+| `player_id` | CHAR(26) | PK, FK → `players` | 対戦相手のボットとして使うプレイヤー |
+
+- ボットも `players` に行を持つ普通のプレイヤーで、このテーブルに載っているかで区別する。パーティ・所持データは人と同じテーブルに持つ
+- 行が無いのは「ボットではない」。`players` に `is_bot` の列を足さなかったのは、プレイヤーの行を読む処理に影響させないため
+- 使い方は [マッチング](../server/matchmaking.md)
 
 ## battle_matches
 

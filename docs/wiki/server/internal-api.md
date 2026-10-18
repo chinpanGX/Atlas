@@ -22,6 +22,8 @@ updated: 2026-10-18
 `player_id` → `pachimon`(`player_pachimon_id`・`pachimon_id`)
 
 - バトルサーバーが参加を受け付けたときに呼ぶ。パーティの枠番号の順(未編成の枠は含まないため0〜6件)
+- ボットとの対戦では、ボットの分もこれで取る。ボットも `players` の普通のプレイヤーなので、`GetLoadouts`・`ReportResult` も含めて
+  人と同じに扱う([マッチング](matchmaking.md))
 - 選出画面で見せるのはどのパチモンかだけなので、ステータスポイント・技は返さない
 
 ## GetLoadouts

@@ -5,7 +5,7 @@ area: root
 related: [game/index, conventions/index, server/structure, client/index, battle-server/index]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/main.rs, Server/src/grpc.rs, BattleServer/Program.cs, Client/AtlasUnityProject/Assets/Scripts/DI/RootLifetimeScope.cs]
-updated: 2026-10-13
+updated: 2026-10-18
 ---
 
 # 概要(ゲームとシステムの全体像)
@@ -53,7 +53,7 @@ APIサーバー(Rust/tonic)        バトルサーバー(C#/MagicOnion)
 |---|---|
 | `Client/AtlasUnityProject/` | Unity クライアント([クライアント](client/index.md)) |
 | `Server/` | APIサーバー(Rust。クライアント向けも内部 API も gRPC/tonic)([APIサーバー](server/index.md)) |
-| `BattleServer/` | バトルサーバー(ASP.NET Core + MagicOnion)。対戦相手ボット(`BattleBot/`)とテストを含む([バトルサーバー](battle-server/index.md)) |
+| `BattleServer/` | バトルサーバー(ASP.NET Core + MagicOnion)。自動対戦のクライアント(`BattleBot/`)とテストを含む([バトルサーバー](battle-server/index.md)) |
 | `Shared/BattleCore/` | ダメージ計算・ターン処理(`Atlas.BattleCore`) |
 | `Shared/BattleContracts/` | Client ⇔ BattleServer の通信契約(`Atlas.BattleContracts`) |
 | `Shared/master-data/` | マスターデータのスキーマと CSV(正本)([マスターデータ](master-data/index.md)) |

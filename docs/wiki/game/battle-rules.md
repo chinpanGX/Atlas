@@ -3,8 +3,8 @@ title: "対戦のルール"
 status: current
 area: game
 related: [server/matchmaking, battle-server/battle-flow, battle-server/battle-core, client/battle-screen]
-code: [BattleServer/Battle/BattleCoordinator.cs, BattleServer/Battle/BattleTimingOptions.cs, Shared/BattleCore/Runtime]
-updated: 2026-10-11
+code: [BattleServer/Battle/BattleCoordinator.cs, BattleServer/Battle/BattleBotPlayer.cs, BattleServer/Battle/BattleTimingOptions.cs, Server/src/service/matchmaking_service.rs, Shared/BattleCore/Runtime]
+updated: 2026-10-18
 ---
 
 # 対戦のルール
@@ -14,6 +14,9 @@ updated: 2026-10-11
 ## マッチング
 
 - 対戦ボタンでマッチングの待機列に入り、もう1人が来たら対戦相手が決まる(先着順。強さによる組み分けは無い)
+- 10秒待っても相手が来なければ、ボットが対戦相手になる。遊ぶ人が少ない時間でも対戦を始められるようにするため。
+  ボットであることは画面に出さず、ルール・制限時間・勝利の報酬は人との対戦と同じ
+- ボットは選出も技もランダムに選ぶ(強さの調整はまだしていない)
 - 待っている間はキャンセルできる
 
 ## 選出

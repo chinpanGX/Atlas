@@ -4,7 +4,7 @@ status: current
 area: server
 related: [server/structure, server/matchmaking, server/internal-api, client/sign-in, battle-server/battle-flow]
 code: [Server/src/grpc/player_lookup.rs, Server/src/grpc/context.rs, Server/src/grpc/internal_battle.rs, Server/src/service/matchmaking_service.rs, BattleServer/Auth/BattleTokenValidator.cs]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # 認証
@@ -36,8 +36,11 @@ APIサーバーにかかわる認証は3種類ある。
 
 ## battle_token
 
-- マッチ成立時に APIサーバーが発行する HS256 の JWT。claims は `match_id`・`player_id`・`exp`。有効期限は30秒
+- マッチ成立時に APIサーバーが発行する HS256 の JWT。claims は `match_id`・`player_id`・`bot_player_id`・`exp`。有効期限は30秒
   (マッチ成立直後にバトルサーバーへ接続するだけなので短くてよい)
+- `bot_player_id` は、相手がボットならボットの `player_id`、人との対戦なら空文字([マッチング](matchmaking.md))。
+  バトルサーバーはこの claim だけを根拠にボットを参加させる。署名されているので、クライアントが足したり書き換えたりはできない。
+  無いトークン(この claim を足す前に発行したもの)は人との対戦として扱う
 - 共有シークレットは環境変数 `BATTLE_TOKEN_SECRET`(APIサーバーとバトルサーバーに同じ値)。バトルサーバーは32バイト未満なら起動しない
 - バトルサーバーは検証の時刻のずれの許容を5秒にしている(既定の許容が30秒より大きいと、実質の有効期限が延びるため)
 - 期限切れ(署名は正当)のトークンは無効と区別し、再接続のときに限り受け付ける([対戦の進行](../battle-server/battle-flow.md))

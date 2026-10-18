@@ -2,7 +2,7 @@
 title: "Atlas wiki"
 status: index
 area: root
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # Atlas wiki
@@ -103,7 +103,7 @@ flowchart LR
 | [パーティ編成・育成](server/party.md) | `current` | `SetParty`・`SetPachimonMove`・`SetPachimonStatPoints` |
 | [スカウト(API)](server/scout.md) | `current` | `ListBanners`・`Roll`・`Select` |
 | [ショップ(API)](server/shop.md) | `current` | `ListProducts`・`Purchase` |
-| [マッチング](server/matchmaking.md) | `current` | メモリの待機列とポーリング |
+| [マッチング](server/matchmaking.md) | `current` | メモリの待機列とポーリング、相手がいないときのボット |
 | [内部API](server/internal-api.md) | `current` | バトルサーバー向けの3つの RPC |
 | [結果報告が届かない対戦の後始末](server/stale-match-cleanup.md) | `current` | 定期的な打ち切り |
 | [開発用API](server/debug-api.md) | `current` | `DebugService` |
@@ -115,7 +115,7 @@ flowchart LR
 | [DB(方針と一覧)](db/index.md) | `current` | 方針とテーブル一覧 |
 | [プレイヤーと所持データのテーブル](db/player-tables.md) | `current` | `players`・`player_*` |
 | [スカウトのテーブル](db/scout-tables.md) | `current` | `scout_banners`・`scout_banner_rates`・`scout_rolls` |
-| [対戦のテーブル](db/battle-tables.md) | `current` | `battle_matches`・`battle_turns` |
+| [対戦のテーブル](db/battle-tables.md) | `current` | `battle_matches`・`battle_turns`・`bot_players` |
 
 ### [マスターデータ](master-data/index.md)
 
@@ -135,7 +135,7 @@ flowchart LR
 | [画面遷移](client/navigation.md) | `current` | Push/Pop、直列化、シーンの切り替え |
 | [サービスと所持データ](client/services-and-player-data.md) | `current` | Service・Repository・差分の反映 |
 | [サインイン](client/sign-in.md) | `current` | タイトルからのサインイン、アカウント情報 |
-| [バトル画面](client/battle-screen.md) | `current` | 選出・状態・演出・交代 |
+| [バトル画面](client/battle-screen.md) | `current` | 選出・開始の繰り出し・状態・演出・交代 |
 | [通信エラーのダイアログ](client/error-dialog.md) | `current` | ボタンと遷移、文言 |
 | [テストとサーバー無しでの動作](client/testing.md) | `current` | 偽のサーバー、Mock 対戦 |
 
@@ -146,8 +146,8 @@ flowchart LR
 | [構成](battle-server/structure.md) | `current` | プロジェクト、クラスの役割、共有ソース |
 | [バトルの計算](battle-server/battle-core.md) | `current` | Section とイベント、ダメージ・能力の式 |
 | [通信契約](battle-server/contracts.md) | `current` | Hub と Receiver、情報の見せ方 |
-| [対戦の進行](battle-server/battle-flow.md) | `current` | フェーズ、時間切れ、切断と再接続 |
+| [対戦の進行](battle-server/battle-flow.md) | `current` | フェーズ、時間切れ、切断と再接続、ボットとの対戦 |
 | [APIサーバーとの連携](battle-server/api-integration.md) | `current` | 内部 API、結果報告の再送 |
-| [テストとボット](battle-server/testing-and-bot.md) | `current` | xUnit、対戦相手ボット |
+| [テストとボット](battle-server/testing-and-bot.md) | `current` | xUnit、自動対戦のクライアント |
 
 wiki の書き方と更新のルールは [CLAUDE.md](CLAUDE.md)。

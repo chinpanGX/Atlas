@@ -4,7 +4,7 @@ status: current
 area: battle-server
 related: [battle-server/battle-flow, battle-server/battle-core, battle-server/contracts, battle-server/api-integration]
 code: [BattleServer/Program.cs, BattleServer/Hubs, BattleServer/Battle, BattleServer/Auth, BattleServer/Internal, BattleServer/BattleCore, BattleServer/BattleContracts]
-updated: 2026-10-11
+updated: 2026-10-18
 ---
 
 # バトルサーバーの構成
@@ -17,7 +17,7 @@ updated: 2026-10-11
 | `Atlas.BattleCore` | ソースは `Shared/BattleCore/Runtime/`、csproj は `BattleServer/BattleCore/` | ダメージ計算・ターン処理。Client と同じソース |
 | `Atlas.BattleContracts` | ソースは `Shared/BattleContracts/Runtime/`、csproj は `BattleServer/BattleContracts/` | 通信契約(Hub・Receiver・Payload)。Client と同じソース |
 | `Atlas.MasterData` | `BattleServer/MasterData/` | マスターデータの生成物 |
-| `BattleBot` | `BattleServer/BattleBot/` | 開発用の対戦相手ボット([テストとボット](testing-and-bot.md)) |
+| `BattleBot` | `BattleServer/BattleBot/` | 開発用の自動対戦クライアント。サーバー全体を通しで確かめるのに使う([テストとボット](testing-and-bot.md))。マッチングで相手がいないときのボット(`BattleBotPlayer`)とは別 |
 | テスト | `BattleServer/Tests/` | xUnit |
 
 - 公式の Getting Started・ChatApp サンプルと同じ最小構成(ASP.NET Core Empty + `MagicOnion.Server`)。専用のテンプレートは無い
@@ -32,7 +32,8 @@ updated: 2026-10-11
 |---|---|
 | `Hubs/BattleHub.cs` | StreamingHub。1接続1インスタンスで、「どの対戦のどちら側か」だけを持ち、処理は `BattleCoordinator` に委ねる |
 | `Battle/BattleCoordinator.cs` | 全対戦の状態(`matchId` → `BattleSession`)と進行。タイマーは Hub の外で発火するため、進行はこのシングルトンに置く |
-| `Battle/BattleSession.cs` | 1対戦の状態(フェーズ・参加者・パーティ・選出・盤面・タイマー・行動ログ)。`Gate`(セマフォ)を取ってから読み書きする |
+| `Battle/BattleSession.cs` | 1対戦の状態(フェーズ・参加者・パーティ・選出・盤面・タイマー・行動ログ)。`Gate`(セマフォ)を取ってから読み書きする。参加者ごとに通知の送り先(`Receiver`)を持つ |
+| `Battle/BattleBotPlayer.cs` | マッチングで相手がいなかった人の対戦相手のボット。参加者の送り先として通知を受け、`BattleCoordinator` のメソッドで行動する([対戦の進行](battle-flow.md)) |
 | `Battle/BattleTimingOptions.cs` | 制限時間類(テストで差し替える) |
 | `Battle/IParticipantDataSource.cs` | パーティ・選出個体の取得とタイプ相性の抽象(実装は `Internal/ApiParticipantDataSource.cs`) |
 | `Battle/LoadoutBuilder.cs` | 所持データ + マスタ → BattleCore の型(`ParticipantStats`/`MoveData`/`ITypeChart`)。レベル50の固定と能力の式もここ |

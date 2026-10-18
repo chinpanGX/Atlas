@@ -2,7 +2,7 @@
 title: "APIサーバー"
 status: index
 area: server
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # APIサーバー
@@ -18,7 +18,7 @@ Rust(tonic + gRPC 基盤のクレート `voltech-grpc-*`)。ソースは `Server
 - [パーティ編成・育成](party.md) — `SetParty`・`SetPachimonMove`・`SetPachimonStatPoints`、育成チケットの消費
 - [スカウト](scout.md) — `ListBanners`・`Roll`・`Select`、バナーを DB に置く理由
 - [ショップ](shop.md) — `ListProducts`・`Purchase`、商品のマスタの検証
-- [マッチング](matchmaking.md) — メモリの待機列、成立と `battle_token`、ポーリング
+- [マッチング](matchmaking.md) — メモリの待機列、成立と `battle_token`、ポーリング、相手がいないときのボット
 - [内部API(バトルサーバー向け)](internal-api.md) — `BattleInternalService` の3つの RPC
 - [結果報告が届かない対戦の後始末](stale-match-cleanup.md) — 定期的な打ち切り
 - [開発用API](debug-api.md) — `DebugService` と有効にする条件

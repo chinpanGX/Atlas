@@ -2,8 +2,8 @@
 title: "対戦の進行"
 status: current
 area: battle-server
-related: [game/battle-rules, battle-server/contracts, battle-server/api-integration, server/auth, client/battle-screen]
-code: [BattleServer/Battle/BattleCoordinator.cs, BattleServer/Battle/BattleSession.cs, BattleServer/Battle/BattleTimingOptions.cs, BattleServer/Hubs/BattleHub.cs, BattleServer/Auth/BattleTokenValidator.cs, BattleServer/Program.cs]
+related: [game/battle-rules, battle-server/contracts, battle-server/api-integration, server/auth, server/matchmaking, client/battle-screen]
+code: [BattleServer/Battle/BattleCoordinator.cs, BattleServer/Battle/BattleSession.cs, BattleServer/Battle/BattleBotPlayer.cs, BattleServer/Battle/BattleTimingOptions.cs, BattleServer/Hubs/BattleHub.cs, BattleServer/Auth/BattleTokenValidator.cs, BattleServer/Program.cs]
 updated: 2026-10-18
 ---
 
@@ -33,6 +33,8 @@ stateDiagram-v2
 | 切断・未参加の猶予 | 60秒 |
 | 決着後にメモリに残す時間(遅れて来た参加に `MatchNotFound` を返すため) | 60秒 |
 | 結果報告の再送間隔 | 1秒・5秒・15秒 |
+| ボットが選出するまでの間(この範囲からランダム) | 5〜15秒 |
+| ボットが技・交代を送るまでの間(`OnTurnStart` から。この範囲からランダム) | 1〜5秒 |
 
 ## 参加
 
@@ -41,6 +43,29 @@ stateDiagram-v2
   取得できなければ `Unavailable` で失敗させ、参加は未確定のまま残す(同じトークンで参加し直せる)
 - 相手が来ない場合も、切断と同じ猶予(60秒)で打ち切る
 - 2人目がそろったら `Selecting` にし、選出の制限時間を張って、それぞれに `OnSelectionStart` を送る
+
+## ボットとの対戦
+
+マッチングで相手が見つからなかった人の対戦([マッチング](../server/matchmaking.md))では、相手のボットをこのサーバーの中で動かす。
+
+- トークンの claim `bot_player_id` が空でなければ、その人の参加と一緒にボット(`BattleBotPlayer`)も参加させる。ボットは接続してこないため。
+  ボットのパーティも人と同じく `GetParty` で取り、どちらかが取れなければ参加ごと `Unavailable` で失敗させる。先に参加する人が `player1`、ボットが `player2`
+- 通知は参加者ごとの送り先(`BattleParticipant.Receiver`)に送る。人は接続(グループの中のその接続)、ボットは `BattleBotPlayer` で、
+  進行のロジックは相手が人かボットかを区別しない。接続中かどうかも送り先があるかで表し、ボットは送り先を外さないので常に接続中になる
+- ボットは `BattleHub` と同じように `BattleCoordinator` のメソッドで選出・行動するので、検証・制限時間・放置・結果報告は人と同じに通る
+- ボットは判断に、人のクライアントと同じ通知の内容だけを使う(サーバーの盤面は読まない)。HPの実数や相手の未公開の個体を見て、
+  ズルをしないため。AIを賢くしてもこの線は守る
+- 選出はパーティからランダムに上限まで、技は PP が残っているものからランダム、強制交代は生きている先頭の控え。演出が無いので準備
+  (`ReadyForTurnAsync`)はすぐに送る
+- すぐに送るとボットだと気付かれやすいため、人と同じように間を置いて送る(長さは `BattleTimingOptions` の範囲からランダム。選出は5〜15秒、
+  技・交代は1〜5秒)
+  - 技・交代の間は、人が選び始めた時点、つまり両者の準備がそろって制限時間を数え始めた `OnTurnStart` から数える。ターン結果を受けた
+    直後から数えると、人が演出を見ている間に送り終えてしまい、「相手の 行動を 待っています…」が一度も出ないため
+  - 交代を `OnTurnStart` の後まで待つので、人の側の「相手がパチモンを選んでいます」も、少しの間出る
+- 相手の切断中に送った行動は `FailedPrecondition` で弾かれる。相手が戻るとサーバーは制限時間を数え直して `OnTurnStart` を送り直すので、
+  そこで送り直す
+- 人が切断して猶予のうちに戻らなければ、人の負け(ボットの勝ち)になる
+- 通知は `session.Gate` を取ったまま呼ばれる。行動のメソッドも Gate を取るため、ボットは通知の中では行動せず、`Channel` に積んで別のループで処理する
 
 ## 選出
 

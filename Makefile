@@ -55,7 +55,8 @@ battle:
 	INTERNAL_API_SECRET="$(call env_value,INTERNAL_API_SECRET)" \
 	"$(DOTNET)" run --project BattleServer/BattleServer.csproj
 
-# 対戦相手ボット(Server・BattleServer起動後に別ターミナルで実行)
+# 自動対戦のクライアント(Server・BattleServer起動後に別ターミナルで実行)。相手がいなければサーバーのボットと対戦するので、
+# 普段の確認には要らない。本物のクライアントと同じ経路でサーバー全体を通しで確かめるときに使う
 bot:
 	cd BattleServer && "$(DOTNET)" run --project BattleBot -- --loop
 

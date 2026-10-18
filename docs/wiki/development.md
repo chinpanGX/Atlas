@@ -154,7 +154,7 @@ user-secretsは`dotnet run`(launchSettingsの`http`プロファイル、Developm
 make dev    # MySQL起動+マイグレーション → マスタデータの投入 → Server・BattleServerを並列起動(Ctrl+Cで停止)
 make stop   # Ctrl+Cで止まりきらなかったServer・BattleServerのプロセスを強制終了
 make seed   # マスタデータをDBへ投入だけする(make devも毎回行う。起動中のServerには再起動するまで反映されない)
-make bot    # 対戦相手ボット(別ターミナル)
+make bot    # 自動対戦のクライアント(別ターミナル。相手がいなくてもサーバーのボットと対戦できるので、普段は要らない)
 ```
 
 - BattleServerの共有シークレット(`BATTLE_TOKEN_SECRET`・`INTERNAL_API_SECRET`)は`Server/.env`の値を環境変数で渡すため、
@@ -186,13 +186,16 @@ Serverはマスタを起動時に1回だけ読み込む。`seed_master_data`の�
 
 Clientは既定で実サーバーに接続する(Bootstrapシーンの`RootLifetimeScope`の**`Use Battle Server`がオン**。マッチングは
 Server、対戦はBattleServerへ接続)。サーバー無しのオフライン対戦(Mock)で動かすときは、これをオフにする。
-対戦には2人必要なので、次のいずれかで相手を用意する。どの方法でもServer・BattleServerを先に起動しておく。
+相手は次のいずれかで用意する。どの方法でもServer・BattleServerを先に起動しておく。
 
 | 方法 | 手順 | 向いている用途 |
 |---|---|---|
-| A. 対戦相手ボット | リポジトリ直下で `make bot`(別ターミナル)を起動しておき、UnityでBattleボタンを押す | 普段の動作確認(Editor 1つでよい) |
-| B. Multiplayer Play Mode | Window > Multiplayer > Multiplayer Play Mode で追加のEditorインスタンス(Player 2)を有効にし、両方でBattleボタンを押す | 両方の画面を見ながら確認したいとき |
-| C. ビルド+Editor | スタンドアロンビルドを起動し、EditorとそれぞれでBattleボタンを押す(ビルドを複数起動するなら `-saveSlot 2` 等を付ける) | 最終確認 |
+| A. サーバーのボット | UnityでBattleボタンを押して10秒待つ(相手が来なければ、BattleServerの中のボットが相手になる) | 普段の動作確認(Editor 1つでよく、何も起動し足さなくてよい) |
+| B. 自動対戦のクライアント | リポジトリ直下で `make bot`(別ターミナル)を起動しておき、UnityでBattleボタンを押す | 本物のクライアントと同じ経路の相手で確かめたいとき |
+| C. Multiplayer Play Mode | Window > Multiplayer > Multiplayer Play Mode で追加のEditorインスタンス(Player 2)を有効にし、両方でBattleボタンを押す | 両方の画面を見ながら確認したいとき |
+| D. ビルド+Editor | スタンドアロンビルドを起動し、EditorとそれぞれでBattleボタンを押す(ビルドを複数起動するなら `-saveSlot 2` 等を付ける) | 最終確認 |
+
+- B〜Dで人どうし(またはBattleBot)を組ませたいときは、両方が10秒以内に並ぶ。遅れるとサーバーのボットと組まれる
 
 - `make bot`は`make dev`と同じく.NET 10 SDKを明示して`dotnet run --project BattleBot -- --loop`を実行する
   (素の`dotnet`はGit BashのPATHでUnity付属の.NET 8 SDKが先に見つかり、`NETSDK1045`で失敗することがある)
@@ -247,7 +250,7 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
 - 選出個体のステータス・技は、Serverの内部API(`POST /internal/battle/loadouts`)で取得した所持データと、
   BattleServerのマスタ(`MasterData/`)から組み立てる。Serverが起動していない・`INTERNAL_API_SECRET`が
   Serverと一致しないと選出に失敗する(`INTERNAL_API_SECRET`が未設定だとBattleServer自体が起動しない)
-- `BattleBot/`: 開発用の対戦相手ボット(上記「対戦(実サーバー)の確認方法」参照)
+- `BattleBot/`: 開発用の自動対戦のクライアント(上記「対戦(実サーバー)の確認方法」参照)
 - `.slnx`はUnity付属の.NET 8 SDKでは読めない。PATH上の`dotnet`がUnity付属のものになっている場合は
   .NET 10 SDK(`"C:/Program Files/dotnet/dotnet.exe"`等)で実行する
 
