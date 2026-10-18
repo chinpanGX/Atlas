@@ -4,7 +4,7 @@ status: current
 area: client
 related: [conventions/player-diff, client/assemblies, client/sign-in, client/error-dialog, server/matchmaking]
 code: [Client/AtlasUnityProject/Assets/Scripts/Application, Client/AtlasUnityProject/Assets/Scripts/Infrastructure, Client/AtlasUnityProject/Assets/Scripts/DI/_DIExtensions.cs, Client/AtlasUnityProject/Assets/Scripts/Domain]
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # サービスと所持データ
@@ -16,7 +16,7 @@ updated: 2026-10-17
 | `IXxxService` | `Atlas.Application`(実装は `Atlas.Infrastructure`) | Presenter が使う処理。通信するものは、`.proto` から生成したラッパー(`PlayerApi`・`PartyApi`・`ScoutApi`・`ShopApi`・`MatchmakingApi`・`DebugApi`)を呼び、生成の型とアプリの型を詰め替える |
 | `IXxxRepository` | `Atlas.Domain` | 手元の所持データの読み書き。`player_diff` の種別ごとに1つ。ほかに `IPlayerProfileRepository` |
 | `IPlayerSession` | `Atlas.Application` | サインインしているか。タイトルに戻るときに手元の所持データを捨てる |
-| `IBattleMatchMaker` / `IBattleConnectionFactory` | `Atlas.Application` | 対戦相手を探す / 対戦ごとの接続を作る(Mock と実サーバーの切り替え単位) |
+| `IBattleMatchMaker` / `IBattleConnectionFactory` | `Atlas.Application` | 対戦相手を探す / 対戦ごとの接続を作る |
 
 ## Service の一覧
 
@@ -72,5 +72,3 @@ updated: 2026-10-17
   途中で止める口を持たないので、キャンセルは状況の確認の合間で見る
 - `IBattleConnection` は対戦ごとの接続。`IBattleConnectionFactory` を Root のシングルトンにし、Battle シーンのスコープがマッチング結果から
   都度生成し、シーンの終了で破棄する
-- Bootstrap シーンの `RootLifetimeScope` の Inspector(`Use Battle Server`)で、実サーバー(`BattleMatchMaker`・`RealtimeBattleConnectionFactory`)と
-  Mock(`MockBattleMatchMaker`・`MockBattleConnectionFactory`)を切り替える([テスト](testing.md))

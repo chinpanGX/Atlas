@@ -3,7 +3,6 @@
     "rootNamespace": "Atlas.DI",
     "references": [
         "GUID:a65db434446d2f5459f591d11d06fd09",
-        "GUID:03e6aa5a9743dd546aae493dc0f59c97",
         "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
         "GUID:41261d631a9f02542ba248f84bf54981",

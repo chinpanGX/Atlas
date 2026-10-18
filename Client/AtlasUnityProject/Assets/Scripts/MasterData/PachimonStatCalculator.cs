@@ -1,6 +1,6 @@
 namespace Atlas.MasterData
 {
-    // 種族値と割り振ったステータスポイントから実効ステータスを求める(画面表示・Mock対戦用)。BattleServerのLoadoutBuilderと同じ式。
+    // 種族値と割り振ったステータスポイントから実効ステータスを求める(画面表示用)。BattleServerのLoadoutBuilderと同じ式。
     // IVは無く、レベルは50固定。ステータスポイントは能力の値にそのまま足す(省略したときは割り振り無し)。
     public static class PachimonStatCalculator
     {

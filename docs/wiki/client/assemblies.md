@@ -33,7 +33,6 @@ flowchart TD
 | `Atlas.Infrastructure` | Service の実装(生成したラッパー `XxxApi` を呼ぶ)、Repository の実装、`PlayerSession`、`BattleMatchMaker`、`FileAccountStore`、`MasterDatabaseLoader`、DI 登録の拡張メソッド | Domain, Application, MasterData, Supplement, Atlas.Api.V1, Infrastructure.Grpc, Infrastructure.Realtime, VolTech.Client |
 | `Atlas.Infrastructure.Grpc` | `PlayerDiffApplier`/`XxxDiffApplier`/`PlayerSnapshotApplier`(所持データの反映) | Domain, Application, Atlas.Api.V1, VolTech.Client |
 | `Atlas.Api.V1` | `.proto`・`errors.toml` から生成した C#(`Infrastructure/Grpc/Generated/`。手で編集しない) | VolTech.Client, VolTech.V1 |
-| `Atlas.Infrastructure.Mock` | 偽のサーバー `FakeServer`、`MockBattleConnection`/`MockBattleMatchMaker`、`TestPartyFactory` | Domain, Application, MasterData, BattleCore, Atlas.Api.V1 |
 | `Atlas.Infrastructure.Realtime` | `RealtimeBattleConnection`(MagicOnion のクライアント) | Domain, Application, BattleContracts, BattleCore |
 | `Atlas.Navigation` | `TransitionAwareSceneNavigator`、`ErrorNavigator`(通信エラーの後の画面遷移) | USN, Application, VolTech.Client |
 | `Atlas.Presentation` | View・Presenter・ViewDto(画面単位の型だけ)、`ErrorDialog` | Domain, Application, MasterData, USN, VContainer, R3, LitMotion |

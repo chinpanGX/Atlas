@@ -47,5 +47,5 @@ Client 側の `IBattleConnection` はこれと対になる形で、`RealtimeBatt
 ## 変えるとき
 
 - Payload は `[MessagePackObject]` と `[property: Key(n)]` で番号を付ける。Client と同時に更新されないことを考え、既存のキーの番号は変えない
-- 変えたら、Client 側の `IBattleConnection`・`RealtimeBattleConnection`・`MockBattleConnection`、BattleBot、テストの `TestReceiver` も合わせて直す
+- 変えたら、Client 側の `IBattleConnection`・`RealtimeBattleConnection`、BattleBot、テストの `TestReceiver` も合わせて直す
   (`IBattleHubReceiver` のメソッドを足すと、実装していない側はコンパイルエラーになる)

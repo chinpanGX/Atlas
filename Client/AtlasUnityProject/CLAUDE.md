@@ -12,7 +12,7 @@ Unity 6(IL2CPP前提)のクライアント。プロジェクト全体の共通�
 | asmdefの構成とフォルダ | [アセンブリとレイヤー](../../docs/wiki/client/assemblies.md) |
 | バトル画面の流れ・状態・演出 | [バトル画面](../../docs/wiki/client/battle-screen.md) |
 | 通信エラーのダイアログ | [通信エラーのダイアログ](../../docs/wiki/client/error-dialog.md) |
-| テスト・Mock対戦 | [テストとサーバー無しでの動作](../../docs/wiki/client/testing.md) |
+| テスト | [テスト](../../docs/wiki/client/testing.md) |
 
 ## 構成の上で守ること
 
@@ -44,8 +44,7 @@ Unity 6(IL2CPP前提)のクライアント。プロジェクト全体の共通�
 - 生成コードは`Infrastructure/Grpc/Generated/`(asmdef `Atlas.Api.V1`。手で編集しない)。`.proto`・`Shared/errors.toml`を
   変えたら、リポジトリのルートで`make proto-gen`・`make errors-gen`を実行する
 - 業務エラーを足したら、文言を`Presentation/Common/ErrorMessages.cs`に足す
-- テストでサーバーの代わりにするときは、Serviceを差し替えず、`CallInvoker`を基盤の`FakeCallInvoker`
-  (偽のサーバー`FakeServer`を登録したもの)に差し替える
+- テストでサーバーの代わりにするときは、Serviceを差し替えず、`CallInvoker`を基盤の`FakeCallInvoker`(偽のサーバー)に差し替える
 
 ### フォルダ
 

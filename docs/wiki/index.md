@@ -137,7 +137,7 @@ flowchart LR
 | [サインイン](client/sign-in.md) | `current` | タイトルからのサインイン、アカウント情報 |
 | [バトル画面](client/battle-screen.md) | `current` | 選出・開始の繰り出し・状態・演出・交代 |
 | [通信エラーのダイアログ](client/error-dialog.md) | `current` | ボタンと遷移、文言 |
-| [テストとサーバー無しでの動作](client/testing.md) | `current` | 偽のサーバー、Mock 対戦 |
+| [テスト](client/testing.md) | `current` | EditMode テスト、APIサーバーの代わりにするとき |
 
 ### [バトルサーバー](battle-server/index.md)
 

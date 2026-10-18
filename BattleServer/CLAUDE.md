@@ -29,7 +29,7 @@ C#/MagicOnionのバトルサーバーと、ClientとBattleServerで共有する`
 - 技ごとの個別の効果は、Sectionを変えずにイベント(`MoveHitEvent`)のハンドラとして足す。天候・特性・持ち物のイベントは作らない
 - 通信契約のPayloadはMessagePackの`[MessagePackObject]`と`[property: Key(n)]`で番号を付ける。Clientと同時に
   更新されないことを考え、既存のキーの番号は変えない
-- 通信契約を変えたら、Client側の`IBattleConnection`(Domain)・`RealtimeBattleConnection`・`MockBattleConnection`、
+- 通信契約を変えたら、Client側の`IBattleConnection`(Domain)・`RealtimeBattleConnection`、
   BattleBot、サーバーのボット(`Battle/BattleBotPlayer.cs`)、テストの`TestReceiver`も合わせて直す(`IBattleHubReceiver`のメソッドを足すと、実装していない側は
   コンパイルエラーになる)
 

@@ -21,4 +21,4 @@ Unity 6(`6000.6.5f1`、IL2CPP 前提)。`Client/AtlasUnityProject/`。コーデ�
 - [サインイン](sign-in.md) — タイトルからのサインインとアカウント情報の保存
 - [バトル画面](battle-screen.md) — 選出・開始の繰り出し・状態の持ち方・演出・交代と投了
 - [通信エラーのダイアログ](error-dialog.md) — 基盤のエラー処理と、Atlas が持つ見た目・遷移・文言
-- [テストとサーバー無しでの動作](testing.md) — 偽のサーバー、Mock 対戦、PlayMode テスト
+- [テスト](testing.md) — EditMode テスト、APIサーバーの代わりにするとき

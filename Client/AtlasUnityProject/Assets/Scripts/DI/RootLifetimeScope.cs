@@ -2,7 +2,6 @@ using Atlas.Api.V1;
 using Atlas.Application;
 using Atlas.Infrastructure;
 using Atlas.Infrastructure.Grpc;
-using Atlas.Infrastructure.Mock;
 using Atlas.Infrastructure.Realtime;
 using Atlas.Navigation;
 using Atlas.Presentation.Common;
@@ -24,7 +23,7 @@ namespace Atlas.DI
     /// <summary>
     /// Bootstrapシーンの常駐スコープ。Bootstrapシーンは一度もアンロードしないため、
     /// アプリ生存期間中ずっと存在し、Home/BattleシーンのLifetimeScopeの親になる。
-    /// 各IXxxConnectionのMock/Real登録、各IXxxRepository/IXxxServiceの登録もここで行う構成ルート
+    /// 通信の実装、各IXxxRepository/IXxxServiceの登録もここで行う構成ルート
     /// (Composition Root)。Atlas.Presentationとは別アセンブリに分離し、Presenter自身は
     /// Atlas.Infrastructureを直接参照しない。
     /// </summary>
@@ -37,10 +36,6 @@ namespace Atlas.DI
         // リリースのたびに増やす整数のバージョン。サーバーはこれで強制アップデートを判定する
         // (エディタからの通信は判定しない)。
         private const int AppVersion = 1;
-
-        // オフで対戦をMock(MockBattleMatchmaker/MockBattleConnection、サーバー不要)、オンでAPIサーバーの
-        // マッチング+BattleServer(MagicOnion)への実接続にする。BootstrapシーンのRootLifetimeScopeで切り替える。
-        [SerializeField] private bool useBattleServer = true;
 
         // 通信エラーのダイアログ。シーンの切り替え中でも出せるよう、Bootstrapシーンに置く。
         [SerializeField] private ErrorDialog errorDialog;
@@ -71,7 +66,9 @@ namespace Atlas.DI
             builder.RegisterInfrastructure();
 
             builder.RegisterGrpc(GrpcAddress, AppVersion, CreateCallInvoker(), errorDialog, connectingIndicator, x => clockResetter = x);
-            ConfigureBattleConnections(builder);
+            // 対戦のマッチングと接続(IBattleConnectionはBattleシーンのスコープがIBattleConnectionFactoryで都度生成する)。
+            builder.Register<IBattleMatchMaker, BattleMatchMaker>(Lifetime.Singleton);
+            builder.Register<IBattleConnectionFactory, RealtimeBattleConnectionFactory>(Lifetime.Singleton);
 
             builder.RegisterBootInitializer();
             builder.RegisterEntryPoint<BootstrapEntryPoint>();
@@ -88,29 +85,11 @@ namespace Atlas.DI
             channel?.Dispose();
         }
 
-        // 通信の送り先。Battle PlayModeテスト(TestRootLifetimeScope)は、サーバーの代わりに偽のサーバーを呼ぶ
-        // FakeCallInvokerに差し替え、ローカルAPIサーバー無しでBootstrap→Home→Battleの起動経路を検証する。
-        protected virtual CallInvoker CreateCallInvoker()
+        // チャンネルは1つを使い回す。エディタと開発ビルドでは、gRPC Monitorに通信が記録される
+        private CallInvoker CreateCallInvoker()
         {
-            // チャンネルは1つを使い回す。エディタと開発ビルドでは、gRPC Monitorに通信が記録される
             channel = ApiChannel.Create(GrpcAddress);
             return ApiChannel.CreateCallInvoker(channel);
-        }
-
-        // 対戦のマッチングと接続(IBattleConnectionはBattleシーンのスコープがIBattleConnectionFactoryで都度生成する)。
-        // Battle PlayModeテスト(TestRootLifetimeScope)はuseRealBattleServerに関わらず常にMockにする。
-        protected virtual void ConfigureBattleConnections(IContainerBuilder builder)
-        {
-            if (useBattleServer)
-            {
-                builder.Register<IBattleMatchMaker, BattleMatchMaker>(Lifetime.Singleton);
-                builder.Register<IBattleConnectionFactory, RealtimeBattleConnectionFactory>(Lifetime.Singleton);
-            }
-            else
-            {
-                builder.Register<IBattleMatchMaker, MockBattleMatchMaker>(Lifetime.Singleton);
-                builder.Register<IBattleConnectionFactory, MockBattleConnectionFactory>(Lifetime.Singleton);
-            }
         }
     }
 

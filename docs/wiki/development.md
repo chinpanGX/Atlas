@@ -184,8 +184,7 @@ Serverはマスタを起動時に1回だけ読み込む。`seed_master_data`の�
 
 ### 対戦(実サーバー)の確認方法
 
-Clientは既定で実サーバーに接続する(Bootstrapシーンの`RootLifetimeScope`の**`Use Battle Server`がオン**。マッチングは
-Server、対戦はBattleServerへ接続)。サーバー無しのオフライン対戦(Mock)で動かすときは、これをオフにする。
+ClientはマッチングをServer、対戦をBattleServerへ接続して行う(サーバー無しで対戦する仕組みは無い)。
 相手は次のいずれかで用意する。どの方法でもServer・BattleServerを先に起動しておく。
 
 | 方法 | 手順 | 向いている用途 |
@@ -271,8 +270,6 @@ dotnet test BattleServer.slnx        # 自動テスト(サーバーをプロセ�
   Dynamicにすると、Play中にアセットが書き換わり、Multiplayer Play Modeの追加インスタンスで文字化けする。
   焼き込むのは、JIS第1水準・ASCII・マスターデータCSV・`Assets`内のプレハブ/シーン/C#に出てくる文字。
   **新しい文字(第2水準漢字等)をUIやマスターデータに追加したら、`Tools > Bake Static Font`で焼き直す**(焼き直さないと□になる)
-- 対戦のMock/実サーバー切り替えはBootstrapシーンの`RootLifetimeScope`の`Use Battle Server`
-  (PlayModeテストは`TestRootLifetimeScope`で常にMock)
 
 ## 6. コード生成
 

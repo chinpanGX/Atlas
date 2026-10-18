@@ -297,7 +297,7 @@ namespace Atlas.Presentation.Battle
                 database, pachimon.PachimonId, FindStatPoints(pachimon.PlayerPachimonId), moves.ToArray());
         }
 
-        // Mock対戦のように手元に無い個体が選ばれている場合は、割り振っていない扱いにする。
+        // 手元の所持データに無い個体(通常は起きない)は、割り振っていない扱いにする。
         private StatPoints FindStatPoints(string playerPachimonId)
         {
             return pachimonService.Get(playerPachimonId)?.StatPoints ?? StatPoints.Zero;
@@ -374,7 +374,7 @@ namespace Atlas.Presentation.Battle
 
         // Presenterはターン結果を待たない。結果はOnTurnResultイベント経由でHandleTurnResultに届き、
         // そこで入力ロックを解除する(イベントで届いた結果から画面を更新する)。
-        // MockBattleConnectionは送信処理の中で同期的にOnTurnResultを発火するため、ロックは送信前に掛ける。
+        // ターン結果は送信の応答より先に届くことがあるため、ロックは送信前に掛ける。
         // 送れたらtrue。
         private async UniTask<bool> SendActionAsync(Func<UniTask> send)
         {
@@ -755,8 +755,7 @@ namespace Atlas.Presentation.Battle
             EnqueuePlayback(cancellation => PlayTurnResultAsync(payload, cancellation));
         }
 
-        // 演出を前の演出の後ろに並べる。MockBattleConnectionは行動の送信中に同期的にターン結果を発火し、
-        // 通信対戦でもターン結果の直後に決着が届くため、演出中に次の出来事が来ても順番どおりに流す。
+        // 演出を前の演出の後ろに並べる。ターン結果の直後に決着が届く等、演出中に次の出来事が来ても順番どおりに流す。
         private void EnqueuePlayback(Func<CancellationToken, UniTask> play)
         {
             pendingPlaybacks++;
@@ -922,8 +921,8 @@ namespace Atlas.Presentation.Battle
             return isSelf ? selfFaintedBySlot[selfActiveIndex] : opponentHpPercentBySlot[opponentActiveIndex] <= 0;
         }
 
-        // opponentSwitchingに合わせてOpponentSwitchingModalを出し入れする。MockBattleConnectionやボットは相手の交代を
-        // すぐに送ってくるため、Pushの途中で相手の交代が済むことがある。その場合はPushが終わってから閉じる。
+        // opponentSwitchingに合わせてOpponentSwitchingModalを出し入れする。相手がすぐに交代すると、
+        // Pushの途中で相手の交代が済むことがある。その場合はPushが終わってから閉じる。
         private async UniTaskVoid SyncOpponentSwitchingModalAsync()
         {
             if (opponentSwitching && openOpponentSwitching is null && !pushingOpponentSwitchingModal)
@@ -968,8 +967,7 @@ namespace Atlas.Presentation.Battle
             await screenNavigator.PopModalAsync(opponentSwitchingPresenter);
         }
 
-        // Move: 対象は行動側の相手。Switch: 対象は行動側自身の交代先
-        // (MockBattleConnection.ResolveTargetHpPercentと同じ解釈)。
+        // Move: 対象は行動側の相手。Switch: 対象は行動側自身の交代先。
         private void ApplyAction(ActionResult action)
         {
             var actorIsSelf = action.PlayerId == selfPlayerId;

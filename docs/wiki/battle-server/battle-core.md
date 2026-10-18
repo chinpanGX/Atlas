@@ -3,17 +3,17 @@ title: "バトルの計算(Atlas.BattleCore)"
 status: current
 area: battle-server
 related: [game/battle-rules, battle-server/battle-flow, master-data/tables, client/testing]
-code: [Shared/BattleCore/Runtime, BattleServer/Battle/LoadoutBuilder.cs, Client/AtlasUnityProject/Assets/Scripts/MasterData/PachimonStatCalculator.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/Mock/TestPartyFactory.cs]
+code: [Shared/BattleCore/Runtime, BattleServer/Battle/LoadoutBuilder.cs, Client/AtlasUnityProject/Assets/Scripts/MasterData/PachimonStatCalculator.cs]
 updated: 2026-10-18
 ---
 
 # バトルの計算(Atlas.BattleCore)
 
-Client の Mock 対戦とバトルサーバーの両方で、同じダメージ計算・ターン処理を使うための共通モジュール。
+バトルサーバーのダメージ計算・ターン処理。Client も、通信契約(`Atlas.BattleContracts`)が使う型(`EffectivenessResult`・`BattleEndReason`)のために同じソースをコンパイルする。
 
 - `UnityEngine`・MagicOnion・通信の型・マスターデータの生成型のどれにも依存しない。自前の最小の型(`ElementType`、`MoveCategory`、
   `ParticipantStats`、`MoveData` 等)だけを持つ
-- マスタ + 所持データ(ステータスポイント)から BattleCore の型への変換は、呼び出し側が持つ(バトルサーバーは `LoadoutBuilder`、Client の Mock は `TestPartyFactory`)
+- マスタ + 所持データ(ステータスポイント)から BattleCore の型への変換は、呼び出し側が持つ(バトルサーバーの `LoadoutBuilder`)
 - 乱数は `IRandomSource`、タイプ相性は `ITypeChart` で外から渡す(テストで固定値に差し替えるため)
 - 入口は `BattleEngine.ProcessTurn(state, player1 の行動, player2 の行動, typeChart, random)` だけ。行動が無い(時間切れ等)側は `null` を渡す
 
@@ -52,7 +52,7 @@ Section が発火するイベントに反応するハンドラとして足す(Se
 - PP: 技を選んだ時点で1減る(外れても減る)。PP が0の技を渡されると `ArgumentException` にする(呼び出し側が送らせない前提。Client は押せなくし、
   バトルサーバーは受け付けない)
 - 変化技は現状効果なし
-- レベル50の固定値と能力の式は、バトルサーバーの `LoadoutBuilder` と、Client の `PachimonStatCalculator`(画面表示・Mock 用。ポイントは省略でき、
+- レベル50の固定値と能力の式は、バトルサーバーの `LoadoutBuilder` と、Client の `PachimonStatCalculator`(画面表示用。ポイントは省略でき、
   今の呼び出し元は渡していない)の2か所にある
 - ステータスポイント(合計64)は、種族値から計算した値にそのまま足す([パーティ編成・育成](../game/party-training.md))。本家の努力値の
   `floor(努力値 / 4)` の項は、最大252を前提にした式なので外した。内部 API の型名(`EffortValues`)は努力値のころのまま

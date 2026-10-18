@@ -4,8 +4,7 @@ using Cysharp.Threading.Tasks;
 namespace Atlas.Domain
 {
     // BattleServerとの対戦の接続。IBattleHub/IBattleHubReceiver(Shared/BattleContracts)と対になる。Client側の画面・進行制御は
-    // このインターフェースのみに依存し、Atlas.BattleCoreやDomain.MasterDataを直接知らない。
-    // MockBattleConnection/RealtimeBattleConnectionはこれを実装する。
+    // このインターフェースのみに依存し、Atlas.BattleCoreやDomain.MasterDataを直接知らない。実装はRealtimeBattleConnection。
     public interface IBattleConnection
     {
         UniTask<JoinResult> JoinAsync(string battleToken, string matchId);
