@@ -7,8 +7,8 @@
     <!-- BATTLE_TOKEN_SECRET/INTERNAL_API_SECRETはdotnet user-secrets(Development環境で自動的に読み込まれる)か、
          同名の環境変数で渡す。値はServer/.envと同じにする -->
     <UserSecretsId>atlas-battleserver</UserSecretsId>
-    <!-- Tests/・BattleCore/・BattleContracts/・BattleBot/・MasterData/は別プロジェクトのため取り込まない -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**;BattleCore/**;BattleContracts/**;BattleBot/**;MasterData/**</DefaultItemExcludes>
+    <!-- Tests/・BattleCore/・BattleCore.Tests/・BattleContracts/・BattleBot/・MasterData/は別プロジェクトのため取り込まない -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests/**;BattleCore/**;BattleCore.Tests/**;BattleContracts/**;BattleBot/**;MasterData/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
