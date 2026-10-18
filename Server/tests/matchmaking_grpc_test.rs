@@ -1,11 +1,13 @@
 // MatchmakingService(待機列への参加・離脱・状況の確認)の結合テスト。起動した gRPC サーバーに、tonic の生成クライアントで呼ぶ。
 mod common;
 
+use std::time::Duration;
+
 use Server::proto::atlas::v1::matchmaking_service_client::MatchmakingServiceClient;
 use Server::proto::atlas::v1::{
     GetQueueStatusRequest, GetQueueStatusResponse, JoinQueueRequest, LeaveQueueRequest, QueueStatus,
 };
-use Server::service::matchmaking_service::{BATTLE_TOKEN_TTL_SECONDS, BattleTokenClaims};
+use Server::service::matchmaking_service::{self, BATTLE_TOKEN_TTL_SECONDS, BattleTokenClaims};
 use chrono::Utc;
 use common::{TestServer, authorized, authorized_with_request_id, error_reason, prepare_db};
 use jsonwebtoken::{DecodingKey, Validation};
@@ -185,4 +187,83 @@ async fn join_with_empty_party_is_rejected(pool: MySqlPool) {
     // 待機列に入っていないので、ほかのプレイヤーが参加しても成立しない
     join(&server, &other_token).await.unwrap();
     assert!(is_waiting(&status(&server, &other_token).await));
+}
+
+/// 待ち時間を過ぎても相手が来なければ、ボットとの対戦になる。battle_token にはボットの player_id が入り、
+/// battle_matches は自分が player1・ボットが player2 で作られる。待ち時間に届かないうちは待機中のまま。
+#[sqlx::test(migrations = false)]
+async fn waiting_player_is_matched_with_bot(pool: MySqlPool) {
+    let server = start(pool.clone()).await;
+    let (player_id, token) = server.create_player("プレイヤー").await;
+    join(&server, &token).await.unwrap();
+
+    let state = &server.state;
+    let match_with_bots = |wait| {
+        matchmaking_service::match_with_bots(
+            &state.pool,
+            &state.master,
+            &state.matchmaking,
+            &state.battle,
+            wait,
+        )
+    };
+    match_with_bots(Duration::from_secs(60)).await.unwrap();
+    assert!(is_waiting(&status(&server, &token).await));
+
+    match_with_bots(Duration::ZERO).await.unwrap();
+    let response = status(&server, &token).await;
+    assert_eq!(response.status(), QueueStatus::Matched);
+
+    let claims = decode_claims(&response.battle_token);
+    assert_eq!(claims.player_id, player_id);
+    assert!(!claims.bot_player_id.is_empty());
+    assert_ne!(claims.bot_player_id, player_id);
+
+    let (player1_id, player2_id): (String, String) =
+        sqlx::query_as("SELECT player1_id, player2_id FROM battle_matches WHERE match_id = ?")
+            .bind(&response.match_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(player1_id, player_id);
+    assert_eq!(player2_id, claims.bot_player_id);
+
+    // BattleServer が内部APIで選出の候補を取れるよう、ボットにはパーティが組まれている
+    let (party_size,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM player_party_slots WHERE player_id = ?")
+            .bind(&claims.bot_player_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(party_size > 0);
+
+    // 組んだ後は待機列にいないので、もう一度確かめても別のボットとは組まない
+    match_with_bots(Duration::ZERO).await.unwrap();
+    assert_eq!(status(&server, &token).await, response);
+}
+
+/// 人どうしの対戦の battle_token には、ボットの player_id が入らない。
+#[sqlx::test(migrations = false)]
+async fn battle_token_between_players_has_no_bot(pool: MySqlPool) {
+    let server = start(pool).await;
+    let (_, token_a) = server.create_player("プレイヤーA").await;
+    let (_, token_b) = server.create_player("プレイヤーB").await;
+    join(&server, &token_a).await.unwrap();
+    join(&server, &token_b).await.unwrap();
+
+    for token in [&token_a, &token_b] {
+        let claims = decode_claims(&status(&server, token).await.battle_token);
+        assert!(claims.bot_player_id.is_empty());
+    }
+}
+
+fn decode_claims(battle_token: &str) -> BattleTokenClaims {
+    let secret = std::env::var("BATTLE_TOKEN_SECRET").unwrap();
+    jsonwebtoken::decode::<BattleTokenClaims>(
+        battle_token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::default(),
+    )
+    .unwrap()
+    .claims
 }

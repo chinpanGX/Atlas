@@ -1,4 +1,5 @@
 pub mod battle_service;
+pub mod bot_player_service;
 pub mod game_log;
 pub mod matchmaking_service;
 pub mod player_diff;

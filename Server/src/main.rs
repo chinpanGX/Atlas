@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use Server::service::battle_service;
+use Server::service::{battle_service, matchmaking_service};
 use Server::state::AppState;
 use Server::{config, db, grpc};
 use voltech_grpc_log::RpcLogLayer;
@@ -39,6 +39,13 @@ async fn main() -> Result<(), grpc::BoxError> {
     let state = AppState::from_pool(pool).await;
     // 結果報告が届かないまま残った対戦の後始末(battle_service::abort_stale_matches参照)
     battle_service::spawn_stale_match_cleanup(state.pool.clone());
+    // 相手が見つからないまま待っているプレイヤーを、ボットとの対戦にする
+    matchmaking_service::spawn_bot_matching(
+        state.pool.clone(),
+        state.master.clone(),
+        state.matchmaking.clone(),
+        state.battle.clone(),
+    );
 
     let grpc_listener = tokio::net::TcpListener::bind(&grpc_addr).await?;
     let internal_listener = tokio::net::TcpListener::bind(&server_addr).await?;
