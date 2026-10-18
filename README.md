@@ -2,6 +2,8 @@
 
 Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトルサーバーで作る、リアルタイム対戦のモンスター収集ゲーム。
 
+![Atlas](docs/wiki/images/screenshots/hero.png)
+
 ## このアプリについて
 
 会員登録なしで始められる(端末単位のゲストアカウント)、リアルタイム対戦のモンスター収集ゲーム。
@@ -28,13 +30,15 @@ Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトル�
 
 ### 機能一覧
 
-| 機能 | 概要 | 仕様 | 設計 |
-| --- | --- | --- | --- |
-| アカウント | 会員登録なしのデバイス認証、プレイヤー作成、所持データの同期 | [遊びの流れとアカウント](docs/wiki/game/flow.md) | [認証](docs/wiki/server/auth.md)・[サインイン](docs/wiki/client/sign-in.md) |
-| パーティ編成・育成 | パーティ編成、技の付け替え、ステータスポイントの割り振り(追加予定) | [パーティ編成・育成](docs/wiki/game/party-training.md) | [パーティ編成・技の付け替え](docs/wiki/server/party.md) |
-| スカウト(ガチャ) | ジェムを使い、候補10体から1体を選んで入手する | [スカウト](docs/wiki/game/scout.md) | [スカウト(API)](docs/wiki/server/scout.md) |
-| ショップ | ジェムで育成チケットを購入する(追加予定) | [ショップ](docs/wiki/game/shop.md) | — |
-| 対戦 | マッチング、パーティの見せ合いと選出、リアルタイム対戦、結果の記録 | [対戦のルール](docs/wiki/game/battle-rules.md) | [マッチング](docs/wiki/server/matchmaking.md)・[対戦の進行](docs/wiki/battle-server/battle-flow.md) |
+| 機能 | 概要 | 詳しく |
+| --- | --- | --- |
+| アカウント | 会員登録なしのデバイス認証、プレイヤー作成、所持データの同期 | [タイトルとアカウント](docs/wiki/features/account.md) |
+| パーティ編成・育成 | パーティ編成、技の付け替え、ステータスポイントの割り振り | [パーティ編成・育成](docs/wiki/features/party-training.md) |
+| スカウト(ガチャ) | ジェムを使い、候補10体から1体を選んで入手する | [スカウト](docs/wiki/features/scout.md) |
+| ショップ | ジェムで育成チケットを購入する | [ショップ](docs/wiki/features/shop.md) |
+| 対戦 | マッチング、パーティの見せ合いと選出、リアルタイム対戦、結果の記録 | [対戦](docs/wiki/features/battle.md) |
+
+各ページに、画面のスクリーンショット・ルール・作りの要点(技術資料へのリンク)をまとめている。
 
 ## 技術スタック
 
@@ -44,6 +48,8 @@ Unityクライアント、Rustの APIサーバー、C#/MagicOnion のバトル�
 | APIサーバー | Rust、tonic(gRPC)、sqlx、MySQL、jsonwebtoken | [APIサーバーの構成](docs/wiki/server/structure.md) |
 | バトルサーバー | C#(.NET 10)、ASP.NET Core、MagicOnion、xUnit | [バトルサーバーの構成](docs/wiki/battle-server/structure.md) |
 | 共通 | Protocol Buffers、[VolTech gRPC](https://github.com/chinpanGX/VolTech-gRPC)(自作)、[Supplement](https://github.com/chinpanGX/Supplement)(自作)、[master-data-pipeline](https://github.com/chinpanGX/master-data-pipeline)(自作) | [概要](docs/wiki/overview.md)・[マスターデータの生成・配布・運用](docs/wiki/master-data/pipeline.md) |
+
+使っているライブラリ・ツールの用途とライセンスは [利用技術](docs/wiki/tech-stack.md)。
 
 ## 読む場所
 
