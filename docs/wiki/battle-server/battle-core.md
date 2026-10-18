@@ -59,5 +59,6 @@ Section が発火するイベントに反応するハンドラとして足す(Se
 
 ## テスト
 
-Unity の EditMode テスト(`Shared/BattleCore/Tests/`)で、乱数(`FixedRandomSource`)とタイプ相性(`StaticTypeChart`)を固定して、
-ダメージ計算・行動順・ターン処理を確かめる。
+NUnit のテスト(`BattleServer/BattleCore.Tests/`。`dotnet test BattleServer.slnx` で回る)で、乱数(`FixedRandomSource`)とタイプ相性(`StaticTypeChart`)を固定して、
+ダメージ計算・行動順・ターン処理を確かめる。BattleCore を実際に動かすのはバトルサーバーだけなので、Unity ではなく .NET で回す
+(CI でも Unity 無しで回せる)。テストのソースは Unity のパッケージ(`Shared/BattleCore`)の外に置き、Unity にはコンパイルさせない。

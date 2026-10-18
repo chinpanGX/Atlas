@@ -3,7 +3,7 @@ title: "テスト"
 status: current
 area: client
 related: [client/services-and-player-data, battle-server/testing-and-bot, battle-server/battle-core]
-code: [Client/AtlasUnityProject/Assets/Scripts/Tests, Shared/BattleCore/Tests, Client/AtlasUnityProject/Assets/Scripts/DI/RootLifetimeScope.cs]
+code: [Client/AtlasUnityProject/Assets/Scripts/Tests, Client/AtlasUnityProject/Assets/Scripts/DI/RootLifetimeScope.cs]
 updated: 2026-10-18
 ---
 
@@ -13,11 +13,11 @@ updated: 2026-10-18
 
 | テスト | 種類 | 内容 |
 |---|---|---|
-| `Shared/BattleCore/Tests/` | EditMode | ダメージ計算・行動順・ターン処理。乱数とタイプ相性を固定して確かめる |
 | `Tests/Presentation/Party/` | EditMode | `PartyEditor`(編成の編集ロジック) |
 | `Tests/Presentation/Training/` | EditMode | `TrainingStatAllocation`(ステータスポイントの割り振りの調整と、必要なチケットの枚数) |
 
 - C# を変えたら `unity recompile --strict` でエラー・警告が0であることを確かめる。テスト(`unity command run_tests`)は頼まれたときだけ回す
+- `Atlas.BattleCore` のテストは Unity では回さず、BattleServer 側(`dotnet test BattleServer.slnx`)で回す([テストとボット](../battle-server/testing-and-bot.md))
 - 画面と通信を通す確認は、APIサーバーとバトルサーバーを起動して行う([開発環境ガイド](../development.md))。サーバーが無くても対戦できる
   仕組み(Mock)は無い
 - Client を実際に操作する結合テスト(パーティ編成 → マッチング → 対戦 → 結果)に [Anjin](https://github.com/DeNA/Anjin) を使う案がある(未着手)

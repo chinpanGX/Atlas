@@ -3,7 +3,7 @@ title: "テストとボット"
 status: current
 area: battle-server
 related: [battle-server/battle-flow, server/debug-api, client/testing]
-code: [BattleServer/Tests, BattleServer/BattleBot, BattleServer/Battle/BattleBotPlayer.cs, Shared/BattleCore/Tests]
+code: [BattleServer/Tests, BattleServer/BattleBot, BattleServer/Battle/BattleBotPlayer.cs, BattleServer/BattleCore.Tests]
 updated: 2026-10-18
 ---
 
@@ -11,8 +11,8 @@ updated: 2026-10-18
 
 ## テスト
 
-- `Atlas.BattleCore` のロジックは、Unity の EditMode テスト(`Shared/BattleCore/Tests/`)で乱数を固定して確かめる([バトルの計算](battle-core.md))
-- バトルサーバーは xUnit(`dotnet test BattleServer.slnx`)。MySQL・APIサーバーを起動しなくても動く
+- `Atlas.BattleCore` のロジックは、NUnit のテスト(`BattleServer/BattleCore.Tests/`)で乱数を固定して確かめる([バトルの計算](battle-core.md))
+- バトルサーバーは xUnit。どちらも `dotnet test BattleServer.slnx` で一緒に回り、MySQL・APIサーバーを起動しなくても動く
 
 | テスト | 内容 |
 |---|---|

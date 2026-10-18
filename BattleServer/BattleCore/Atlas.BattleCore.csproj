@@ -16,7 +16,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Tests/(Unity EditModeテスト、NUnit依存)は対象外 -->
     <Compile Include="..\..\Shared\BattleCore\Runtime\**\*.cs" LinkBase="Runtime" />
   </ItemGroup>
 

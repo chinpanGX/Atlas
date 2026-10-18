@@ -74,7 +74,6 @@
     "com.unity.modules.xr": "1.0.0"
   },
   "testables": [
-    "com.atlas.battlecore",
     "com.chinpangx.voltech.grpc"
   ],
   "scopedRegistries": [

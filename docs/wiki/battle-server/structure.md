@@ -19,6 +19,7 @@ updated: 2026-10-18
 | `Atlas.MasterData` | `BattleServer/MasterData/` | マスターデータの生成物 |
 | `BattleBot` | `BattleServer/BattleBot/` | 開発用の自動対戦クライアント。サーバー全体を通しで確かめるのに使う([テストとボット](testing-and-bot.md))。マッチングで相手がいないときのボット(`BattleBotPlayer`)とは別 |
 | テスト | `BattleServer/Tests/` | xUnit |
+| BattleCore のテスト | `BattleServer/BattleCore.Tests/` | NUnit。`Atlas.BattleCore` のダメージ計算・ターン処理([バトルの計算](battle-core.md)) |
 
 - 公式の Getting Started・ChatApp サンプルと同じ最小構成(ASP.NET Core Empty + `MagicOnion.Server`)。専用のテンプレートは無い
 - .NET 10
