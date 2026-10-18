@@ -60,6 +60,9 @@ crashlytics-build.properties
 **/[Aa]ssets/[Ss]treamingAssets/aa.meta
 **/[Aa]ssets/[Ss]treamingAssets/aa/*
 
+# Performance Testing run files (normally removed after the run)
+**/[Aa]ssets/[Rr]esources/PerformanceTestRun*.json*
+
 # Local scratch/temp download dirs (nupkg extraction etc.)
 .scratch*/
 
