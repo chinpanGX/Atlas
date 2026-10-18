@@ -15,7 +15,8 @@ concurrency:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # windows-2025 のイメージでは Docker のデーモンが動いておらず、GameCI のコンテナを起動できない
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       # サブモジュールの URL が SSH なので、CI では鍵の要らない HTTPS で取る(どちらも public)

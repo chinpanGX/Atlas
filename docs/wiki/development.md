@@ -348,7 +348,8 @@ make errors-gen   # errors.toml → Unity向けのC#のエラーコード(AtlasE
 
 `client-windows.yml`は[GameCI](https://game.ci/)の`game-ci/unity-builder`で、Unityのバージョンに合うDockerイメージ
 (`unityci/editor`の`windows-<バージョン>-windows-il2cpp`)を使ってビルドする。IL2CPPのWindowsビルドはWindowsの上でしか
-作れないため、ランナーは`windows-latest`にしている。
+作れないため、Windowsのランナーを使う。`windows-latest`(Windows Server 2025)のイメージではDockerのデーモンが動いていないため、
+`windows-2022`に固定している。
 
 - Unityのライセンスを、リポジトリのSecretsに`UNITY_LICENSE`(Hubでアクティベートしたときにできる`C:\ProgramData\Unity\Unity_lic.ulf`の中身)・
   `UNITY_EMAIL`・`UNITY_PASSWORD`で入れておく。Personalでもアクティベートが要る
