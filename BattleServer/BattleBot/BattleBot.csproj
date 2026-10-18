@@ -14,7 +14,7 @@
 
   <!-- gRPC基盤(VolTech gRPC)のタグ。リポジトリ直下のMakefile・Server/Cargo.toml・Unityのmanifest.jsonのタグと同じにする -->
   <PropertyGroup>
-    <VolTechTag>v0.5.0</VolTechTag>
+    <VolTechTag>v0.6.0</VolTechTag>
     <VolTechRepo>https://github.com/chinpanGX/VolTech-gRPC</VolTechRepo>
     <VolTechSrc>$(MSBuildProjectDirectory)/obj/voltech-grpc-src/$(VolTechTag)</VolTechSrc>
     <VolTechProtoRoot>$(VolTechSrc)/server/rust/auth/proto</VolTechProtoRoot>

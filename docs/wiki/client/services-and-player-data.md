@@ -22,8 +22,7 @@ updated: 2026-10-17
 
 | Service | 通信 | 内容 | 使う画面 |
 |---|---|---|---|
-| `ISignInService` | (下の Service 経由) | 未作成なら作ってからサインインし直す | タイトル |
-| `IPlayerSignInService` | `PlayerApi` | サインアップ・サインイン。サインインの全件を各 Repository に入れる | (`ISignInService` から) |
+| `ISignInService` | `PlayerApi` | 端末にアカウント情報が無ければサインアップしてからサインインする。サインインの全件を各 Repository に入れる | タイトル |
 | `IPlayerAccountService` | なし | プレイヤー ID・ニックネーム | ホーム |
 | `IItemService` | なし | アイテムの所持数 | グローバルヘッダー・スカウト・ショップ・育成 |
 | `IPachimonService` | なし | 所持個体(ステータスポイントの割り振りを含む) | パーティ編成・スカウト・育成・バトル(自分の個体の能力) |

@@ -22,21 +22,19 @@ namespace Atlas.Api.V1
     /// ScoutService を ApiCore を通して呼ぶ。
     /// スカウト(ジェムを消費してパチモンの候補を紹介してもらい、1体を選んで入手する)。
     /// </summary>
-    public sealed class ScoutApi
+    public sealed class ScoutApi : global::VolTech.Client.ApiServiceBase
     {
         private static readonly RpcSettings listBannersSettings = new(ScoutServiceMethods.ListBanners, isIdempotencyTarget: false, requiresAuth: true);
         private static readonly RpcSettings rollSettings = new(ScoutServiceMethods.Roll, isIdempotencyTarget: true, requiresAuth: true);
         private static readonly RpcSettings selectSettings = new(ScoutServiceMethods.Select, isIdempotencyTarget: true, requiresAuth: true);
 
-        private readonly ApiCore core;
         private readonly ScoutService.ScoutServiceClient client;
 
         /// <summary>
         /// ApiCore と、通信に使う CallInvoker を受け取って作る。
         /// </summary>
-        public ScoutApi(ApiCore core, CallInvoker callInvoker)
+        public ScoutApi(global::VolTech.Client.ApiCore core, CallInvoker callInvoker) : base(core)
         {
-            this.core = core;
             client = new ScoutService.ScoutServiceClient(callInvoker);
         }
 
@@ -48,7 +46,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 listBannersSettings,
                 client,
                 request,
@@ -67,7 +65,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 rollSettings,
                 client,
                 request,
@@ -86,7 +84,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 selectSettings,
                 client,
                 request,

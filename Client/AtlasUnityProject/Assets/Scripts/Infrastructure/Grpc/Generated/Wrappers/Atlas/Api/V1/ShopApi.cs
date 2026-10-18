@@ -21,20 +21,18 @@ namespace Atlas.Api.V1
     /// ShopService を ApiCore を通して呼ぶ。
     /// ショップ(ジェムを払ってアイテムを購入する)。商品は shop_products マスタで持ち、販売期間・購入履歴は無い。
     /// </summary>
-    public sealed class ShopApi
+    public sealed class ShopApi : global::VolTech.Client.ApiServiceBase
     {
         private static readonly RpcSettings listProductsSettings = new(ShopServiceMethods.ListProducts, isIdempotencyTarget: false, requiresAuth: true);
         private static readonly RpcSettings purchaseSettings = new(ShopServiceMethods.Purchase, isIdempotencyTarget: true, requiresAuth: true);
 
-        private readonly ApiCore core;
         private readonly ShopService.ShopServiceClient client;
 
         /// <summary>
         /// ApiCore と、通信に使う CallInvoker を受け取って作る。
         /// </summary>
-        public ShopApi(ApiCore core, CallInvoker callInvoker)
+        public ShopApi(global::VolTech.Client.ApiCore core, CallInvoker callInvoker) : base(core)
         {
-            this.core = core;
             client = new ShopService.ShopServiceClient(callInvoker);
         }
 
@@ -46,7 +44,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 listProductsSettings,
                 client,
                 request,
@@ -65,7 +63,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 purchaseSettings,
                 client,
                 request,

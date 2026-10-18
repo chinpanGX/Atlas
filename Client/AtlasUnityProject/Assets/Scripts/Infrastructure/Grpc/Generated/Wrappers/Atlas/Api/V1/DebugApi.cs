@@ -21,20 +21,18 @@ namespace Atlas.Api.V1
     /// DebugService を ApiCore を通して呼ぶ。
     /// 開発用の API。サーバーで有効にしたときだけ登録され、無効なら UNIMPLEMENTED になる。
     /// </summary>
-    public sealed class DebugApi
+    public sealed class DebugApi : global::VolTech.Client.ApiServiceBase
     {
         private static readonly RpcSettings grantGemsSettings = new(DebugServiceMethods.GrantGems, isIdempotencyTarget: true, requiresAuth: true);
         private static readonly RpcSettings randomizePartySettings = new(DebugServiceMethods.RandomizeParty, isIdempotencyTarget: true, requiresAuth: true);
 
-        private readonly ApiCore core;
         private readonly DebugService.DebugServiceClient client;
 
         /// <summary>
         /// ApiCore と、通信に使う CallInvoker を受け取って作る。
         /// </summary>
-        public DebugApi(ApiCore core, CallInvoker callInvoker)
+        public DebugApi(global::VolTech.Client.ApiCore core, CallInvoker callInvoker) : base(core)
         {
-            this.core = core;
             client = new DebugService.DebugServiceClient(callInvoker);
         }
 
@@ -46,7 +44,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 grantGemsSettings,
                 client,
                 request,
@@ -64,7 +62,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 randomizePartySettings,
                 client,
                 request,

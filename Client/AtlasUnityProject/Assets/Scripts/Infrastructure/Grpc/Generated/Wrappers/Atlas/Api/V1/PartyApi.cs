@@ -23,21 +23,19 @@ namespace Atlas.Api.V1
     /// パーティの編成と、所持パチモンの育成(技の付け替え・ステータスポイントの割り振り)。
     /// 育成には育成チケット(items マスタの item_id = 2)を使う。
     /// </summary>
-    public sealed class PartyApi
+    public sealed class PartyApi : global::VolTech.Client.ApiServiceBase
     {
         private static readonly RpcSettings setPartySettings = new(PartyServiceMethods.SetParty, isIdempotencyTarget: true, requiresAuth: true);
         private static readonly RpcSettings setPachimonMoveSettings = new(PartyServiceMethods.SetPachimonMove, isIdempotencyTarget: true, requiresAuth: true);
         private static readonly RpcSettings setPachimonStatPointsSettings = new(PartyServiceMethods.SetPachimonStatPoints, isIdempotencyTarget: true, requiresAuth: true);
 
-        private readonly ApiCore core;
         private readonly PartyService.PartyServiceClient client;
 
         /// <summary>
         /// ApiCore と、通信に使う CallInvoker を受け取って作る。
         /// </summary>
-        public PartyApi(ApiCore core, CallInvoker callInvoker)
+        public PartyApi(global::VolTech.Client.ApiCore core, CallInvoker callInvoker) : base(core)
         {
-            this.core = core;
             client = new PartyService.PartyServiceClient(callInvoker);
         }
 
@@ -52,7 +50,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 setPartySettings,
                 client,
                 request,
@@ -74,7 +72,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 setPachimonMoveSettings,
                 client,
                 request,
@@ -96,7 +94,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 setPachimonStatPointsSettings,
                 client,
                 request,

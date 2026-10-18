@@ -32,7 +32,8 @@ namespace Atlas.Infrastructure
                 {
                     // 通信そのものは途中で止められないので、確認の合間でキャンセルを見る
                     cancellation.ThrowIfCancellationRequested();
-                    var status = await matchmakingApi.GetQueueStatusAsync(new GetQueueStatusRequest());
+                    // 待機中はマッチング画面のキャンセルを押せるよう、通信中の表示で操作を塞がない
+                    var status = await matchmakingApi.GetQueueStatusAsync(new GetQueueStatusRequest(), notifyActivity: false);
                     if (!status.IsSuccess)
                     {
                         return null;

@@ -45,6 +45,9 @@ namespace Atlas.DI
         // 通信エラーのダイアログ。シーンの切り替え中でも出せるよう、Bootstrapシーンに置く。
         [SerializeField] private ErrorDialog errorDialog;
 
+        // 通信中に操作を塞いで「Connecting...」を出す。エラーのダイアログより奥に置く。
+        [SerializeField] private ConnectingIndicator connectingIndicator;
+
         private GrpcChannel channel;
         private ServerClockResetter clockResetter;
 
@@ -67,7 +70,7 @@ namespace Atlas.DI
 
             builder.RegisterInfrastructure();
 
-            builder.RegisterGrpc(GrpcAddress, AppVersion, CreateCallInvoker(), errorDialog, x => clockResetter = x);
+            builder.RegisterGrpc(GrpcAddress, AppVersion, CreateCallInvoker(), errorDialog, connectingIndicator, x => clockResetter = x);
             ConfigureBattleConnections(builder);
 
             builder.RegisterBootInitializer();

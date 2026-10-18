@@ -3,7 +3,7 @@ title: "サインイン"
 status: current
 area: client
 related: [server/player, server/auth, client/services-and-player-data, client/error-dialog]
-code: [Client/AtlasUnityProject/Assets/Scripts/Infrastructure/SignInService.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/PlayerSignInService.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/PlayerSession.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/FileAccountStore.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Title]
+code: [Client/AtlasUnityProject/Assets/Scripts/Infrastructure/SignInService.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/PlayerSession.cs, Client/AtlasUnityProject/Assets/Scripts/Infrastructure/FileAccountStore.cs, Client/AtlasUnityProject/Assets/Scripts/Presentation/Title]
 updated: 2026-10-18
 ---
 
@@ -15,18 +15,23 @@ updated: 2026-10-18
 ```
 TitlePresenter(スタート)
   └─ ISignInService.SignInAsync()
-       ├─ IPlayerSignInService.SignInAsync     PlayerService/SignIn(最初の通信で ApiCore がデバイス登録・トークンの発行を行う)
-       │    └─ PlayerSnapshotApplier            → 各 Repository(置き換え)
-       ├─ (PLAYER_NOT_FOUND なら)SignUpAsync("プレイヤー") → もう一度 SignIn
-       ├─ IPlayerProfileRepository              プレイヤー ID・ニックネーム
+       ├─ DeviceTokenProvider.GetAccountStatusAsync()   端末にアカウント情報が保存されているか(通信しない)
+       ├─ (NotRegistered なら)PlayerService/SignUp("プレイヤー")   最初の通信で ApiCore がデバイス登録・保存を行う
+       ├─ PlayerService/SignIn
+       │    └─ (PLAYER_NOT_FOUND なら)SignUp → もう一度 SignIn
+       ├─ PlayerSnapshotApplier                         → 各 Repository(置き換え)
+       ├─ IPlayerProfileRepository                      プレイヤー ID・ニックネーム
        └─ IPlayerSession.MarkSignedIn()
   → HomePresenter を Push
 ```
 
 - サインインを起動処理から外したのは、通信エラーのダイアログや「タイトルへ」の遷移を基盤が出すため。起動処理の中ではタイトルへ戻る先が無い
-- サインアップ済みかは端末に覚えず、毎回サインインの結果で判断する
+- サインアップするかは、端末に保存したアカウント情報の有無で決める。保存されていればサインアップの通信を省く
+- 保存されているのにサインインが `PLAYER_NOT_FOUND` を返すのは、デバイス登録の後、サインアップの前に止まった場合。
+  サインアップしてからサインインし直す。この `PLAYER_NOT_FOUND` はダイアログを出さないよう、ラッパーの `handledCodes` で自分で受け取る
 - ニックネームの入力画面は未実装のため、サインアップでは固定値「プレイヤー」を使う
-- サインインの `PLAYER_NOT_FOUND` は、ダイアログを出さずにサインアップへ進むため、ラッパーの `handledCodes` で自分で受け取る
+- アカウント情報の読み書きの失敗(基盤の `ACCOUNT_DATA_CORRUPTED`・`ACCOUNT_SAVE_FAILED`、ファイルをいま読めない)は通信のエラーではなく、
+  基盤がダイアログを出さないので、`SignInOutcome` で区別して返し、タイトルのメッセージで案内する
 - 通信中の連打は捨てる。失敗したら再び押せる
 - `IPlayerSession` を `ISignInService` と分けているのは、エラーの後の画面遷移(`ErrorNavigator`)が `ApiCore` から呼ばれるため。
   サインイン(通信)に依存すると、`ApiCore` → `ErrorNavigator` → `ISignInService` → `ApiCore` と循環する

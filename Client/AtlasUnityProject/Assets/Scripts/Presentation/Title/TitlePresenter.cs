@@ -7,7 +7,7 @@ using UnityScreenNavigator;
 
 namespace Atlas.Presentation.Title
 {
-    // Homeシーンの最初の画面。スタートでサインイン(未作成ならサインアップ)してからホームへ進む。
+    // Homeシーンの最初の画面。スタートでサインイン(端末にアカウント情報が無ければサインアップ)してからホームへ進む。
     // 通信エラーのダイアログ・タイトルへ戻る遷移は通信の共通処理が行うので、失敗したらここに留まる。
     [AssetAddress(AddressDefinition.TitlePage)]
     public sealed class TitlePresenter : IScreenWithArgs<TitleViewDto>
@@ -35,13 +35,28 @@ namespace Atlas.Presentation.Title
             view.OnStartButtonClicked
                 .SubscribeAwait(async (_, _) =>
                 {
-                    if (await signInService.SignInAsync())
+                    var outcome = await signInService.SignInAsync();
+                    if (outcome == SignInOutcome.SignedIn)
                     {
                         await screenNavigator.PushPageAsync<HomePresenter>();
+                        return;
                     }
+                    view.Refresh(new TitleViewDto { Message = FailureMessage(outcome) });
                 }, AwaitOperation.Drop)
                 .AddTo(disposables);
             return UniTask.CompletedTask;
+        }
+
+        // アカウント情報の読み書きの失敗は通信の共通処理がダイアログを出さないので、ここで案内する
+        private string FailureMessage(SignInOutcome outcome)
+        {
+            return outcome switch
+            {
+                SignInOutcome.AccountDataCorrupted => "端末に保存したアカウント情報を読み込めませんでした。",
+                SignInOutcome.AccountSaveFailed => "アカウント情報を端末に保存できませんでした。\n空き容量を確保してもう一度お試しください。",
+                SignInOutcome.AccountUnreadable => "アカウント情報を読み込めませんでした。\nもう一度お試しください。",
+                _ => initialDto.Message,
+            };
         }
 
         public void Dispose()

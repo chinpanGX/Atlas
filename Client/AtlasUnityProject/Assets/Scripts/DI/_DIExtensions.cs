@@ -1,4 +1,5 @@
-﻿using Atlas.Api.V1;
+﻿using System;
+using Atlas.Api.V1;
 using Atlas.Infrastructure;
 using Atlas.Infrastructure.Grpc;
 using Atlas.Presentation.Common;
@@ -19,35 +20,42 @@ public static class DIExtensions
             int appVersion,
             CallInvoker callInvoker,
             ErrorDialog errorDialog,
-            System.Action<ServerClockResetter> onClockResetterCreated)
+            ConnectingIndicator connectingIndicator,
+            Action<ServerClockResetter> onClockResetterCreated)
         {
             var options = new ApiCoreOptions(UnityAppVersion.Create(appVersion));
             var clock = new ServerClock();
 
-            builder.RegisterInstance(callInvoker).As<CallInvoker>();
+            builder.RegisterInstance(callInvoker);
+            builder.RegisterInstance(options);
             builder.RegisterInstance(clock).As<IServerClock>();
-            builder.Register<IAccountStore>(
-                resolver => new FileAccountStore(resolver.Resolve<IFileStorageService>(), grpcAddress),
-                Lifetime.Singleton);
+            builder.Register<IAccountStore, FileAccountStore>(Lifetime.Singleton)
+                .WithParameter("serverAddress", grpcAddress);
+            // サインインで、端末に保存したアカウント情報の有無を確かめるのにも使う
+            builder.Register<DeviceTokenProvider>(Lifetime.Singleton)
+                .WithParameter<Func<DateTime>>(() => DateTime.UtcNow);
             builder.RegisterComponent(errorDialog).As<IErrorDialogView, ISystemDialog>();
-            builder.Register(resolver => new ApiCore(
-                    options,
-                    new DeviceTokenProvider(callInvoker, resolver.Resolve<IAccountStore>(), options),
-                    // 業務エラーの既定のactionは、Shared/errors.tomlから生成した一覧から引く
-                    new ErrorPolicyProvider(AtlasErrors.All),
-                    new DefaultCommonErrorHandler(resolver.Resolve<IErrorDialogView>()),
-                    resolver.Resolve<PlayerDiffApplier>(),
+            // ApiCoreはコンストラクタが公開されておらずビルダーでしか作れないため、ここだけ生成処理で登録する
+            builder.Register(resolver => ApiCore.CreateBuilder(
+                        options,
+                        resolver.Resolve<DeviceTokenProvider>(),
+                        // 業務エラーの既定のactionは、Shared/errors.tomlから生成した一覧から引く
+                        new ErrorPolicyProvider(AtlasErrors.All),
+                        new DefaultCommonErrorHandler(errorDialog))
+                    .WithPlayerDiffApplier(resolver.Resolve<PlayerDiffApplier>())
                     // リリースビルドでは通信内容をログに残さない(Debug.isDebugBuildはEditorと開発ビルドでtrue)
-                    logger: Debug.isDebugBuild ? new UnityApiLogger() : null,
-                    serverClock: clock,
-                    navigator: resolver.Resolve<IErrorNavigator>()),
+                    .WithLogger(Debug.isDebugBuild ? new UnityApiLogger() : null)
+                    .WithServerClock(clock)
+                    .WithErrorNavigator(resolver.Resolve<IErrorNavigator>())
+                    .AddActivityHandler(connectingIndicator)
+                    .Build(),
                 Lifetime.Singleton);
-            builder.Register(resolver => new PlayerApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
-            builder.Register(resolver => new PartyApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
-            builder.Register(resolver => new ScoutApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
-            builder.Register(resolver => new ShopApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
-            builder.Register(resolver => new DebugApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
-            builder.Register(resolver => new MatchmakingApi(resolver.Resolve<ApiCore>(), callInvoker), Lifetime.Singleton);
+            builder.Register<PlayerApi>(Lifetime.Singleton);
+            builder.Register<PartyApi>(Lifetime.Singleton);
+            builder.Register<ScoutApi>(Lifetime.Singleton);
+            builder.Register<ShopApi>(Lifetime.Singleton);
+            builder.Register<DebugApi>(Lifetime.Singleton);
+            builder.Register<MatchmakingApi>(Lifetime.Singleton);
 
             builder.RegisterBuildCallback(_ => onClockResetterCreated(ServerClockResetter.Create(clock)));
         }

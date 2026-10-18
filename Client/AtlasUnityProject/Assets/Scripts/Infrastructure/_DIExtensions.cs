@@ -24,7 +24,6 @@ public static class _DIExtensions
         builder.Register<PartyDiffApplier>(Lifetime.Singleton);
         builder.Register<PlayerDiffApplier>(Lifetime.Singleton);
 
-        builder.Register<IPlayerSignInService, PlayerSignInService>(Lifetime.Singleton);
         builder.Register<IScoutService, ScoutService>(Lifetime.Singleton);
         builder.Register<IShopService, ShopService>(Lifetime.Singleton);
         builder.Register<IDebugConnectService, DebugConnectService>(Lifetime.Singleton);

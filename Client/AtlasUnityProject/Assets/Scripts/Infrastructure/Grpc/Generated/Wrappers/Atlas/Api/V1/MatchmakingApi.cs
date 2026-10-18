@@ -22,21 +22,19 @@ namespace Atlas.Api.V1
     /// MatchmakingService を ApiCore を通して呼ぶ。
     /// 対戦相手を探すマッチング。待機列はサーバーのメモリにあり、成立したらバトルサーバーへの接続情報を返す。
     /// </summary>
-    public sealed class MatchmakingApi
+    public sealed class MatchmakingApi : global::VolTech.Client.ApiServiceBase
     {
         private static readonly RpcSettings joinQueueSettings = new(MatchmakingServiceMethods.JoinQueue, isIdempotencyTarget: true, requiresAuth: true);
         private static readonly RpcSettings leaveQueueSettings = new(MatchmakingServiceMethods.LeaveQueue, isIdempotencyTarget: false, requiresAuth: true);
         private static readonly RpcSettings getQueueStatusSettings = new(MatchmakingServiceMethods.GetQueueStatus, isIdempotencyTarget: false, requiresAuth: true);
 
-        private readonly ApiCore core;
         private readonly MatchmakingService.MatchmakingServiceClient client;
 
         /// <summary>
         /// ApiCore と、通信に使う CallInvoker を受け取って作る。
         /// </summary>
-        public MatchmakingApi(ApiCore core, CallInvoker callInvoker)
+        public MatchmakingApi(global::VolTech.Client.ApiCore core, CallInvoker callInvoker) : base(core)
         {
-            this.core = core;
             client = new MatchmakingService.MatchmakingServiceClient(callInvoker);
         }
 
@@ -50,7 +48,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 joinQueueSettings,
                 client,
                 request,
@@ -67,7 +65,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 leaveQueueSettings,
                 client,
                 request,
@@ -85,7 +83,7 @@ namespace Atlas.Api.V1
             IReadOnlyList<global::VolTech.Client.ErrorCode> handledCodes = null,
             bool notifyActivity = true)
         {
-            return core.InvokeAsync(
+            return base.InvokeAsync(
                 getQueueStatusSettings,
                 client,
                 request,
