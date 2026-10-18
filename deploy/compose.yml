@@ -1,0 +1,80 @@
+# テスト用のクラウドのVM 1台で、MySQL・APIサーバー・バトルサーバーと、TLSを受け持つCaddyを動かす。
+# サーバーは1台構成が前提(マッチングの待機列・対戦の状態をプロセスのメモリに持つ)なので、各サービスは1つずつ動かす。
+#
+#   cp .env.example .env                                  # 値を埋める
+#   cp ../Server/config/server_status.toml .              # メンテナンス・最低バージョンの設定
+#   docker compose up -d --build
+#   docker compose run --rm api seed_master_data          # マスタの投入(マスタを変えたら流し、api を再起動する)
+#
+# 外に出すのは Caddy(80・443)だけ。APIサーバーの内部API・バトルサーバー・MySQLへは、Caddy かコンテナの間からしか届かない。
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?}
+      MYSQL_DATABASE: atlas
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      # 起動直後の初期化用の一時サーバーを「準備できた」と誤判定しないよう、TCPで確かめる
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build:
+      context: ..
+      dockerfile: Server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:?}@mysql:3306/atlas
+      # マッチの成立時にクライアントへ返すバトルサーバーの接続先(Caddy の外向きの URL)
+      BATTLE_SERVER_URL: https://${BATTLE_DOMAIN:?}
+      BATTLE_TOKEN_SECRET: ${BATTLE_TOKEN_SECRET:?}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?}
+      ENABLE_DEBUG_API: "false"
+      APP_ENV: test
+    volumes:
+      # 再起動せずにメンテナンス・最低バージョンを切り替えられるよう、ファイルを差し替える(サーバーが5秒ごとに読み直す)
+      - ./server_status.toml:/app/config/server_status.toml:ro
+
+  battle:
+    build:
+      context: ..
+      dockerfile: BattleServer/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      BATTLE_TOKEN_SECRET: ${BATTLE_TOKEN_SECRET:?}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?}
+      API_SERVER_URL: http://api:3000
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - api
+      - battle
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?}
+      BATTLE_DOMAIN: ${BATTLE_DOMAIN:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 取得した証明書。消すと取り直しになる(Let's Encrypt には取得の回数制限がある)
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  mysql_data:
+  caddy_data:
+  caddy_config:

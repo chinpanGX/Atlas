@@ -1,0 +1,13 @@
+# TLS は Caddy で終わらせ、中のサーバーへは TLS 無しの HTTP/2(h2c)で渡す(どちらのサーバーも HTTP/2 だけで待ち受けているため)。
+# 証明書は Let's Encrypt から自動で取る。ドメインの DNS を VM に向け、80・443 を開けておく。
+
+{$API_DOMAIN} {
+	reverse_proxy h2c://api:50052
+}
+
+{$BATTLE_DOMAIN} {
+	# 対戦の通知はサーバーから押し出すストリームなので、ためずにすぐ流す
+	reverse_proxy h2c://battle:5000 {
+		flush_interval -1
+	}
+}

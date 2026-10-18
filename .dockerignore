@@ -1,0 +1,19 @@
+# コンテナのイメージはリポジトリのルートを起点にビルドする(Shared/proto 等を Server と BattleServer の両方が使うため)。
+# ビルドに要らない大きなもの(Unity・ビルド成果物)は送らない。
+.git
+.claude
+.tools
+Client
+UnityScreenNavigator
+master-data-pipeline
+docs
+**/target
+# .NET のビルド成果物。Rust の Server/src/bin/(seed_master_data のソース)を外さないよう、BattleServer の下だけにする
+BattleServer/**/bin
+BattleServer/**/obj
+Shared/**/bin
+Shared/**/obj
+**/.idea
+**/.vs
+Server/.env
+deploy/.env

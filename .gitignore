@@ -23,3 +23,7 @@ BattleServer/.idea/
 # gRPC基盤の生成ツール(make proto-gen が取ってくる)と、利用者ごとの設定
 .tools/
 local.mk
+
+# テスト用のクラウドの設定(deploy/.env.example・Server/config/server_status.toml からコピーして作る)
+deploy/.env
+deploy/server_status.toml
