@@ -5,14 +5,14 @@ area: root
 related: [index, features/index, conventions/index, server/structure, client/index, battle-server/index]
 proto: [Shared/proto/atlas/v1, Shared/proto/atlas/internal/v1/battle.proto]
 code: [Server/src/main.rs, Server/src/grpc.rs, BattleServer/Program.cs, Client/AtlasUnityProject/Assets/Scripts/DI/RootLifetimeScope.cs]
-updated: 2026-10-18
+updated: 2026-11-07
 ---
 o
 # 概要(ゲームとシステムの全体像)
 
 ## ゲーム
 
-「パチモン」と呼ぶモンスターを集めてパーティを組み、ほかのプレイヤーとリアルタイムで1対1の対戦をするゲーム。
+ほかのプレイヤーとリアルタイムで1対1の対戦をするゲーム。対戦には「パチモン」と呼ぶモンスターのパーティを使い、パチモンはスカウトで手に入れて育成する。
 会員登録は無く、初回起動時に端末ごとのゲストアカウントで始まる。本家ポケモンの対戦ルールから、天候・フィールド・持ち物・
 特性・技の追加効果などを外した、小さなルールで遊ぶ。画面とルールは [ゲーム紹介](features/index.md)。
 

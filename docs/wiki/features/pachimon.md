@@ -4,12 +4,12 @@ status: current
 area: features
 related: [master-data/tables, features/party-training, battle-server/battle-core]
 code: [Shared/master-data/csv/pachimon_master.csv, Shared/master-data/csv/moves_master.csv, Shared/master-data/csv/move_group_moves_master.csv]
-updated: 2026-10-19
+updated: 2026-11-07
 ---
 
 # パチモン
 
-集めて戦わせるモンスター。136種・技261種・18タイプを、スキーマと CSV のマスターデータで持つ。
+対戦で戦わせるモンスター。136種・技261種・18タイプを、スキーマと CSV のマスターデータで持つ。
 「ポケモン」にあたる語は、商標と混同しないよう「パチモン」(コードでは `pachimon`)で統一している。
 
 画像は今は仮のもので、主タイプの色の円に `pachimon_id` を書いたサムネイルを、マスタからスクリプトで作って Addressables に登録している。
