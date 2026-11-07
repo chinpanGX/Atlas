@@ -4,7 +4,7 @@ status: current
 area: features
 related: [server/matchmaking, battle-server/battle-flow, battle-server/battle-core, client/battle-screen]
 code: [BattleServer/Battle/BattleCoordinator.cs, BattleServer/Battle/BattleBotPlayer.cs, BattleServer/Battle/BattleTimingOptions.cs, Server/src/service/matchmaking_service.rs, Shared/BattleCore/Runtime]
-updated: 2026-10-18
+updated: 2026-11-07
 ---
 
 # 対戦
@@ -74,7 +74,9 @@ updated: 2026-10-18
 ## 相手の情報の見え方
 
 - 相手のパチモンは、場に出るまでどの3体を選んだか分からない(枠の数と、何体倒れたかは分かる)
-- 相手の HP は%で表示する(実数は分からない)。自分の HP も%で表示する
+- 相手の HP は%で表示する(実数は分からない)
+- 自分の HP は「現在 HP/最大 HP」の実数で表示する(交代先を選ぶ画面も同じ)。サーバーから届くのは自分の HP も%なので、
+  手元の所持データから計算した最大 HP に%をかけて実数にする
 
 ## 勝敗
 

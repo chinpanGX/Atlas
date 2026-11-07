@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Atlasは、デバイス認証(ゲスト型)で始めるリアルタイム対戦モンスター収集ゲーム。Unityクライアント・Rustの
+Atlasは、デバイス認証(ゲスト型)で始める、リアルタイムで1対1の対戦をするゲーム。Unityクライアント・Rustの
 APIサーバー・C#/MagicOnionのバトルサーバーで構成する。このファイルにはプロジェクト全体に共通するルールを書き、
 各プロジェクト固有のルールはそれぞれのCLAUDE.mdに書く。構成と設計(なぜそうしたか)はwikiに書く。
 
